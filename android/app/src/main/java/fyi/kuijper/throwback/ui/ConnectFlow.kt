@@ -21,6 +21,7 @@ fun ConnectFlow(
     vm: MainViewModel,
     onExitApp: () -> Unit,
     onOpenScreensaverSettings: () -> Unit,
+    screensaverConfigurable: Boolean,
 ) {
     when (state) {
         is UiState.NeedsConnect -> ConnectScreen(onConnect = vm::connect)
@@ -51,6 +52,7 @@ fun ConnectFlow(
             onClose = vm::closeSettings,
             onOpenScreensaverSettings = onOpenScreensaverSettings,
             onDisconnect = vm::disconnect,
+            screensaverConfigurable = screensaverConfigurable,
         )
         is UiState.Error -> ErrorScreen(state, onRetry = vm::retry)
     }

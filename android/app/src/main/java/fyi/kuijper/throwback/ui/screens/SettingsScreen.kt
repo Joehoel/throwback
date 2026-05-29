@@ -50,6 +50,7 @@ fun SettingsScreen(
     onClose: () -> Unit,
     onOpenScreensaverSettings: () -> Unit,
     onDisconnect: () -> Unit,
+    screensaverConfigurable: Boolean,
 ) {
     val focus = rememberInitialFocus()
     TvScreen {
@@ -80,13 +81,16 @@ fun SettingsScreen(
                 checked = state.captionEnabled,
                 onToggle = { onCaption(!state.captionEnabled) },
             )
-            Spacer(Modifier.height(SpaceM))
-            WideRow(
-                title = "Screensaver instellen",
-                icon = Icons.Default.Tv,
-                subtitle = "Open de TV-instellingen en kies Throwback bij Screensaver",
-                onClick = onOpenScreensaverSettings,
-            )
+            // Alleen tonen als het toestel een screensaver-instelling heeft (niet op elke emulator/TV).
+            if (screensaverConfigurable) {
+                Spacer(Modifier.height(SpaceM))
+                WideRow(
+                    title = "Screensaver instellen",
+                    icon = Icons.Default.Tv,
+                    subtitle = "Open de TV-instellingen en kies Throwback bij Screensaver",
+                    onClick = onOpenScreensaverSettings,
+                )
+            }
             Spacer(Modifier.height(SpaceM))
             WideRow(
                 title = "Loskoppelen",

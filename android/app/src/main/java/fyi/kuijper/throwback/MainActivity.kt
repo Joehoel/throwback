@@ -24,6 +24,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val appSettings = Settings(applicationContext)
+        // Heeft dit toestel überhaupt een screensaver-instellingenpagina? (Emulators/sommige
+        // TV-flavors niet.) Zo niet: knop verbergen en de hint overslaan.
+        val screensaverConfigurable = Intent("android.settings.DREAM_SETTINGS")
+            .resolveActivity(packageManager) != null
         setContent {
             ThrowbackTheme {
                 Surface(
@@ -35,8 +39,9 @@ class MainActivity : ComponentActivity() {
                     var showHint by remember { mutableStateOf(!appSettings.screensaverHintShown) }
 
                     // Eenmalige hint ná setup (zodra geconfigureerd), één keer, vóór de show.
+                    // Alleen als het toestel screensavers kan instellen.
                     val configured = state is UiState.Show || state is UiState.Preparing
-                    if (showHint && configured) {
+                    if (showHint && configured && screensaverConfigurable) {
                         ScreensaverHintScreen(
                             onOpenSettings = {
                                 appSettings.screensaverHintShown = true
@@ -54,6 +59,7 @@ class MainActivity : ComponentActivity() {
                             vm = vm,
                             onExitApp = { finish() },
                             onOpenScreensaverSettings = ::openScreensaverSettings,
+                            screensaverConfigurable = screensaverConfigurable,
                         )
                     }
                 }

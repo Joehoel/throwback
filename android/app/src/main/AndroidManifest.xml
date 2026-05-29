@@ -4,6 +4,13 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Nodig om (op API 30+) te kunnen detecteren of er een screensaver-instellingenpagina is. -->
+    <queries>
+        <intent>
+            <action android:name="android.settings.DREAM_SETTINGS" />
+        </intent>
+    </queries>
+
     <uses-feature
         android:name="android.hardware.touchscreen"
         android:required="false" />

@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.androidx.tv.material)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.zxing.core)
+    implementation(libs.commons.text)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
