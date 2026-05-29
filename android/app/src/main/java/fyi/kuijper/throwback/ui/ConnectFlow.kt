@@ -7,6 +7,7 @@ import fyi.kuijper.throwback.ui.screens.CodeScreen
 import fyi.kuijper.throwback.ui.screens.ConnectScreen
 import fyi.kuijper.throwback.ui.screens.ErrorScreen
 import fyi.kuijper.throwback.ui.screens.FolderPickerScreen
+import fyi.kuijper.throwback.ui.screens.LoadingScreen
 import fyi.kuijper.throwback.ui.screens.PreparingScreen
 import fyi.kuijper.throwback.ui.screens.SettingsScreen
 import fyi.kuijper.throwback.ui.screens.SlideshowScreen
@@ -24,6 +25,7 @@ fun ConnectFlow(
     screensaverConfigurable: Boolean,
 ) {
     when (state) {
+        is UiState.Loading -> LoadingScreen()
         is UiState.NeedsConnect -> ConnectScreen(onConnect = vm::connect)
         is UiState.ShowCode -> CodeScreen(state)
         is UiState.PickFolder -> FolderPickerScreen(

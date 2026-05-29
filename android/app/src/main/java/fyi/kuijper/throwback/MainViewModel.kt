@@ -2,133 +2,123 @@ package fyi.kuijper.throwback
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
-import coil3.SingletonImageLoader
-import coil3.request.ImageRequest
 import androidx.lifecycle.viewModelScope
-import fyi.kuijper.throwback.onedrive.DriveItem
-import fyi.kuijper.throwback.onedrive.GraphClient
-import fyi.kuijper.throwback.onedrive.GraphMedia
-import fyi.kuijper.throwback.onedrive.GraphSync
+import fyi.kuijper.throwback.engine.SlideshowEngine
+import fyi.kuijper.throwback.engine.SyncEngine
 import fyi.kuijper.throwback.onedrive.OneDriveAuth
-import fyi.kuijper.throwback.onedrive.PhotoDb
-import fyi.kuijper.throwback.onedrive.PhotoRow
-import fyi.kuijper.throwback.onedrive.TokenStore
-import fyi.kuijper.throwback.player.PhotoOrder
-import fyi.kuijper.throwback.player.Playlist
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlin.random.Random
 
-/** Eén map in het navigatiepad van de kiezer (root = id null). */
-data class Crumb(val id: String?, val name: String)
-
-/** Een automatisch gevonden fotomap (camera-album / foto's) die we bovenaan aanbieden. */
-data class FolderSuggestion(val id: String, val name: String, val childCount: Int)
-
-sealed interface UiState {
-    data object NeedsConnect : UiState
-    data class ShowCode(val code: OneDriveAuth.DeviceCode) : UiState
-    data class PickFolder(
-        val path: List<Crumb>,
-        val folders: List<DriveItem>,
-        val suggestions: List<FolderSuggestion>,
-        val loading: Boolean,
-        val canCancel: Boolean,
-    ) : UiState
-    /** Net een map gekozen maar nog niets geïndexeerd: korte voorbereidingsstaat. */
-    data class Preparing(val folderName: String, val count: Int) : UiState
-    /** De draaiende slideshow (de "home" van de app). */
-    data class Show(
-        val photo: PhotoRow?,
-        val imageUrl: String?,
-        val paused: Boolean,
-        val captionEnabled: Boolean,
-        val syncing: Boolean,
-        val offlineHint: Boolean,
-    ) : UiState
-    data class Settings(val slideSeconds: Int, val shuffle: Boolean, val captionEnabled: Boolean) : UiState
-    data class Error(val message: String) : UiState
-}
-
+/**
+ * Coördinator: bezit alleen de navigatie-flow ([Nav]) en leidt daaruit — gecombineerd met de
+ * gedeelde engines (slideshow/sync/settings) — de [UiState] af. De doorlopende state (afspeellijst,
+ * sync-voortgang, instellingen) leeft in de engines uit [AppContainer], niet hier. Zo zit alle
+ * mutable state bij de eigenaar ervan en hoeft niets handmatig gesynchroniseerd te worden.
+ */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
-    private val store = TokenStore(app)
-    private val db = PhotoDb(app)
-    private val graph = GraphClient(::accessToken)
-    private val sync = GraphSync(db, ::accessToken)
-    private val media = GraphMedia(::accessToken)
-    private val settings = Settings(app)
+    private val container = (app as ThrowbackApp).container
+    private val store = container.store
+    private val session = container.session
+    private val db = container.db
+    private val graph = container.graph
+    private val settings = container.settings
+    private val slideshow: SlideshowEngine = container.slideshow
+    private val sync: SyncEngine = container.sync
 
-    private val _state = MutableStateFlow<UiState>(UiState.NeedsConnect)
-    val state: StateFlow<UiState> = _state.asStateFlow()
+    // Synchroon bepaald bij start uit SharedPreferences: gekoppeld → Booting (Loading), nooit het
+    // koppelscherm. Dit haalt de flits van het koppelscherm weg die ontstond doordat de oude
+    // beginwaarde NeedsConnect was terwijl de async DB-lees nog liep.
+    private val navFlow = MutableStateFlow<Nav>(
+        if (store.isConnected) Nav.Booting else Nav.Connect
+    )
 
-    private var tokens: OneDriveAuth.Tokens? = null
-    private var pollJob: Job? = null
+    private var connectJob: Job? = null
 
-    private var playlist: Playlist? = null
-    private var showJob: Job? = null
-    private var paused = false
+    val state: StateFlow<UiState> =
+        combine(navFlow, slideshow.state, sync.state, settings.state) { nav, slide, syncS, set ->
+            render(nav, slide, syncS, set)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.Eagerly,
+            initialValue = render(navFlow.value, slideshow.state.value, sync.state.value, settings.state.value),
+        )
 
-    // Index-status (achtergrond) + verbindingsstatus.
-    private var indexed = 0
-    private var described = 0
-    private var syncing = false
-    private var syncProcessed = 0
-    private var offlineHint = false
-    private var syncJob: Job? = null
+    private fun render(
+        nav: Nav,
+        slide: SlideshowEngine.State,
+        syncS: SyncEngine.State,
+        set: SettingsSnapshot,
+    ): UiState = when (nav) {
+        is Nav.Booting -> UiState.Loading
+        is Nav.Connect -> UiState.NeedsConnect
+        is Nav.ShowingCode -> UiState.ShowCode(nav.code)
+        is Nav.PickingFolder -> UiState.PickFolder(nav.path, nav.folders, nav.suggestions, nav.loading, nav.canCancel)
+        is Nav.Preparing -> UiState.Preparing(store.folderName ?: "Gekozen map", syncS.processed)
+        is Nav.Showing -> UiState.Show(
+            photo = slide.photo,
+            imageUrl = slide.imageUrl,
+            paused = slide.paused,
+            captionEnabled = set.captionEnabled,
+            syncing = syncS.syncing,
+            offlineHint = slide.offlineHint,
+        )
+        is Nav.SettingsOpen -> UiState.Settings(set.slideSeconds, set.shuffle, set.captionEnabled)
+        is Nav.Failed -> UiState.Error(nav.message)
+    }
 
     init {
+        // Reageer op de achtergrond-sync: start de show zodra de eerste foto's binnen zijn,
+        // en vul de lopende show aan zodra een crawl klaar is.
+        viewModelScope.launch {
+            var wasSyncing = false
+            sync.state.collect { s ->
+                if (navFlow.value is Nav.Preparing && s.indexed > 0) startShowFromIndex()
+                if (wasSyncing && !s.syncing && slideshow.hasPlaylist) {
+                    val ids = withContext(Dispatchers.IO) { db.allIds() }
+                    slideshow.appendIds(ids)
+                }
+                wasSyncing = s.syncing
+            }
+        }
+
         when {
             store.isConnected && store.hasFolder -> startShow()
-            store.isConnected -> openFolder(Crumb(null, "OneDrive"), reset = true)
-            else -> _state.value = UiState.NeedsConnect
+            store.isConnected -> openRootFolder()
+            else -> {} // navFlow staat al op Connect
         }
     }
 
-    private suspend fun accessToken(): String {
-        tokens?.let { if (it.expiresAtMillis > System.currentTimeMillis()) return it.accessToken }
-        val rt = store.refreshToken ?: error("Niet gekoppeld")
-        val fresh = OneDriveAuth.refresh(rt)
-        tokens = fresh
-        fresh.refreshToken?.let { store.refreshToken = it }
-        return fresh.accessToken
-    }
+    // --- Koppelen ---
 
     fun connect() {
-        viewModelScope.launch {
+        connectJob?.cancel()
+        connectJob = viewModelScope.launch {
             try {
-                val dc = OneDriveAuth.startDeviceCode()
-                _state.value = UiState.ShowCode(dc)
-                pollJob?.cancel()
-                pollJob = viewModelScope.launch {
-                    try {
-                        val t = OneDriveAuth.pollForTokens(dc)
-                        tokens = t
-                        store.refreshToken = t.refreshToken
-                        offlineHint = false
-                        if (store.hasFolder) startShow() else openFolder(Crumb(null, "OneDrive"), reset = true)
-                    } catch (e: Exception) {
-                        _state.value = UiState.Error(Errors.message(e))
-                    }
-                }
+                val dc = session.startDeviceCode()
+                navFlow.value = Nav.ShowingCode(dc)
+                session.completeLogin(dc)
+                if (store.hasFolder) startShow() else openRootFolder()
             } catch (e: Exception) {
-                _state.value = UiState.Error(Errors.message(e))
+                navFlow.value = Nav.Failed(Errors.message(e))
             }
         }
     }
 
     // --- Mapkeuze (behoudt altijd de koppeling) ---
 
+    private fun openRootFolder() = openFolder(Crumb(null, "OneDrive"), reset = true)
+
     /** Open de mapkiezer zonder de koppeling te wissen — "Andere map". */
     fun changeFolder() {
-        showJob?.cancel()
-        openFolder(Crumb(null, "OneDrive"), reset = true)
+        slideshow.stop()
+        openRootFolder()
     }
 
     /** Annuleren in de kiezer: terug naar de show als er al een map is. */
@@ -137,28 +127,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openFolder(crumb: Crumb, reset: Boolean = false) {
-        val current = _state.value
+        val current = navFlow.value
         val path = when {
             reset -> listOf(crumb)
-            current is UiState.PickFolder -> current.path + crumb
+            current is Nav.PickingFolder -> current.path + crumb
             else -> listOf(crumb)
         }
         loadFolder(path)
     }
 
     fun back() {
-        val current = _state.value as? UiState.PickFolder ?: return
+        val current = navFlow.value as? Nav.PickingFolder ?: return
         if (current.path.size <= 1) return
         loadFolder(current.path.dropLast(1))
     }
 
     private fun loadFolder(path: List<Crumb>) {
-        _state.value = UiState.PickFolder(path, emptyList(), emptyList(), loading = true, canCancel = store.hasFolder)
+        navFlow.value = Nav.PickingFolder(path, emptyList(), emptyList(), loading = true, canCancel = store.hasFolder)
         viewModelScope.launch {
             try {
                 val folders = graph.listFolders(path.last().id)
                 val suggestions = if (path.size == 1) detectSuggestions() else emptyList()
-                _state.value = UiState.PickFolder(path, folders, suggestions, loading = false, canCancel = store.hasFolder)
+                navFlow.value = Nav.PickingFolder(path, folders, suggestions, loading = false, canCancel = store.hasFolder)
             } catch (e: Exception) {
                 handleError(e)
             }
@@ -180,10 +170,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun selectSuggestion(suggestion: FolderSuggestion) = selectFolder(suggestion.id, suggestion.name)
 
     fun selectCurrentFolder() {
-        val current = _state.value as? UiState.PickFolder ?: return
+        val current = navFlow.value as? Nav.PickingFolder ?: return
         val crumb = current.path.last()
         val id = crumb.id ?: run {
-            _state.value = UiState.Error("Kies een submap, niet de hele OneDrive-root.")
+            navFlow.value = Nav.Failed("Kies een submap, niet de hele OneDrive-root.")
             return
         }
         selectFolder(id, crumb.name)
@@ -196,170 +186,79 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         viewModelScope.launch {
-            syncJob?.cancel()
+            sync.cancel()
             store.folderId = id
             store.folderName = name
             withContext(Dispatchers.IO) { db.clearIndex() }
-            indexed = 0; described = 0; syncProcessed = 0
-            playlist = null
+            slideshow.reset()
+            sync.reset()
             startShow()
         }
     }
 
-    // --- Slideshow (de centrale staat) + automatische achtergrond-indexering ---
+    // --- Slideshow ---
 
     fun startShow() {
         viewModelScope.launch {
-            val photos = withContext(Dispatchers.IO) { db.allPhotos() }
-            if (photos.isEmpty()) {
-                pushPreparing()
-                maybeStartSync()
+            val folderId = store.folderId
+            if (slideshow.hasPlaylist) {
+                slideshow.resume()
+                navFlow.value = Nav.Showing
+                if (folderId != null) sync.ensure(folderId)
                 return@launch
             }
-            playlist = if (settings.shuffle) {
-                Playlist.shuffled(photos.map { it.id }, Random.Default)
-            } else {
-                Playlist.ordered(PhotoOrder.chronological(photos))
+            val photos = withContext(Dispatchers.IO) { db.allPhotos() }
+            if (photos.isEmpty()) {
+                navFlow.value = Nav.Preparing
+                if (folderId != null) sync.ensure(folderId)
+                return@launch
             }
-            paused = false
-            runShow()
-            maybeStartSync() // achtergrond-verversing voor nieuwe foto's
+            slideshow.start(photos, settings.shuffle)
+            navFlow.value = Nav.Showing
+            if (folderId != null) sync.ensure(folderId) // achtergrond-verversing voor nieuwe foto's
+        }
+    }
+
+    /** De achtergrond-sync meldde de eerste foto's terwijl we voorbereidden → start de show. */
+    private fun startShowFromIndex() {
+        viewModelScope.launch {
+            if (navFlow.value !is Nav.Preparing) return@launch
+            if (slideshow.hasPlaylist) {
+                navFlow.value = Nav.Showing
+                return@launch
+            }
+            val photos = withContext(Dispatchers.IO) { db.allPhotos() }
+            if (photos.isEmpty()) return@launch
+            slideshow.start(photos, settings.shuffle)
+            navFlow.value = Nav.Showing
         }
     }
 
     /** Hervat de bestaande show (na instellingen / annuleren), of start vers als er nog niets is. */
     private fun resumeShow() {
-        if (playlist != null) runShow() else startShow()
-    }
-
-    private fun runShow() {
-        showJob?.cancel()
-        showJob = viewModelScope.launch {
-            showCurrent()
-            while (isActive) {
-                delay(settings.slideSeconds * 1000L)
-                if (paused) continue
-                playlist?.next()
-                showCurrent()
-            }
+        if (slideshow.hasPlaylist) {
+            slideshow.resume()
+            navFlow.value = Nav.Showing
+        } else {
+            startShow()
         }
     }
 
-    private suspend fun showCurrent() {
-        val id = playlist?.current ?: return
-        val photo = withContext(Dispatchers.IO) { db.get(id) }
-        val url = try {
-            urlFor(id)
-        } catch (e: Exception) {
-            // Verlopen koppeling of netwerkblip: niet hard stoppen — toon het hintje en draai door.
-            offlineHint = true
-            null
-        }
-        if (url != null) offlineHint = false
-        _state.value = UiState.Show(
-            photo = photo,
-            imageUrl = url,
-            paused = paused,
-            captionEnabled = settings.captionEnabled,
-            syncing = syncing,
-            offlineHint = offlineHint,
-        )
-        prefetch()
-    }
-
-    private fun pushPreparing() {
-        _state.value = UiState.Preparing(store.folderName ?: "Gekozen map", syncProcessed)
-    }
-
-    private suspend fun refreshCounts() {
-        val result = withContext(Dispatchers.IO) { db.count() to db.countWithDescription() }
-        indexed = result.first
-        described = result.second
-    }
-
-    /** Start een achtergrond-crawl als er nog geen loopt; vult de lopende show aan met nieuwe foto's. */
-    private fun maybeStartSync() {
-        val folderId = store.folderId ?: return
-        if (syncJob?.isActive == true) return
-        syncing = true
-        syncProcessed = 0
-        syncJob = viewModelScope.launch {
-            try {
-                sync.sync(folderId) { count ->
-                    // Callback draait op de IO-dispatcher (binnen sync.sync) → db-calls zijn veilig.
-                    syncProcessed = count
-                    indexed = db.count()
-                    val s = _state.value
-                    if (s is UiState.Preparing) {
-                        if (indexed > 0) startShow() else _state.value = UiState.Preparing(s.folderName, syncProcessed)
-                    }
-                }
-                refreshCounts()
-                // Nieuwe foto's vanzelf aan de lopende show toevoegen.
-                if (_state.value is UiState.Show) {
-                    val ids = withContext(Dispatchers.IO) { db.allIds() }
-                    playlist?.append(ids)
-                }
-            } catch (e: Exception) {
-                // Achtergrond: stil falen; we tonen gewoon wat al geïndexeerd is (+ offline-hint).
-                if (e is OneDriveAuth.ReauthRequired) offlineHint = true
-            } finally {
-                syncing = false
-            }
-        }
-    }
-
-    // Stabiele thumbnail-URL per foto, zodat prefetch en weergave dezelfde URL (= Coil-cachesleutel) delen.
-    private val urlCache = HashMap<String, String>()
-
-    private suspend fun urlFor(id: String): String? =
-        urlCache[id] ?: media.thumbnailUrl(id)?.also {
-            if (urlCache.size > 2000) urlCache.clear()
-            urlCache[id] = it
-        }
-
-    /** Warm de buren rondom de huidige foto in Coil's cache, zodat wisselen direct is. */
-    private fun prefetch() {
-        val ids = playlist?.window(ahead = 3, behind = 1) ?: return
-        viewModelScope.launch {
-            val ctx = getApplication<Application>()
-            val loader = SingletonImageLoader.get(ctx)
-            for (id in ids) {
-                val url = runCatching { urlFor(id) }.getOrNull() ?: continue
-                loader.enqueue(ImageRequest.Builder(ctx).data(url).build())
-            }
-        }
-    }
-
-    fun nextPhoto() { playlist?.next(); runShow() }
-    fun previousPhoto() { playlist?.previous(); runShow() }
-
-    fun togglePause() {
-        paused = !paused
-        (_state.value as? UiState.Show)?.let { _state.value = it.copy(paused = paused) }
-    }
+    fun nextPhoto() = slideshow.next()
+    fun previousPhoto() = slideshow.previous()
+    fun togglePause() = slideshow.togglePause()
 
     // --- Instellingen ---
 
     fun openSettings() {
-        showJob?.cancel() // pauzeer de show-lus zodat hij het instellingenscherm niet overschrijft
-        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle, settings.captionEnabled)
+        slideshow.stop() // pauzeer de lus zodat hij niet doortelt terwijl we in de instellingen zitten
+        navFlow.value = Nav.SettingsOpen
     }
 
-    fun setSlideSeconds(seconds: Int) {
-        settings.slideSeconds = seconds
-        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle, settings.captionEnabled)
-    }
-
-    fun setShuffle(shuffle: Boolean) {
-        settings.shuffle = shuffle
-        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle, settings.captionEnabled)
-    }
-
-    fun setCaptionEnabled(enabled: Boolean) {
-        settings.captionEnabled = enabled
-        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle, settings.captionEnabled)
-    }
+    // Schrijven naar [settings] werkt settings.state bij → de gecombineerde UiState volgt vanzelf.
+    fun setSlideSeconds(seconds: Int) { settings.slideSeconds = seconds }
+    fun setShuffle(shuffle: Boolean) { settings.shuffle = shuffle }
+    fun setCaptionEnabled(enabled: Boolean) { settings.captionEnabled = enabled }
 
     fun closeSettings() = resumeShow()
 
@@ -368,38 +267,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Centrale foutafhandeling: verlopen koppeling → opnieuw inloggen; anders nette melding. */
     private fun handleError(e: Throwable) {
         if (e is OneDriveAuth.ReauthRequired) {
-            store.refreshToken = null // forceert NeedsConnect bij 'Opnieuw'
-            tokens = null
-            pollJob?.cancel()
-            showJob?.cancel()
-            syncJob?.cancel()
-            _state.value = UiState.Error("Je OneDrive-koppeling is verlopen. Kies 'Opnieuw' om weer in te loggen.")
+            session.invalidate() // forceert NeedsConnect bij 'Opnieuw'
+            connectJob?.cancel()
+            slideshow.stop()
+            sync.cancel()
+            navFlow.value = Nav.Failed("Je OneDrive-koppeling is verlopen. Kies 'Opnieuw' om weer in te loggen.")
         } else {
-            _state.value = UiState.Error(Errors.message(e))
+            navFlow.value = Nav.Failed(Errors.message(e))
         }
     }
 
     fun retry() {
-        pollJob?.cancel()
+        connectJob?.cancel()
         when {
             store.isConnected && store.hasFolder -> startShow()
-            store.isConnected -> openFolder(Crumb(null, "OneDrive"), reset = true)
-            else -> _state.value = UiState.NeedsConnect
+            store.isConnected -> openRootFolder()
+            else -> navFlow.value = Nav.Connect
         }
     }
 
     /** Loskoppelen: wist token + map en gaat terug naar het koppelscherm (alleen vanuit Instellingen). */
     fun disconnect() {
-        pollJob?.cancel()
-        showJob?.cancel()
-        syncJob?.cancel()
-        tokens = null
-        playlist = null
-        indexed = 0; described = 0; syncProcessed = 0; syncing = false; offlineHint = false
+        connectJob?.cancel()
+        slideshow.reset()
+        sync.reset()
         viewModelScope.launch {
             withContext(Dispatchers.IO) { db.clearIndex() }
-            store.clear()
-            _state.value = UiState.NeedsConnect
+            session.clear()
+            navFlow.value = Nav.Connect
         }
     }
 }

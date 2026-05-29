@@ -23,7 +23,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val appSettings = Settings(applicationContext)
+        val appSettings = (application as ThrowbackApp).container.settings
         // Heeft dit toestel überhaupt een screensaver-instellingenpagina? (Emulators/sommige
         // TV-flavors niet.) Zo niet: knop verbergen en de hint overslaan.
         val screensaverConfigurable = Intent("android.settings.DREAM_SETTINGS")
