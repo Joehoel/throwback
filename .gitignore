@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Android / Gradle (naast de genuine .gitignores in android/ en android/app/)
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.iml
+.cxx/
+
+# Python spikes
+__pycache__/
+*.pyc
+.venv/
+
+# Logs / tijdelijk
+*.log
