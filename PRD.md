@@ -96,13 +96,14 @@ Bevestigd dat het `description`-veld via Graph terugkomt voordat we erop bouwen.
 
 **Nog te polijsten:** prefetch van buren (nu load-on-demand; de crossfade maskeert het grotendeels) voor écht hapering-vrij vooruit/terug.
 
-### Fase 4 — Polish & instellingen
+### Fase 4 — Polish & instellingen ✅ GROTENDEELS AFGEROND (2026-05-29)
 
-- Settings: tempo, volgorde (shuffle/chronologisch), cache-grootte, andere map.
-- App registreren als `DreamService`; testen of het kastje 'm als screensaver laat kiezen.
-- Lege/foutstaten (geen netwerk, lege map, vervallen token).
+- ✅ Instellingen: **tempo** + **volgorde** (shuffle/chronologisch, `PhotoOrder` unit-getest); andere map via "opnieuw koppelen".
+- ✅ **Robuuste foutafhandeling**: netwerkfout → wifi-melding (`Errors`, unit-getest); verlopen token → re-auth-pad (`ReauthRequired` → opnieuw inloggen, map/index blijven); losse mislukte thumbnail → show gaat door.
+- ✅ **Prefetch**: stabiele thumbnail-URL per foto + buren vooraf in Coil's cache → vlot vooruit/terug.
+- ✅ App geregistreerd als **`DreamService`** (screensaver) — compileert/geregistreerd; selecteerbaarheid moet op het échte kastje getest worden (ADR-0003).
 
-**Klaar als:** instellingen werken en de app netjes omgaat met fouten.
+**Open (optioneel):** instelbare **cache-grootte** (Coil schijfcache-limiet); chronologische volgorde fijner maken; DreamService-selectie op het kastje verifiëren.
 
 ## Risico's & mitigaties
 

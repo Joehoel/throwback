@@ -56,7 +56,19 @@ fun ConnectFlow(state: UiState, vm: MainViewModel) {
             onBack = vm::back,
             onSelect = vm::selectCurrentFolder,
         )
-        is UiState.Ready -> ReadyScreen(state, onShow = vm::startShow, onSync = vm::startSync, onReset = vm::disconnect)
+        is UiState.Ready -> ReadyScreen(
+            state = state,
+            onShow = vm::startShow,
+            onSync = vm::startSync,
+            onSettings = vm::openSettings,
+            onReset = vm::disconnect,
+        )
+        is UiState.Settings -> SettingsScreen(
+            state = state,
+            onSeconds = vm::setSlideSeconds,
+            onShuffle = vm::setShuffle,
+            onClose = vm::closeSettings,
+        )
         is UiState.Syncing -> SyncingScreen(state)
         is UiState.Show -> SlideshowScreen(
             state = state,
@@ -154,6 +166,7 @@ private fun ReadyScreen(
     state: UiState.Ready,
     onShow: () -> Unit,
     onSync: () -> Unit,
+    onSettings: () -> Unit,
     onReset: () -> Unit,
 ) {
     val focus = remember { FocusRequester() }
@@ -173,7 +186,40 @@ private fun ReadyScreen(
             Button(onClick = onSync, modifier = Modifier.focusRequester(focus)) { Text("Foto's indexeren") }
         }
         Spacer(Modifier.height(12.dp))
+        Button(onClick = onSettings) { Text("Instellingen") }
+        Spacer(Modifier.height(12.dp))
         Button(onClick = onReset) { Text("Andere map / opnieuw koppelen") }
+    }
+}
+
+@Composable
+private fun SettingsScreen(
+    state: UiState.Settings,
+    onSeconds: (Int) -> Unit,
+    onShuffle: (Boolean) -> Unit,
+    onClose: () -> Unit,
+) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    Centered {
+        Text("Instellingen", fontSize = 32.sp)
+        Spacer(Modifier.height(24.dp))
+        Text("Seconden per foto: ${state.slideSeconds}")
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = { onSeconds(state.slideSeconds - 1) }, modifier = Modifier.focusRequester(focus)) {
+                Text("− korter")
+            }
+            Button(onClick = { onSeconds(state.slideSeconds + 1) }) { Text("+ langer") }
+        }
+        Spacer(Modifier.height(24.dp))
+        Text("Volgorde: ${if (state.shuffle) "shuffle" else "chronologisch"}")
+        Spacer(Modifier.height(8.dp))
+        Button(onClick = { onShuffle(!state.shuffle) }) {
+            Text(if (state.shuffle) "Zet op chronologisch" else "Zet op shuffle")
+        }
+        Spacer(Modifier.height(32.dp))
+        Button(onClick = onClose) { Text("Terug") }
     }
 }
 

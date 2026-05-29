@@ -34,6 +34,9 @@ object OneDriveAuth {
         val expiresAtMillis: Long,
     )
 
+    /** De refresh-token is ongeldig/verlopen: de gebruiker moet opnieuw inloggen. */
+    class ReauthRequired(message: String) : Exception(message)
+
     /** Stap 1: vraag een gebruikerscode aan om op de telefoon in te voeren. */
     suspend fun startDeviceCode(): DeviceCode = withContext(Dispatchers.IO) {
         val body = FormBody.Builder()
@@ -90,7 +93,11 @@ object OneDriveAuth {
         val req = Request.Builder().url("$AUTHORITY/token").post(body).build()
         http.newCall(req).execute().use { resp ->
             val json = JSONObject(resp.body?.string().orEmpty())
-            if (!json.has("access_token")) error(json.optString("error_description", "verversen mislukt"))
+            if (!json.has("access_token")) {
+                val desc = json.optString("error_description", "verversen mislukt")
+                if (json.optString("error") == "invalid_grant") throw ReauthRequired(desc)
+                error(desc)
+            }
             json.toTokens()
         }
     }

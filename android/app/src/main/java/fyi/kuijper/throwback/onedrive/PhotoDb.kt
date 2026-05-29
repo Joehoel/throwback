@@ -113,6 +113,28 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         }
     }
 
+    fun allPhotos(): List<PhotoRow> {
+        val out = ArrayList<PhotoRow>()
+        readableDatabase.rawQuery(
+            "SELECT id,name,event,year,description,taken,path FROM photo", null,
+        ).use {
+            while (it.moveToNext()) {
+                out.add(
+                    PhotoRow(
+                        id = it.getString(0),
+                        name = it.getString(1),
+                        event = it.getString(2),
+                        year = if (it.isNull(3)) null else it.getInt(3),
+                        description = if (it.isNull(4)) null else it.getString(4),
+                        taken = if (it.isNull(5)) null else it.getString(5),
+                        path = it.getString(6),
+                    )
+                )
+            }
+        }
+        return out
+    }
+
     var deltaLink: String?
         get() = readableDatabase.rawQuery("SELECT v FROM meta WHERE k = 'delta_link'", null).use {
             if (it.moveToFirst()) it.getString(0) else null
