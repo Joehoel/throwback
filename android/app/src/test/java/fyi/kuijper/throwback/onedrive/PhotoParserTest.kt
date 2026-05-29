@@ -56,6 +56,16 @@ class PhotoParserTest {
     }
 
     @Test
+    fun `HTML-entiteiten in de beschrijving worden gedecodeerd`() {
+        val json = item(
+            """{"id":"H","name":"x.jpg","file":{"mimeType":"image/jpeg"},
+               "description":"Anne &amp; Tom zeiden &quot;ja&quot; &#39;t was mooi &#x263A;"}"""
+        )
+        val row = PhotoParser.toPhotoRow("/x", json)
+        assertEquals("Anne & Tom zeiden \"ja\" 't was mooi ☺", row!!.description)
+    }
+
+    @Test
     fun `lege of ontbrekende beschrijving wordt null, niet leeg`() {
         val blank = item("""{"id":"F","name":"a.jpg","description":"  ","file":{"mimeType":"image/jpeg"}}""")
         val missing = item("""{"id":"G","name":"b.jpg","file":{"mimeType":"image/jpeg"}}""")

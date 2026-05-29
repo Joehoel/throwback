@@ -69,13 +69,12 @@ class MainActivity : ComponentActivity() {
      * try/catch werkt wel — de laatste kandidaat (algemene instellingen) opent vrijwel altijd.
      */
     private fun openScreensaverSettings() {
+        // Let op: alleen intents die óf de juiste pagina openen óf netjes een exceptie gooien.
+        // Een expliciete component (bv. com.android.tv.settings/...DaydreamActivity) "slaagt" op
+        // sommige Google TV-flavors zonder iets te tonen ("Activity is not supported in current
+        // flavor") en zou de werkende fallback maskeren — die laten we dus weg.
         val candidates = listOf(
             Intent("android.settings.DREAM_SETTINGS"),
-            Intent().setClassName(
-                "com.android.tv.settings",
-                "com.android.tv.settings.device.display.daydream.DaydreamActivity",
-            ),
-            Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS),
             Intent(android.provider.Settings.ACTION_SETTINGS),
         )
         for (intent in candidates) {
