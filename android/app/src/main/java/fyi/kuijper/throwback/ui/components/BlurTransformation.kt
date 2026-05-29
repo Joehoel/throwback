@@ -11,7 +11,7 @@ import coil3.transform.Transformation
  * Coil schaalt het resultaat weer schermvullend op, wat extra smoothing geeft. Snel én gecachet.
  */
 class BlurTransformation(
-    private val radius: Int = 10,
+    private val radius: Int = 6,
     private val sampleWidth: Int = 200,
 ) : Transformation() {
 
