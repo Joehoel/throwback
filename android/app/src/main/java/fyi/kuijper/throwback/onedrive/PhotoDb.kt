@@ -6,7 +6,10 @@ import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-/** Eén geïndexeerde foto uit de bibliotheek. [lat]/[lon] = GPS uit de fotometadata, indien aanwezig. */
+/**
+ * Eén geïndexeerde foto uit de bibliotheek. [lat]/[lon] = GPS uit de fotometadata, indien aanwezig.
+ * [place] = bij het indexeren reverse-geocodet plaats-label (zie [PlaceResolver]); null = (nog) geen.
+ */
 data class PhotoRow(
     val id: String,
     val name: String,
@@ -17,6 +20,7 @@ data class PhotoRow(
     val path: String,
     val lat: Double? = null,
     val lon: Double? = null,
+    val place: String? = null,
 )
 
 /**
@@ -24,21 +28,37 @@ data class PhotoRow(
  * Handgeschreven SQLite i.p.v. Room — zelfde rol, geen KSP/annotation-processing.
  * Alle calls horen op een achtergrond-thread te draaien (ViewModel doet dat via IO).
  */
-class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "throwback.db", null, 2) {
+class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "throwback.db", null, 3) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE photo (" +
                 "id TEXT PRIMARY KEY, name TEXT, event TEXT, year INTEGER, " +
-                "description TEXT, taken TEXT, path TEXT, lat REAL, lon REAL)"
+                "description TEXT, taken TEXT, path TEXT, lat REAL, lon REAL, place TEXT)"
         )
         db.execSQL("CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT)")
     }
 
+    /**
+     * Additieve migratie: voeg ontbrekende kolommen toe i.p.v. de index weg te gooien, zodat een
+     * upgrade de (grote) bibliotheek niet opnieuw hoeft te downloaden. v1→ kreeg lat/lon, v2→ place.
+     * De daadwerkelijke vulling van nieuwe kolommen doet de achtergrond-sync (her-crawl + geocode).
+     */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS photo")
-        db.execSQL("DROP TABLE IF EXISTS meta")
-        onCreate(db)
+        val cols = existingColumns(db, "photo")
+        if ("lat" !in cols) db.execSQL("ALTER TABLE photo ADD COLUMN lat REAL")
+        if ("lon" !in cols) db.execSQL("ALTER TABLE photo ADD COLUMN lon REAL")
+        if ("place" !in cols) db.execSQL("ALTER TABLE photo ADD COLUMN place TEXT")
+        db.execSQL("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+    }
+
+    private fun existingColumns(db: SQLiteDatabase, table: String): Set<String> {
+        val cols = HashSet<String>()
+        db.rawQuery("PRAGMA table_info($table)", null).use {
+            val nameIdx = it.getColumnIndex("name")
+            while (it.moveToNext()) cols.add(it.getString(nameIdx))
+        }
+        return cols
     }
 
     fun upsertAll(rows: List<PhotoRow>) {
@@ -57,6 +77,7 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
                         put("path", r.path)
                         if (r.lat != null) put("lat", r.lat) else putNull("lat")
                         if (r.lon != null) put("lon", r.lon) else putNull("lon")
+                        if (r.place != null) put("place", r.place) else putNull("place")
                     }
                     insertWithOnConflict("photo", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
                 }
@@ -114,6 +135,21 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         return out
     }
 
+    /** Foto's met GPS maar nog zonder geocodet [PhotoRow.place] — input voor de geocode-pass. */
+    fun photosNeedingPlace(): List<PhotoRow> {
+        val out = ArrayList<PhotoRow>()
+        readableDatabase.rawQuery(
+            "SELECT $PHOTO_COLS FROM photo WHERE lat IS NOT NULL AND lon IS NOT NULL AND place IS NULL",
+            null,
+        ).use { while (it.moveToNext()) out.add(it.toPhotoRow()) }
+        return out
+    }
+
+    fun updatePlace(id: String, place: String?) {
+        val cv = ContentValues().apply { if (place != null) put("place", place) else putNull("place") }
+        writableDatabase.update("photo", cv, "id = ?", arrayOf(id))
+    }
+
     private fun Cursor.toPhotoRow() = PhotoRow(
         id = getString(0),
         name = getString(1),
@@ -124,19 +160,22 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         path = getString(6),
         lat = if (isNull(7)) null else getDouble(7),
         lon = if (isNull(8)) null else getDouble(8),
+        place = if (isNull(9)) null else getString(9),
     )
 
-    var deltaLink: String?
-        get() = readableDatabase.rawQuery("SELECT v FROM meta WHERE k = 'delta_link'", null).use {
+    fun getMeta(key: String): String? =
+        readableDatabase.rawQuery("SELECT v FROM meta WHERE k = ?", arrayOf(key)).use {
             if (it.moveToFirst()) it.getString(0) else null
         }
-        set(value) {
-            val cv = ContentValues().apply {
-                put("k", "delta_link")
-                put("v", value)
-            }
-            writableDatabase.insertWithOnConflict("meta", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
-        }
+
+    fun setMeta(key: String, value: String?) {
+        val cv = ContentValues().apply { put("k", key); put("v", value) }
+        writableDatabase.insertWithOnConflict("meta", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+
+    var deltaLink: String?
+        get() = getMeta("delta_link")
+        set(value) = setMeta("delta_link", value)
 
     /** Wis index + deltaLink (bv. bij een andere gekozen map). */
     fun clearIndex() {
@@ -147,6 +186,6 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
     }
 
     private companion object {
-        const val PHOTO_COLS = "id,name,event,year,description,taken,path,lat,lon"
+        const val PHOTO_COLS = "id,name,event,year,description,taken,path,lat,lon,place"
     }
 }

@@ -7,6 +7,7 @@ import fyi.kuijper.throwback.onedrive.GraphClient
 import fyi.kuijper.throwback.onedrive.GraphMedia
 import fyi.kuijper.throwback.onedrive.GraphSync
 import fyi.kuijper.throwback.onedrive.PhotoDb
+import fyi.kuijper.throwback.onedrive.PlaceResolver
 import fyi.kuijper.throwback.onedrive.Session
 import fyi.kuijper.throwback.onedrive.TokenStore
 import kotlinx.coroutines.CoroutineScope
@@ -30,7 +31,8 @@ class AppContainer(app: Application) {
 
     private val media = GraphMedia(session::accessToken)
     private val graphSync = GraphSync(db, session::accessToken)
+    private val placeResolver = PlaceResolver(app)
 
     val slideshow = SlideshowEngine(app, db, media, scope) { settings.slideSeconds }
-    val sync = SyncEngine(db, graphSync, scope)
+    val sync = SyncEngine(db, graphSync, placeResolver, scope, onRemoved = slideshow::removeIds)
 }

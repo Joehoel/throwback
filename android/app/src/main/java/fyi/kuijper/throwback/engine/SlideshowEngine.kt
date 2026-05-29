@@ -80,6 +80,14 @@ class SlideshowEngine(
         playlist?.append(ids)
     }
 
+    /** Verwijder foto's uit de lopende show; toont meteen een geldige foto als de huidige wegviel. */
+    fun removeIds(ids: List<String>) {
+        if (ids.isEmpty() || playlist == null) return
+        val removingCurrent = _state.value.photo?.id in ids
+        playlist?.remove(ids)
+        if (removingCurrent) runLoop()
+    }
+
     fun next() {
         playlist?.next()
         runLoop()

@@ -34,6 +34,22 @@ class Playlist private constructor(
         _order.addAll(if (shuffleNew && random != null) fresh.shuffled(random) else fresh)
     }
 
+    /**
+     * Verwijder foto's uit de afspeellijst (bv. in OneDrive verwijderd). Houdt de cursor zo veel
+     * mogelijk op dezelfde foto; viel die weg, dan op dezelfde positie (geclamped).
+     */
+    fun remove(ids: List<String>) {
+        if (ids.isEmpty()) return
+        val drop = HashSet(ids)
+        val currentId = current
+        if (!_order.removeAll { it in drop }) return
+        index = when {
+            _order.isEmpty() -> 0
+            currentId != null && currentId !in drop -> _order.indexOf(currentId).coerceAtLeast(0)
+            else -> index.coerceIn(0, _order.size - 1)
+        }
+    }
+
     fun next(): String? {
         if (order.isEmpty()) return null
         index = (index + 1) % order.size

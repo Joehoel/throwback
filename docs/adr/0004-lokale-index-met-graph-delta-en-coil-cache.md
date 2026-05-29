@@ -27,3 +27,28 @@ Gevolgen voor het ontwerp:
 - **Initiële index gaat via een recursieve `children`-crawl** in plaats van delta. `children` levert per foto de `description`, en tijdens het aflopen kennen we per map al de gebeurtenis + jaar (uit het pad). Streamt map-voor-map, dus afspelen kan vroeg starten.
 - **Delta blijft een latere optimalisatie** voor goedkoop incrementeel verversen — eventueel hybride: delta om te detecteren *wat* veranderde, en alleen voor die items de `description` bijhalen (per `GET`/`$batch`).
 - Implementatiedetail: de lokale index is **handgeschreven SQLite** (`PhotoDb`) i.p.v. Room — zelfde rol, geen KSP/annotation-processing (lager bouwrisico met AGP 9).
+
+## Update 2 (2026-05-29) — hybride delta-verversing, ingebedde EXIF-bijschriften, geocoden bij indexeren
+
+Empirisch onderzocht op de echte familie-bibliotheek (read-only via het toestel-token):
+
+- **Bijschrift staat soms alleen in de ingebedde fotometadata.** OneDrive's nieuwe persoonlijke
+  opslag-backend (item-id's met `!s…`, uploads vanaf ~april 2025) geeft het bijschrift níét meer terug
+  als `driveItem.description` — ook niet via `GET`, listItem-velden of een extra scope. Het stáát wel in
+  het bestand: Windows' "Details"-tabblad (Titel/Onderwerp/Opmerkingen) schrijft naar EXIF
+  `ImageDescription` + XMP `dc:description`/`dc:title`. Oudere foto's hadden dat nog wél in
+  `driveItem.description` (OneDrive extraheerde het toen). **Gevolg:** als `driveItem.description` leeg is,
+  lezen we het bijschrift uit de ingebedde metadata. EXIF/XMP zit vooraan in de JPEG (binnen ~16 KB), dus
+  een Range-`GET` van de eerste 32 KB volstaat — geen volledige download. Zie `ExifCaption` /
+  `EmbeddedCaptionText`. Geen extra Graph-scope nodig (`Files.Read` mag content lezen).
+- **Hybride verversing.** Eerste keer (en na een logica-upgrade, via een `reconcile_tag` in `meta`) een
+  volledige `children`-crawl; daarna seedt `token=latest` een `@odata.deltaLink` en draait een
+  periodieke (10 min) delta-lus die alleen wijzigingen ophaalt. Delta levert geen `description`, dus per
+  gewijzigd item halen we het volledige item op (+ dezelfde EXIF-fallback). Verwijderingen komen als
+  `deleted`-facet binnen en vallen uit de lopende afspeellijst. Nieuwe/bewerkte foto's verschijnen
+  zónder herstart (de show leest elke dia opnieuw uit de index).
+- **Locatie wordt bij het indexeren gegeocodet** naar een plaats-label (kolom `place`, schema v3),
+  i.p.v. per weergave op de main-flow. Label: straat (+ huisnummer), plaats, land alleen indien buiten
+  NL; zinloze "Unnamed Road" valt weg. Zie `PlaceResolver` / `PlaceLabel`.
+- **Migratie is additief** (`ALTER TABLE ADD COLUMN`) i.p.v. de index droppen, zodat een upgrade de grote
+  bibliotheek niet opnieuw hoeft te downloaden.

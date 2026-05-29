@@ -14,7 +14,7 @@ class GraphCrawler(
      * Crawlt vanaf [rootFolderId] breedte-eerst. [onBatch] krijgt per map de gevonden
      * foto's (zodat de aanroeper kan streamen naar de index + voortgang tonen).
      */
-    suspend fun crawl(rootFolderId: String, onBatch: (List<PhotoRow>) -> Unit) {
+    suspend fun crawl(rootFolderId: String, onBatch: suspend (List<PhotoRow>) -> Unit) {
         val queue = ArrayDeque<String>()
         queue.add(rootFolderId)
         while (queue.isNotEmpty()) {

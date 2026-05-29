@@ -51,15 +51,9 @@ import fyi.kuijper.throwback.ui.components.BlurTransformation
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceS
 import fyi.kuijper.throwback.ui.theme.SpaceXs
-import android.content.Context
-import android.location.Geocoder
-import androidx.compose.runtime.produceState
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 /**
@@ -209,7 +203,7 @@ private fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
             takenDateLabel(p.taken, p.year)?.let {
                 Text(it, style = MaterialTheme.typography.bodyLarge, color = Color.White.copy(alpha = 0.85f))
             }
-            rememberPlaceName(p.lat, p.lon)?.let { place ->
+            p.place?.let { place ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Default.Place,
@@ -235,41 +229,6 @@ private val dutchDate = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("nl", 
 private fun takenDateLabel(taken: String?, year: Int?): String? {
     val date = taken?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
     return date?.format(dutchDate) ?: year?.toString()
-}
-
-// Reverse-geocode-resultaten cachen, zodat we niet bij elke (herhaalde) foto opnieuw opzoeken.
-private val placeCache = ConcurrentHashMap<String, String>()
-
-/**
- * Zet de GPS uit de fotometadata om naar een leesbare plaats (straat/stad) via de ingebouwde
- * [Geocoder] — buiten de main-thread, met cache. Geeft null zolang het laadt, als er geen GPS is,
- * of als het toestel geen geocoder-backend heeft (dan tonen we simpelweg geen locatie).
- */
-@Composable
-private fun rememberPlaceName(lat: Double?, lon: Double?): String? {
-    val context = LocalContext.current
-    val key = if (lat != null && lon != null) "$lat,$lon" else null
-    val state = produceState<String?>(initialValue = key?.let { placeCache[it] }, key) {
-        value = when {
-            key == null -> null
-            placeCache.containsKey(key) -> placeCache[key]
-            else -> withContext(Dispatchers.IO) { reverseGeocode(context, lat!!, lon!!) }
-                ?.also { placeCache[key] = it }
-        }
-    }
-    return state.value
-}
-
-/** Eén kort label uit het dichtstbijzijnde adres: "straat, stad" → "stad" → land. */
-private fun reverseGeocode(context: Context, lat: Double, lon: Double): String? {
-    if (!Geocoder.isPresent()) return null
-    return runCatching {
-        @Suppress("DEPRECATION")
-        val addr = Geocoder(context, Locale("nl", "NL")).getFromLocation(lat, lon, 1)?.firstOrNull()
-            ?: return null
-        val city = addr.locality ?: addr.subAdminArea ?: addr.adminArea
-        listOfNotNull(addr.thoroughfare, city).joinToString(", ").ifBlank { addr.countryName }
-    }.getOrNull()
 }
 
 @Composable
