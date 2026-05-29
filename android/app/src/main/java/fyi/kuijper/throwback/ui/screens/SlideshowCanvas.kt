@@ -37,6 +37,9 @@ import fyi.kuijper.throwback.onedrive.PhotoRow
 import fyi.kuijper.throwback.ui.components.BlurTransformation
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceS
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Puur de foto-weergave (geen input/bediening): vervaagde achtergrond + scherpe foto +
@@ -106,13 +109,26 @@ private fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
             .padding(start = 48.dp, end = 48.dp, bottom = 32.dp, top = 64.dp),
     ) {
         Column {
-            val year = p.year?.let { " · $it" }.orEmpty()
-            Text("${p.event}$year", style = MaterialTheme.typography.titleMedium, color = Color.White)
+            takenDateLabel(p.taken, p.year)?.let {
+                Text(it, style = MaterialTheme.typography.titleMedium, color = Color.White)
+            }
             p.description?.let {
                 Text(it, style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
             }
         }
     }
+}
+
+private val dutchDate = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("nl", "NL"))
+
+/**
+ * Exacte opnamedatum uit de fotometadata ([PhotoRow.taken], ISO zoals "2009-08-15T…") in NL-formaat,
+ * bijv. "15 augustus 2009". We nemen alleen het datumdeel (eerste 10 tekens) zodat een tijdzone de
+ * dag niet kan verschuiven. Valt terug op het jaar als een foto geen datum-metadata heeft.
+ */
+private fun takenDateLabel(taken: String?, year: Int?): String? {
+    val date = taken?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+    return date?.format(dutchDate) ?: year?.toString()
 }
 
 @Composable
