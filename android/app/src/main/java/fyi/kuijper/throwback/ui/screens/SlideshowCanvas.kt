@@ -18,20 +18,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import coil3.request.transformations
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import fyi.kuijper.throwback.onedrive.PhotoRow
+import fyi.kuijper.throwback.ui.components.BlurTransformation
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceS
 
@@ -52,13 +55,19 @@ fun SlideshowCanvas(
         // Crossfade tussen foto's; de vorige blijft zichtbaar tijdens de overgang (geen zwart).
         Crossfade(targetState = imageUrl, animationSpec = tween(1500), label = "foto") { url ->
             if (url != null) {
+                val context = LocalContext.current
                 Box(modifier = Modifier.fillMaxSize()) {
-                    // Wazige, schermvullende achtergrond — vult letterbox-randen.
+                    // Wazige, schermvullende achtergrond — vult letterbox-randen. De blur zit in de
+                    // bitmap (BlurTransformation) i.p.v. Modifier.blur, zodat het ook op Android < 12
+                    // (o.a. de KPN-box) werkt.
                     AsyncImage(
-                        model = url,
+                        model = ImageRequest.Builder(context)
+                            .data(url)
+                            .transformations(BlurTransformation())
+                            .build(),
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().blur(32.dp),
+                        modifier = Modifier.fillMaxSize(),
                     )
                     // Scherpe, volledige foto erbovenop.
                     AsyncImage(
