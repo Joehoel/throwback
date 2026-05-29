@@ -7,13 +7,32 @@ import kotlin.random.Random
  * O(1) vooruit/terug met wrap-around, plus een prefetch-venster. Geen IO,
  * dus snel unit-testbaar (ADR-0004: in-memory geschudde afspeellijst).
  */
-class Playlist private constructor(val order: List<String>) {
+class Playlist private constructor(
+    initial: List<String>,
+    private val shuffleNew: Boolean,
+    private val random: Random?,
+) {
+
+    private val _order = ArrayList(initial)
+    val order: List<String> get() = _order
 
     var index = 0
         private set
 
     val current: String? get() = order.getOrNull(index)
     val size: Int get() = order.size
+
+    /**
+     * Voeg nieuw geïndexeerde foto's toe zonder de huidige positie te verstoren, zodat een
+     * achtergrond-verversing de lopende show kan aanvullen. Reeds aanwezige id's worden genegeerd.
+     */
+    fun append(ids: List<String>) {
+        if (ids.isEmpty()) return
+        val existing = HashSet(_order)
+        val fresh = ids.filterNot { existing.contains(it) }
+        if (fresh.isEmpty()) return
+        _order.addAll(if (shuffleNew && random != null) fresh.shuffled(random) else fresh)
+    }
 
     fun next(): String? {
         if (order.isEmpty()) return null
@@ -38,7 +57,8 @@ class Playlist private constructor(val order: List<String>) {
     }
 
     companion object {
-        fun ordered(ids: List<String>) = Playlist(ids)
-        fun shuffled(ids: List<String>, random: Random) = Playlist(ids.shuffled(random))
+        fun ordered(ids: List<String>) = Playlist(ids, shuffleNew = false, random = null)
+        fun shuffled(ids: List<String>, random: Random) =
+            Playlist(ids.shuffled(random), shuffleNew = true, random = random)
     }
 }

@@ -29,19 +29,31 @@ import kotlin.random.Random
 /** Eén map in het navigatiepad van de kiezer (root = id null). */
 data class Crumb(val id: String?, val name: String)
 
+/** Een automatisch gevonden fotomap (camera-album / foto's) die we bovenaan aanbieden. */
+data class FolderSuggestion(val id: String, val name: String, val childCount: Int)
+
 sealed interface UiState {
     data object NeedsConnect : UiState
     data class ShowCode(val code: OneDriveAuth.DeviceCode) : UiState
     data class PickFolder(
         val path: List<Crumb>,
         val folders: List<DriveItem>,
+        val suggestions: List<FolderSuggestion>,
         val loading: Boolean,
+        val canCancel: Boolean,
     ) : UiState
-    data class Ready(val folderName: String, val indexed: Int, val described: Int) : UiState
-    data class Syncing(val folderName: String, val count: Int) : UiState
-    /** De draaiende slideshow. */
-    data class Show(val photo: PhotoRow?, val imageUrl: String?, val paused: Boolean) : UiState
-    data class Settings(val slideSeconds: Int, val shuffle: Boolean) : UiState
+    /** Net een map gekozen maar nog niets geïndexeerd: korte voorbereidingsstaat. */
+    data class Preparing(val folderName: String, val count: Int) : UiState
+    /** De draaiende slideshow (de "home" van de app). */
+    data class Show(
+        val photo: PhotoRow?,
+        val imageUrl: String?,
+        val paused: Boolean,
+        val captionEnabled: Boolean,
+        val syncing: Boolean,
+        val offlineHint: Boolean,
+    ) : UiState
+    data class Settings(val slideSeconds: Int, val shuffle: Boolean, val captionEnabled: Boolean) : UiState
     data class Error(val message: String) : UiState
 }
 
@@ -63,9 +75,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var showJob: Job? = null
     private var paused = false
 
+    // Index-status (achtergrond) + verbindingsstatus.
+    private var indexed = 0
+    private var described = 0
+    private var syncing = false
+    private var syncProcessed = 0
+    private var offlineHint = false
+    private var syncJob: Job? = null
+
     init {
         when {
-            store.isConnected && store.hasFolder -> goReady()
+            store.isConnected && store.hasFolder -> startShow()
             store.isConnected -> openFolder(Crumb(null, "OneDrive"), reset = true)
             else -> _state.value = UiState.NeedsConnect
         }
@@ -91,7 +111,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         val t = OneDriveAuth.pollForTokens(dc)
                         tokens = t
                         store.refreshToken = t.refreshToken
-                        if (store.hasFolder) goReady() else openFolder(Crumb(null, "OneDrive"), reset = true)
+                        offlineHint = false
+                        if (store.hasFolder) startShow() else openFolder(Crumb(null, "OneDrive"), reset = true)
                     } catch (e: Exception) {
                         _state.value = UiState.Error(Errors.message(e))
                     }
@@ -100,6 +121,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _state.value = UiState.Error(Errors.message(e))
             }
         }
+    }
+
+    // --- Mapkeuze (behoudt altijd de koppeling) ---
+
+    /** Open de mapkiezer zonder de koppeling te wissen — "Andere map". */
+    fun changeFolder() {
+        showJob?.cancel()
+        openFolder(Crumb(null, "OneDrive"), reset = true)
+    }
+
+    /** Annuleren in de kiezer: terug naar de show als er al een map is. */
+    fun cancelFolderPick() {
+        if (store.hasFolder) resumeShow()
     }
 
     fun openFolder(crumb: Crumb, reset: Boolean = false) {
@@ -119,16 +153,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun loadFolder(path: List<Crumb>) {
-        _state.value = UiState.PickFolder(path, emptyList(), loading = true)
+        _state.value = UiState.PickFolder(path, emptyList(), emptyList(), loading = true, canCancel = store.hasFolder)
         viewModelScope.launch {
             try {
                 val folders = graph.listFolders(path.last().id)
-                _state.value = UiState.PickFolder(path, folders, loading = false)
+                val suggestions = if (path.size == 1) detectSuggestions() else emptyList()
+                _state.value = UiState.PickFolder(path, folders, suggestions, loading = false, canCancel = store.hasFolder)
             } catch (e: Exception) {
                 handleError(e)
             }
         }
     }
+
+    /** Probeert de bekende foto-mappen te vinden; ontbrekende → gewoon overslaan. */
+    private suspend fun detectSuggestions(): List<FolderSuggestion> {
+        val found = LinkedHashMap<String, FolderSuggestion>()
+        graph.specialFolder("cameraroll")?.let {
+            found[it.id] = FolderSuggestion(it.id, "Camera-album", it.childCount)
+        }
+        graph.specialFolder("photos")?.let {
+            found.putIfAbsent(it.id, FolderSuggestion(it.id, "Foto's", it.childCount))
+        }
+        return found.values.toList()
+    }
+
+    fun selectSuggestion(suggestion: FolderSuggestion) = selectFolder(suggestion.id, suggestion.name)
 
     fun selectCurrentFolder() {
         val current = _state.value as? UiState.PickFolder ?: return
@@ -137,43 +186,34 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             _state.value = UiState.Error("Kies een submap, niet de hele OneDrive-root.")
             return
         }
+        selectFolder(id, crumb.name)
+    }
+
+    private fun selectFolder(id: String, name: String) {
+        // Dezelfde map opnieuw kiezen: gewoon terug naar de show, niets opnieuw indexeren.
+        if (id == store.folderId) {
+            resumeShow()
+            return
+        }
         viewModelScope.launch {
+            syncJob?.cancel()
             store.folderId = id
-            store.folderName = crumb.name
+            store.folderName = name
             withContext(Dispatchers.IO) { db.clearIndex() }
-            goReady()
+            indexed = 0; described = 0; syncProcessed = 0
+            playlist = null
+            startShow()
         }
     }
 
-    private fun goReady() {
-        val name = store.folderName ?: "Gekozen map"
-        viewModelScope.launch {
-            val (total, described) = withContext(Dispatchers.IO) { db.count() to db.countWithDescription() }
-            _state.value = UiState.Ready(name, total, described)
-        }
-    }
-
-    fun startSync() {
-        val folderId = store.folderId ?: return
-        val name = store.folderName ?: "Gekozen map"
-        _state.value = UiState.Syncing(name, 0)
-        viewModelScope.launch {
-            try {
-                sync.sync(folderId) { count -> _state.value = UiState.Syncing(name, count) }
-                goReady()
-            } catch (e: Exception) {
-                handleError(e)
-            }
-        }
-    }
-
-    // --- Slideshow ---
+    // --- Slideshow (de centrale staat) + automatische achtergrond-indexering ---
 
     fun startShow() {
         viewModelScope.launch {
             val photos = withContext(Dispatchers.IO) { db.allPhotos() }
             if (photos.isEmpty()) {
-                goReady()
+                pushPreparing()
+                maybeStartSync()
                 return@launch
             }
             playlist = if (settings.shuffle) {
@@ -183,7 +223,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             paused = false
             runShow()
+            maybeStartSync() // achtergrond-verversing voor nieuwe foto's
         }
+    }
+
+    /** Hervat de bestaande show (na instellingen / annuleren), of start vers als er nog niets is. */
+    private fun resumeShow() {
+        if (playlist != null) runShow() else startShow()
     }
 
     private fun runShow() {
@@ -199,37 +245,68 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    // --- Instellingen ---
-
-    fun openSettings() {
-        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle)
-    }
-
-    fun setSlideSeconds(seconds: Int) {
-        settings.slideSeconds = seconds
-        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle)
-    }
-
-    fun setShuffle(shuffle: Boolean) {
-        settings.shuffle = shuffle
-        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle)
-    }
-
-    fun closeSettings() = goReady()
-
     private suspend fun showCurrent() {
         val id = playlist?.current ?: return
         val photo = withContext(Dispatchers.IO) { db.get(id) }
         val url = try {
             urlFor(id)
-        } catch (e: OneDriveAuth.ReauthRequired) {
-            handleError(e) // koppeling verlopen → stop de show, vraag opnieuw inloggen
-            return
         } catch (e: Exception) {
-            null // losse netwerkblip: toon deze foto leeg, ga gewoon door
+            // Verlopen koppeling of netwerkblip: niet hard stoppen — toon het hintje en draai door.
+            offlineHint = true
+            null
         }
-        _state.value = UiState.Show(photo, url, paused)
+        if (url != null) offlineHint = false
+        _state.value = UiState.Show(
+            photo = photo,
+            imageUrl = url,
+            paused = paused,
+            captionEnabled = settings.captionEnabled,
+            syncing = syncing,
+            offlineHint = offlineHint,
+        )
         prefetch()
+    }
+
+    private fun pushPreparing() {
+        _state.value = UiState.Preparing(store.folderName ?: "Gekozen map", syncProcessed)
+    }
+
+    private suspend fun refreshCounts() {
+        val result = withContext(Dispatchers.IO) { db.count() to db.countWithDescription() }
+        indexed = result.first
+        described = result.second
+    }
+
+    /** Start een achtergrond-crawl als er nog geen loopt; vult de lopende show aan met nieuwe foto's. */
+    private fun maybeStartSync() {
+        val folderId = store.folderId ?: return
+        if (syncJob?.isActive == true) return
+        syncing = true
+        syncProcessed = 0
+        syncJob = viewModelScope.launch {
+            try {
+                sync.sync(folderId) { count ->
+                    // Callback draait op de IO-dispatcher (binnen sync.sync) → db-calls zijn veilig.
+                    syncProcessed = count
+                    indexed = db.count()
+                    val s = _state.value
+                    if (s is UiState.Preparing) {
+                        if (indexed > 0) startShow() else _state.value = UiState.Preparing(s.folderName, syncProcessed)
+                    }
+                }
+                refreshCounts()
+                // Nieuwe foto's vanzelf aan de lopende show toevoegen.
+                if (_state.value is UiState.Show) {
+                    val ids = withContext(Dispatchers.IO) { db.allIds() }
+                    playlist?.append(ids)
+                }
+            } catch (e: Exception) {
+                // Achtergrond: stil falen; we tonen gewoon wat al geïndexeerd is (+ offline-hint).
+                if (e is OneDriveAuth.ReauthRequired) offlineHint = true
+            } finally {
+                syncing = false
+            }
+        }
     }
 
     // Stabiele thumbnail-URL per foto, zodat prefetch en weergave dezelfde URL (= Coil-cachesleutel) delen.
@@ -254,19 +331,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Centrale foutafhandeling: verlopen koppeling → opnieuw inloggen; anders nette melding. */
-    private fun handleError(e: Throwable) {
-        if (e is OneDriveAuth.ReauthRequired) {
-            store.refreshToken = null // forceert NeedsConnect bij 'Opnieuw'
-            tokens = null
-            pollJob?.cancel()
-            showJob?.cancel()
-            _state.value = UiState.Error("Je OneDrive-koppeling is verlopen. Kies 'Opnieuw' om weer in te loggen.")
-        } else {
-            _state.value = UiState.Error(Errors.message(e))
-        }
-    }
-
     fun nextPhoto() { playlist?.next(); runShow() }
     fun previousPhoto() { playlist?.previous(); runShow() }
 
@@ -275,24 +339,63 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         (_state.value as? UiState.Show)?.let { _state.value = it.copy(paused = paused) }
     }
 
-    fun exitShow() {
-        showJob?.cancel()
-        goReady()
+    // --- Instellingen ---
+
+    fun openSettings() {
+        showJob?.cancel() // pauzeer de show-lus zodat hij het instellingenscherm niet overschrijft
+        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle, settings.captionEnabled)
+    }
+
+    fun setSlideSeconds(seconds: Int) {
+        settings.slideSeconds = seconds
+        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle, settings.captionEnabled)
+    }
+
+    fun setShuffle(shuffle: Boolean) {
+        settings.shuffle = shuffle
+        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle, settings.captionEnabled)
+    }
+
+    fun setCaptionEnabled(enabled: Boolean) {
+        settings.captionEnabled = enabled
+        _state.value = UiState.Settings(settings.slideSeconds, settings.shuffle, settings.captionEnabled)
+    }
+
+    fun closeSettings() = resumeShow()
+
+    // --- Fouten & koppeling ---
+
+    /** Centrale foutafhandeling: verlopen koppeling → opnieuw inloggen; anders nette melding. */
+    private fun handleError(e: Throwable) {
+        if (e is OneDriveAuth.ReauthRequired) {
+            store.refreshToken = null // forceert NeedsConnect bij 'Opnieuw'
+            tokens = null
+            pollJob?.cancel()
+            showJob?.cancel()
+            syncJob?.cancel()
+            _state.value = UiState.Error("Je OneDrive-koppeling is verlopen. Kies 'Opnieuw' om weer in te loggen.")
+        } else {
+            _state.value = UiState.Error(Errors.message(e))
+        }
     }
 
     fun retry() {
         pollJob?.cancel()
         when {
-            store.isConnected && store.hasFolder -> goReady()
+            store.isConnected && store.hasFolder -> startShow()
             store.isConnected -> openFolder(Crumb(null, "OneDrive"), reset = true)
             else -> _state.value = UiState.NeedsConnect
         }
     }
 
+    /** Loskoppelen: wist token + map en gaat terug naar het koppelscherm (alleen vanuit Instellingen). */
     fun disconnect() {
         pollJob?.cancel()
         showJob?.cancel()
+        syncJob?.cancel()
         tokens = null
+        playlist = null
+        indexed = 0; described = 0; syncProcessed = 0; syncing = false; offlineHint = false
         viewModelScope.launch {
             withContext(Dispatchers.IO) { db.clearIndex() }
             store.clear()

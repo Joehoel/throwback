@@ -20,6 +20,27 @@ class GraphClient(private val accessToken: suspend () -> String) {
     private val http = OkHttpClient()
     private val base = "https://graph.microsoft.com/v1.0"
 
+    /**
+     * Een "special folder" van OneDrive (bv. "cameraroll" of "photos"), of null als die
+     * niet bestaat op dit account. Bij alleen Files.Read geeft Graph 403/404 voor een
+     * ontbrekende special folder — dat behandelen we gewoon als "niet aanwezig".
+     */
+    suspend fun specialFolder(name: String): DriveItem? = withContext(Dispatchers.IO) {
+        val url = "$base/me/drive/special/$name?%24select=id,name,folder"
+        val token = accessToken()
+        val req = Request.Builder().url(url).header("Authorization", "Bearer $token").build()
+        http.newCall(req).execute().use { resp ->
+            if (!resp.isSuccessful) return@withContext null
+            val o = JSONObject(resp.body?.string().orEmpty())
+            val folder = o.optJSONObject("folder") ?: return@withContext null
+            DriveItem(
+                id = o.getString("id"),
+                name = o.getString("name"),
+                childCount = folder.optInt("childCount", 0),
+            )
+        }
+    }
+
     /** Submappen van [folderId], of van de root als [folderId] null is. */
     suspend fun listFolders(folderId: String?): List<DriveItem> = withContext(Dispatchers.IO) {
         val path = if (folderId == null) {

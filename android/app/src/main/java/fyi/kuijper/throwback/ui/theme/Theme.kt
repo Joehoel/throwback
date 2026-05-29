@@ -1,34 +1,34 @@
 package fyi.kuijper.throwback.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
-import androidx.tv.material3.lightColorScheme
 
+// TV is dark-first: we forceren altijd het donkere schema (geen light variant).
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-fun ThrowbackTheme(
-    isInDarkTheme: Boolean = isSystemInDarkTheme(),
-    content: @Composable () -> Unit,
-) {
-    val colorScheme = if (isInDarkTheme) {
-        darkColorScheme(
-            primary = Purple80,
-            secondary = PurpleGrey80,
-            tertiary = Pink80
-        )
-    } else {
-        lightColorScheme(
-            primary = Purple40,
-            secondary = PurpleGrey40,
-            tertiary = Pink40
-        )
-    }
+fun ThrowbackTheme(content: @Composable () -> Unit) {
+    val colorScheme = darkColorScheme(
+        primary = Primary,
+        onPrimary = OnPrimary,
+        primaryContainer = PrimaryContainer,
+        onPrimaryContainer = OnPrimaryContainer,
+        secondary = Secondary,
+        secondaryContainer = SecondaryContainer,
+        background = Background,
+        onBackground = OnBackground,
+        surface = Surface,
+        onSurface = OnSurface,
+        surfaceVariant = SurfaceVariant,
+        onSurfaceVariant = OnSurfaceVariant,
+        border = Border,
+        error = ErrorColor,
+        onError = OnErrorColor,
+    )
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
-        content = content
+        content = content,
     )
 }

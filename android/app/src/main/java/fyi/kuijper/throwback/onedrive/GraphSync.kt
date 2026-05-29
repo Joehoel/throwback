@@ -22,9 +22,12 @@ class GraphSync(
 
     data class Result(val total: Int, val withDescription: Int)
 
-    /** [onProgress] krijgt het lopende aantal verwerkte foto's. */
+    /**
+     * Crawlt [folderId] en werkt de index incrementeel bij (upsert; wist niet vooraf, zodat
+     * een achtergrond-verversing de lopende show niet leegmaakt). Bij een nieuwe map wist de
+     * aanroeper de index expliciet vóór de crawl. [onProgress] krijgt het lopende aantal.
+     */
     suspend fun sync(folderId: String, onProgress: (Int) -> Unit): Result = withContext(Dispatchers.IO) {
-        db.clearIndex() // volledige crawl = verse index (vangt ook verwijderde/hernoemde items)
         val crawler = GraphCrawler { id -> fetchAllChildren(id) }
         var processed = 0
         crawler.crawl(folderId) { rows ->

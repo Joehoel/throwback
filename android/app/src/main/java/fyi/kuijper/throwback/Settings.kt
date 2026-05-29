@@ -16,4 +16,14 @@ class Settings(context: Context) {
     var shuffle: Boolean
         get() = prefs.getBoolean("shuffle", true)
         set(value) { prefs.edit().putBoolean("shuffle", value).apply() }
+
+    /** Bijschrift (datum/gebeurtenis) subtiel in beeld tonen. */
+    var captionEnabled: Boolean
+        get() = prefs.getBoolean("caption_enabled", true)
+        set(value) { prefs.edit().putBoolean("caption_enabled", value).apply() }
+
+    /** Of de eenmalige "stel in als screensaver"-hint al getoond is. */
+    var screensaverHintShown: Boolean
+        get() = prefs.getBoolean("screensaver_hint_shown", false)
+        set(value) { prefs.edit().putBoolean("screensaver_hint_shown", value).apply() }
 }
