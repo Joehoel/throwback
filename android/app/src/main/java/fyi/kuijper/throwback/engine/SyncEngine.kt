@@ -49,6 +49,10 @@ class SyncEngine(
         if (job?.isActive == true) return
         _state.value = _state.value.copy(syncing = true, processed = 0, lastError = null)
         job = scope.launch {
+            // Geocode bestaande GPS-foto's meteen, parallel aan de (trage) crawl — locaties hoeven
+            // niet te wachten tot de hele bibliotheek opnieuw is gecrawld. De upsert bewaart 'place',
+            // dus de gelijktijdige crawl wist het niet.
+            val geocodeJob = launch { geocode(withContext(Dispatchers.IO) { db.photosNeedingPlace() }) }
             try {
                 if (needsFullCrawl()) {
                     sync.sync(folderId) { processed ->
@@ -62,7 +66,8 @@ class SyncEngine(
                     }
                 }
                 _state.value = _state.value.copy(indexed = withContext(Dispatchers.IO) { db.count() }, syncing = false)
-                // Eenmalige plaats-pass over alles wat nog geen label heeft.
+                // Tweede pass voor foto's die de crawl pas net heeft toegevoegd.
+                geocodeJob.join()
                 geocode(withContext(Dispatchers.IO) { db.photosNeedingPlace() })
 
                 // Periodieke incrementele verversing.
@@ -102,11 +107,18 @@ class SyncEngine(
         }
     }
 
-    /** Reverse-geocode de foto's met GPS en schrijf het plaats-label terug in de index. */
+    /**
+     * Reverse-geocode de foto's met GPS en schrijf het plaats-label terug in de index. We pacen alleen
+     * echte opzoekingen (cache-missers) zodat we de Geocoder niet overvragen; gedeelde locaties (veel
+     * foto's op één plek) komen uit de cache en gaan direct.
+     */
     private suspend fun geocode(rows: List<PhotoRow>) = withContext(Dispatchers.IO) {
         for (p in rows) {
             if (p.lat == null || p.lon == null || p.place != null) continue
+            if (!isActive) break
+            val fresh = !placeResolver.isCached(p.lat, p.lon)
             placeResolver.resolve(p.lat, p.lon)?.let { db.updatePlace(p.id, it) }
+            if (fresh) delay(GEOCODE_PACE_MS)
         }
     }
 
@@ -121,6 +133,7 @@ class SyncEngine(
 
     private companion object {
         const val REFRESH_INTERVAL_MS = 10 * 60 * 1000L
+        const val GEOCODE_PACE_MS = 80L
         const val RECONCILE_KEY = "reconcile_tag"
         // Verhoog deze waarde om bij de volgende start één volledige her-crawl af te dwingen
         // (bv. na een wijziging in hoe we metadata uitlezen). v3: ingebedde EXIF-bijschriften.

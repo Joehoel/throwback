@@ -24,17 +24,26 @@ class PlaceResolver(
     // "" = opgezocht maar niets bruikbaars (negatieve cache), zodat we niet blijven herproberen.
     private val cache = ConcurrentHashMap<String, String>()
 
+    fun isCached(lat: Double, lon: Double): Boolean = cache.containsKey(key(lat, lon))
+
     fun resolve(lat: Double, lon: Double): String? {
         if (!Geocoder.isPresent()) return null
-        val key = "%.3f,%.3f".format(Locale.US, lat, lon)
+        val key = key(lat, lon)
         cache[key]?.let { return it.ifBlank { null } }
-        val label = runCatching {
+        val addresses = try {
             @Suppress("DEPRECATION")
-            Geocoder(appContext, locale).getFromLocation(lat, lon, 1)?.firstOrNull()?.let(::labelOf)
-        }.getOrNull()
-        cache[key] = label ?: ""
+            Geocoder(appContext, locale).getFromLocation(lat, lon, 1)
+        } catch (e: Exception) {
+            // Tijdelijke fout (rate-limit / "Service not Available"): niét cachen, zodat een latere
+            // pass het opnieuw probeert.
+            return null
+        }
+        val label = addresses?.firstOrNull()?.let(::labelOf)
+        cache[key] = label ?: "" // echt resultaat (incl. "geen adres") cachen om herhaald opzoeken te vermijden
         return label
     }
+
+    private fun key(lat: Double, lon: Double) = "%.3f,%.3f".format(Locale.US, lat, lon)
 
     private fun labelOf(a: Address): String? = PlaceLabel.compose(
         thoroughfare = a.thoroughfare,

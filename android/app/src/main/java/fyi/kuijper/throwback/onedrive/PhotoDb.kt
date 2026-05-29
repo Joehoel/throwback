@@ -61,14 +61,19 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         return cols
     }
 
+    /**
+     * Upsert per foto. Crucial: bij een bestaande rij werken we de data-kolommen bij maar laten we
+     * [PhotoRow.place] met rust (een crawl levert nooit een place; die zet de geocode-pass apart) —
+     * anders zou een her-crawl het zojuist gegeocodete label weer wissen. Nieuwe rijen worden
+     * ingevoegd inclusief place. (Geen SQLite-UPSERT-syntax: niet beschikbaar < API 30 / minSdk 26.)
+     */
     fun upsertAll(rows: List<PhotoRow>) {
         if (rows.isEmpty()) return
         with(writableDatabase) {
             beginTransaction()
             try {
                 for (r in rows) {
-                    val cv = ContentValues().apply {
-                        put("id", r.id)
+                    val data = ContentValues().apply {
                         put("name", r.name)
                         put("event", r.event)
                         if (r.year != null) put("year", r.year) else putNull("year")
@@ -77,9 +82,15 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
                         put("path", r.path)
                         if (r.lat != null) put("lat", r.lat) else putNull("lat")
                         if (r.lon != null) put("lon", r.lon) else putNull("lon")
-                        if (r.place != null) put("place", r.place) else putNull("place")
                     }
-                    insertWithOnConflict("photo", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
+                    val updated = update("photo", data, "id = ?", arrayOf(r.id))
+                    if (updated == 0) {
+                        val insert = ContentValues(data).apply {
+                            put("id", r.id)
+                            if (r.place != null) put("place", r.place) else putNull("place")
+                        }
+                        insertWithOnConflict("photo", null, insert, SQLiteDatabase.CONFLICT_REPLACE)
+                    }
                 }
                 setTransactionSuccessful()
             } finally {
