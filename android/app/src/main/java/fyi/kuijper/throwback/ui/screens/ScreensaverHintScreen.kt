@@ -51,7 +51,8 @@ fun ScreensaverHintScreen(onOpenSettings: () -> Unit, onLater: () -> Unit) {
             Spacer(Modifier.height(SpaceM))
             Text(
                 "Stel Throwback in als screensaver, dan verschijnen je foto's vanzelf wanneer de TV " +
-                    "een tijdje niets doet. Je kunt dit ook later via Instellingen doen.",
+                    "een tijdje niets doet. We openen de TV-instellingen; ga daar naar " +
+                    "Systeem → Screensaver en kies Throwback. Je kunt dit ook later via Instellingen doen.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,

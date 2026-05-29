@@ -2,15 +2,17 @@
 
 package fyi.kuijper.throwback.ui.screens
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -32,6 +34,7 @@ import fyi.kuijper.throwback.UiState
 import fyi.kuijper.throwback.ui.components.ActionButton
 import fyi.kuijper.throwback.ui.components.ScreenHeader
 import fyi.kuijper.throwback.ui.components.SwitchRow
+import fyi.kuijper.throwback.ui.components.WideRow
 import fyi.kuijper.throwback.ui.components.rememberInitialFocus
 import fyi.kuijper.throwback.ui.theme.SpaceL
 import fyi.kuijper.throwback.ui.theme.SpaceM
@@ -50,7 +53,12 @@ fun SettingsScreen(
 ) {
     val focus = rememberInitialFocus()
     TvScreen {
-        Column(Modifier.widthIn(max = 820.dp)) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .widthIn(max = 860.dp)
+                .verticalScroll(rememberScrollState()),
+        ) {
             ScreenHeader(title = "Instellingen")
             Spacer(Modifier.height(SpaceL))
             SecondsRow(
@@ -72,13 +80,23 @@ fun SettingsScreen(
                 checked = state.captionEnabled,
                 onToggle = { onCaption(!state.captionEnabled) },
             )
-            Spacer(Modifier.height(SpaceXl))
-            Row(horizontalArrangement = Arrangement.spacedBy(SpaceM)) {
-                ActionButton("Stel in als screensaver", Icons.Default.Tv, onOpenScreensaverSettings)
-                ActionButton("Loskoppelen", Icons.Default.LinkOff, onDisconnect)
-            }
             Spacer(Modifier.height(SpaceM))
+            WideRow(
+                title = "Screensaver instellen",
+                icon = Icons.Default.Tv,
+                subtitle = "Open de TV-instellingen en kies Throwback bij Screensaver",
+                onClick = onOpenScreensaverSettings,
+            )
+            Spacer(Modifier.height(SpaceM))
+            WideRow(
+                title = "Loskoppelen",
+                icon = Icons.Default.LinkOff,
+                subtitle = "OneDrive-koppeling wissen en opnieuw beginnen",
+                onClick = onDisconnect,
+            )
+            Spacer(Modifier.height(SpaceXl))
             ActionButton("Terug", Icons.AutoMirrored.Filled.ArrowBack, onClose)
+            Spacer(Modifier.height(SpaceL))
         }
     }
 }

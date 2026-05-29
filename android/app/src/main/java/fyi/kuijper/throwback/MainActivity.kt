@@ -61,18 +61,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Open de screensaver/daydream-instelling van het systeem; val terug op de algemene instellingen. */
+    /**
+     * Open de screensaver/daydream-instelling. Op Android TV is er geen gegarandeerde deeplink,
+     * dus we proberen meerdere kandidaten en vallen terug op de algemene instellingen. We checken
+     * vooraf met resolveActivity zodat we niet op een niet-bestaande activity stuklopen.
+     */
     private fun openScreensaverSettings() {
         val candidates = listOf(
             Intent("android.settings.DREAM_SETTINGS"),
+            Intent().setClassName(
+                "com.android.tv.settings",
+                "com.android.tv.settings.device.display.daydream.DaydreamActivity",
+            ),
+            Intent(android.provider.Settings.ACTION_DISPLAY_SETTINGS),
             Intent(android.provider.Settings.ACTION_SETTINGS),
         )
         for (intent in candidates) {
-            try {
-                startActivity(intent)
-                return
-            } catch (_: Exception) {
-                // probeer de volgende
+            if (intent.resolveActivity(packageManager) != null) {
+                try {
+                    startActivity(intent)
+                    return
+                } catch (_: Exception) {
+                    // probeer de volgende
+                }
             }
         }
     }
