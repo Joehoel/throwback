@@ -63,8 +63,10 @@ class MainActivity : ComponentActivity() {
 
     /**
      * Open de screensaver/daydream-instelling. Op Android TV is er geen gegarandeerde deeplink,
-     * dus we proberen meerdere kandidaten en vallen terug op de algemene instellingen. We checken
-     * vooraf met resolveActivity zodat we niet op een niet-bestaande activity stuklopen.
+     * dus we proberen meerdere kandidaten en vallen terug op de algemene instellingen. We gebruiken
+     * GEEN resolveActivity-check: door package-visibility (Android 11+) geeft die vaak null terug
+     * ook voor instellingen die wél bestaan, waardoor de knop niets zou doen. startActivity met
+     * try/catch werkt wel — de laatste kandidaat (algemene instellingen) opent vrijwel altijd.
      */
     private fun openScreensaverSettings() {
         val candidates = listOf(
@@ -77,13 +79,11 @@ class MainActivity : ComponentActivity() {
             Intent(android.provider.Settings.ACTION_SETTINGS),
         )
         for (intent in candidates) {
-            if (intent.resolveActivity(packageManager) != null) {
-                try {
-                    startActivity(intent)
-                    return
-                } catch (_: Exception) {
-                    // probeer de volgende
-                }
+            try {
+                startActivity(intent)
+                return
+            } catch (_: Exception) {
+                // niet beschikbaar op dit toestel → probeer de volgende
             }
         }
     }
