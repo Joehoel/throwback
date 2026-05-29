@@ -36,6 +36,7 @@ import fyi.kuijper.throwback.ui.components.ScreenHeader
 import fyi.kuijper.throwback.ui.components.SwitchRow
 import fyi.kuijper.throwback.ui.components.WideRow
 import fyi.kuijper.throwback.ui.components.rememberInitialFocus
+import fyi.kuijper.throwback.ui.theme.ContentMaxWidth
 import fyi.kuijper.throwback.ui.theme.SpaceL
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceXl
@@ -53,13 +54,17 @@ fun SettingsScreen(
     screensaverConfigurable: Boolean,
 ) {
     val focus = rememberInitialFocus()
-    TvScreen {
+    // horizontalPadding = 0: de scroll-container vult de volle schermbreedte en clipt daarop, terwijl
+    // de inhoud op ContentMaxWidth gecapt + gecentreerd wordt. Zo heeft de focus-schaal (1.1×) ruimte
+    // binnen de clip i.p.v. afgekapt te worden — de overscan-marge zit nu in de (lege) centreerruimte.
+    TvScreen(horizontalPadding = 0.dp) {
         Column(
             Modifier
                 .fillMaxSize()
-                .widthIn(max = 860.dp)
                 .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+          Column(Modifier.widthIn(max = ContentMaxWidth)) {
             ScreenHeader(title = "Instellingen")
             Spacer(Modifier.height(SpaceL))
             SecondsRow(
@@ -101,6 +106,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(SpaceXl))
             ActionButton("Terug", Icons.AutoMirrored.Filled.ArrowBack, onClose)
             Spacer(Modifier.height(SpaceL))
+          }
         }
     }
 }

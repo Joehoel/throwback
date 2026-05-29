@@ -5,11 +5,14 @@ package fyi.kuijper.throwback.ui.screens
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -21,6 +24,7 @@ import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -36,6 +40,7 @@ import fyi.kuijper.throwback.ui.components.ActionButton
 import fyi.kuijper.throwback.ui.components.LoadingRow
 import fyi.kuijper.throwback.ui.components.ScreenHeader
 import fyi.kuijper.throwback.ui.components.WideRow
+import fyi.kuijper.throwback.ui.theme.ContentMaxWidth
 import fyi.kuijper.throwback.ui.theme.SpaceL
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceS
@@ -55,32 +60,43 @@ fun FolderPickerScreen(
     BackHandler(enabled = canActOnFolder || state.canCancel) {
         if (canActOnFolder) onBack() else onCancel()
     }
-    TvScreen {
-        Column(Modifier.fillMaxSize()) {
-            ScreenHeader(
-                title = "Kies de fotomap",
-                subtitle = state.path.joinToString("  ›  ") { it.name },
-            )
-            if (canActOnFolder || state.canCancel) {
-                Spacer(Modifier.height(SpaceL))
-                Row(horizontalArrangement = Arrangement.spacedBy(SpaceM)) {
-                    if (canActOnFolder) {
-                        ActionButton("Kies deze map", Icons.Default.Check, onSelect, primary = true)
-                        ActionButton("Terug", Icons.AutoMirrored.Filled.ArrowBack, onBack)
-                    }
-                    if (state.canCancel) {
-                        ActionButton("Annuleren", Icons.Default.Close, onCancel)
+    // horizontalPadding = 0: de LazyColumn vult de volle breedte en clipt daarop; de rijen worden op
+    // ContentMaxWidth gecapt + gecentreerd, zodat de focus-schaal niet tegen de clip-rand afkapt.
+    TvScreen(horizontalPadding = 0.dp) {
+        Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
+            // Kop + knoppen op dezelfde contentbreedte als de rijen, zodat alles uitlijnt.
+            Column(Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth()) {
+                ScreenHeader(
+                    title = "Kies de fotomap",
+                    subtitle = state.path.joinToString("  ›  ") { it.name },
+                )
+                if (canActOnFolder || state.canCancel) {
+                    Spacer(Modifier.height(SpaceL))
+                    Row(horizontalArrangement = Arrangement.spacedBy(SpaceM)) {
+                        if (canActOnFolder) {
+                            ActionButton("Kies deze map", Icons.Default.Check, onSelect, primary = true)
+                            ActionButton("Terug", Icons.AutoMirrored.Filled.ArrowBack, onBack)
+                        }
+                        if (state.canCancel) {
+                            ActionButton("Annuleren", Icons.Default.Close, onCancel)
+                        }
                     }
                 }
+                Spacer(Modifier.height(SpaceL))
             }
-            Spacer(Modifier.height(SpaceL))
             when {
-                state.loading -> LoadingRow("Laden…")
-                state.folders.isEmpty() && state.suggestions.isEmpty() -> Text(
-                    "Geen submappen hier. Kies deze map of ga terug.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                state.loading -> Column(Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth()) {
+                    LoadingRow("Laden…")
+                }
+                state.folders.isEmpty() && state.suggestions.isEmpty() -> Column(
+                    Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth(),
+                ) {
+                    Text(
+                        "Geen submappen hier. Kies deze map of ga terug.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 else -> FolderAndSuggestionList(state, onOpen, onSelectSuggestion)
             }
         }
@@ -88,12 +104,12 @@ fun FolderPickerScreen(
 }
 
 @Composable
-private fun SectionLabel(text: String) {
+private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     Text(
         text,
         style = MaterialTheme.typography.labelLarge,
         color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp, top = 4.dp),
+        modifier = modifier.padding(start = 4.dp, bottom = 4.dp, top = 4.dp),
     )
 }
 
@@ -105,14 +121,20 @@ private fun FolderAndSuggestionList(
 ) {
     val first = remember { FocusRequester() }
     LaunchedEffect(state.suggestions, state.folders) { runCatching { first.requestFocus() } }
+    // De lijst vult de volle breedte en clipt daarop; de rijen worden gecapt en gecentreerd zodat
+    // de focus-schaal (1.1×) ruimte heeft binnen de clip i.p.v. tegen de rand afgekapt te worden.
+    // De verticale contentPadding geeft de bovenste/onderste rij dezelfde ruimte.
+    val rowWidth = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth()
     LazyColumn(
-        modifier = Modifier.focusRestorer { first },
+        modifier = Modifier.fillMaxWidth().focusRestorer { first },
+        horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(SpaceS),
+        contentPadding = PaddingValues(vertical = SpaceS),
     ) {
         if (state.suggestions.isNotEmpty()) {
-            item { SectionLabel("Voorgesteld") }
+            item { SectionLabel("Voorgesteld", rowWidth) }
             items(state.suggestions) { s ->
-                val mod = if (s == state.suggestions.first()) Modifier.focusRequester(first) else Modifier
+                val mod = if (s == state.suggestions.first()) rowWidth.focusRequester(first) else rowWidth
                 WideRow(
                     title = s.name,
                     icon = Icons.Default.PhotoLibrary,
@@ -123,10 +145,10 @@ private fun FolderAndSuggestionList(
             }
         }
         if (state.folders.isNotEmpty()) {
-            item { SectionLabel("Mappen") }
+            item { SectionLabel("Mappen", rowWidth) }
             items(state.folders) { item ->
                 val isFirstFocusable = state.suggestions.isEmpty() && item == state.folders.first()
-                val mod = if (isFirstFocusable) Modifier.focusRequester(first) else Modifier
+                val mod = if (isFirstFocusable) rowWidth.focusRequester(first) else rowWidth
                 WideRow(
                     title = item.name,
                     icon = Icons.Default.Folder,
