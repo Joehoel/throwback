@@ -9,7 +9,8 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * Zet GPS uit de fotometadata om naar een leesbaar bijschrift-label, bij het *indexeren* (niet per
  * weergave). Reverse-geocodet via de ingebouwde [Geocoder] op een achtergrond-thread, met een cache
- * op afgeronde coördinaten zodat 800 foto's van dezelfde locatie één opzoeking delen.
+ * op (op ~1 m afgeronde) coördinaten zodat alleen écht identieke locaties één opzoeking delen — fijn
+ * genoeg om straat + huisnummer per foto kloppend te houden (zie [key]).
  *
  * Label: straat (+ huisnummer indien aanwezig), plaats, en het land alleen als het niet
  * [homeCountryCode] is. Zinloze straatwaarden ("Unnamed Road") worden weggelaten; ontbreekt alles,
@@ -43,7 +44,11 @@ class PlaceResolver(
         return label
     }
 
-    private fun key(lat: Double, lon: Double) = "%.3f,%.3f".format(Locale.US, lat, lon)
+    // 5 decimalen ≈ 1 m — fijner dan de nauwkeurigheid van consumenten-GPS, dus elk adres (straat +
+    // huisnummer) wordt op de eigen coördinaten opgezocht i.p.v. die van de buur. De cache dedupt zo
+    // alleen écht identieke coördinaten (bv. dezelfde foto). Grover (3 dec ≈ 111 m) liet honderden
+    // foto's één opzoeking delen en gaf daardoor verkeerde straten/huisnummers.
+    private fun key(lat: Double, lon: Double) = "%.5f,%.5f".format(Locale.US, lat, lon)
 
     private fun labelOf(a: Address): String? = PlaceLabel.compose(
         thoroughfare = a.thoroughfare,

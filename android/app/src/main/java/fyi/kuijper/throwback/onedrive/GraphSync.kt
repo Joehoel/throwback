@@ -15,19 +15,16 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
 /**
- * Vult/ververst de lokale index via Graph. Twee modi:
- *  - [sync]    : volledige recursieve `children`-crawl (eerste keer + her-crawl). `children` levert —
- *                anders dan delta — het `description`-veld (zie ADR-0004).
- *  - [refresh] : goedkope incrementele update via de bewaarde `@odata.deltaLink` (alleen wijzigingen).
+ * Praat met Graph (geen DB-kennis — [fyi.kuijper.throwback.engine.SyncEngine] doet de opslag). Twee
+ * modi:
+ *  - [crawl]   : volledige recursieve `children`-crawl, levert foto's per map-batch aan de aanroeper.
+ *  - [refresh] : goedkope incrementele update via een `@odata.deltaLink` (alleen wijzigingen).
  *
  * Bijschriften die OneDrive's nieuwe opslag-backend níét meer als `driveItem.description` teruggeeft,
- * halen we uit de *ingebedde* fotometadata: voor elke beschrijvingsloze foto laden we een klein stukje
- * (~32 KB) van het bestand en lezen [ExifCaption] het eruit (zie ADR-0004 update 2).
- *
- * De recursie zit in [GraphCrawler] (getest), het parsen in [PhotoParser] (getest); hier de HTTP-glue.
+ * halen we uit de *ingebedde* fotometadata: voor elke beschrijvingsloze foto laden we ~32 KB van het
+ * bestand en leest [ExifCaption] het eruit (zie ADR-0004 update 2).
  */
 class GraphSync(
-    private val db: PhotoDb,
     private val accessToken: suspend () -> String,
     private val readCaption: (ByteArray) -> String? = ExifCaption::parse,
 ) {
@@ -35,25 +32,16 @@ class GraphSync(
     private val base = "https://graph.microsoft.com/v1.0"
     private val select = "id,name,description,folder,file,photo,location,parentReference"
 
-    data class Result(val total: Int, val withDescription: Int)
-
-    /** Wat een [refresh] opleverde: te upserten (gewijzigde/nieuwe) foto's en verwijderde id's. */
-    data class Changes(val upserts: List<PhotoRow>, val deletedIds: List<String>)
+    /** Resultaat van een [refresh]: te upserten foto's, verwijderde id's, en het nieuwe delta-token. */
+    data class Changes(val upserts: List<PhotoRow>, val deletedIds: List<String>, val newDeltaLink: String?)
 
     /**
-     * Crawlt [folderId] en werkt de index incrementeel bij (upsert; wist niet vooraf). [onProgress]
-     * krijgt het lopende aantal. Beschrijvingsloze foto's worden uit ingebedde EXIF/XMP aangevuld.
+     * Crawlt [folderId] recursief en levert per map een batch (al verrijkt met EXIF-bijschriften) aan
+     * [onBatch], zodat de aanroeper kan opslaan + voortgang tonen terwijl de crawl doorloopt.
      */
-    suspend fun sync(folderId: String, onProgress: (Int) -> Unit): Result = withContext(Dispatchers.IO) {
+    suspend fun crawl(folderId: String, onBatch: suspend (List<PhotoRow>) -> Unit) = withContext(Dispatchers.IO) {
         val crawler = GraphCrawler { id -> fetchAllChildren(id) }
-        var processed = 0
-        crawler.crawl(folderId) { rows ->
-            val enriched = enrichDescriptions(rows)
-            db.upsertAll(enriched)
-            processed += enriched.size
-            onProgress(processed)
-        }
-        Result(db.count(), db.countWithDescription())
+        crawler.crawl(folderId) { rows -> onBatch(enrichDescriptions(rows)) }
     }
 
     /**
@@ -77,13 +65,12 @@ class GraphSync(
     }
 
     /**
-     * Incrementele verversing via de bewaarde [PhotoDb.deltaLink]. Delta geeft geen `description`,
-     * dus voor elke gewijzigde foto halen we het volledige item op (`GET` mét `description`) en vullen
-     * we eventueel uit EXIF aan. Verschuift het delta-token vooruit. Lege [Changes] als er nog geen
-     * token is (dan moet eerst [sync] + [initDeltaToken] draaien).
+     * Incrementele verversing vanaf [deltaLink]. Delta geeft geen `description`, dus voor elke
+     * gewijzigde foto halen we het volledige item op (mét `description`) en vullen we eventueel uit
+     * EXIF aan. Geeft de wijzigingen + het nieuwe token terug; schrijft zelf niets naar de DB.
      */
-    suspend fun refresh(): Changes = withContext(Dispatchers.IO) {
-        var url: String? = db.deltaLink?.ifBlank { null } ?: return@withContext Changes(emptyList(), emptyList())
+    suspend fun refresh(deltaLink: String): Changes = withContext(Dispatchers.IO) {
+        var url: String? = deltaLink
         val changedIds = LinkedHashSet<String>()
         val deleted = ArrayList<String>()
         var newDelta: String? = null
@@ -115,9 +102,7 @@ class GraphSync(
             val path = full.optJSONObject("parentReference")?.optString("path").orEmpty()
             PhotoParser.toPhotoRow(path, full)?.let { rows.add(it) }
         }
-        val enriched = enrichDescriptions(rows)
-        if (newDelta != null) db.deltaLink = newDelta
-        Changes(enriched, deleted)
+        Changes(enrichDescriptions(rows), deleted, newDelta)
     }
 
     /** Vul ontbrekende beschrijvingen aan uit ingebedde fotometadata (begrensde parallelliteit). */

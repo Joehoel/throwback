@@ -16,14 +16,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * De achtergrond-indexering. Bij de eerste keer (of na een schema-/logica-upgrade) een volledige
- * `children`-crawl; daarna een goedkope delta-lus die periodiek alleen wijzigingen ophaalt — zodat
- * nieuwe foto's, verwijderingen en bewerkte bijschriften vanzelf binnenkomen zónder herstart. Plaats-
- * labels worden hier (niet per weergave) gegeocodet. Fouten worden bewaard in [State.lastError]
- * i.p.v. stil geslikt; de show draait door op wat al geïndexeerd is.
+ * De achtergrond-indexering, **per gekozen map**. Bij de eerste keer (of na een logica-upgrade) een
+ * volledige `children`-crawl; daarna een goedkope delta-lus die periodiek alleen wijzigingen ophaalt.
+ * Elke map houdt z'n eigen index, delta-token en reconcile-vlag, zodat wisselen niets weggooit.
  *
- * [onRemoved] meldt verwijderde foto-id's zodat de lopende afspeellijst ze kan laten vallen. Nieuwe
- * foto's komen binnen via de [state]-toggle (de coördinator vult de afspeellijst aan).
+ * Voortgang ([State.processed] / [State.indexed]): een foto telt pas mee in `processed` nadat 'm
+ * verwerkt is — inclusief de geocode-stap — ongeacht of er een locatie uitkwam. Fouten staan in
+ * [State.lastError] i.p.v. stil geslikt; de show draait door op wat al geïndexeerd is.
  */
 class SyncEngine(
     private val db: PhotoDb,
@@ -44,38 +43,48 @@ class SyncEngine(
 
     private var job: Job? = null
 
-    /** Start de indexering als er nog geen loopt. Idempotent. */
+    /** Start de indexering voor [folderId] als er nog geen loopt. Idempotent. */
     fun ensure(folderId: String) {
         if (job?.isActive == true) return
-        _state.value = _state.value.copy(syncing = true, processed = 0, lastError = null)
+        _state.value = State(syncing = true, processed = 0)
         job = scope.launch {
-            // Geocode bestaande GPS-foto's meteen, parallel aan de (trage) crawl — locaties hoeven
-            // niet te wachten tot de hele bibliotheek opnieuw is gecrawld. De upsert bewaart 'place',
-            // dus de gelijktijdige crawl wist het niet.
-            val geocodeJob = launch { geocode(withContext(Dispatchers.IO) { db.photosNeedingPlace() }) }
             try {
-                if (needsFullCrawl()) {
-                    sync.sync(folderId) { processed ->
-                        _state.value = _state.value.copy(processed = processed, indexed = db.count())
+                withContext(Dispatchers.IO) { db.claimUnassigned(folderId) }
+                _state.value = _state.value.copy(indexed = withContext(Dispatchers.IO) { db.count(folderId) })
+
+                if (needsFullCrawl(folderId)) {
+                    var processed = 0
+                    sync.crawl(folderId) { rows ->
+                        withContext(Dispatchers.IO) { db.upsertAll(folderId, rows) }
+                        geocode(rows) // locatie optioneel; we tellen pas ná deze stap
+                        processed += rows.size
+                        _state.value = _state.value.copy(
+                            processed = processed,
+                            indexed = withContext(Dispatchers.IO) { db.count(folderId) },
+                        )
                     }
                     withContext(Dispatchers.IO) {
-                        db.setMeta(RECONCILE_KEY, RECONCILE_TAG)
-                        if (db.deltaLink.isNullOrEmpty()) {
-                            db.deltaLink = runCatching { sync.initDeltaToken(folderId) }.getOrNull()
+                        db.setMeta(reconcileKey(folderId), RECONCILE_TAG)
+                        if (db.deltaLinkFor(folderId).isNullOrEmpty()) {
+                            db.setDeltaLink(folderId, runCatching { sync.initDeltaToken(folderId) }.getOrNull())
                         }
                     }
                 }
-                _state.value = _state.value.copy(indexed = withContext(Dispatchers.IO) { db.count() }, syncing = false)
-                // Tweede pass voor foto's die de crawl pas net heeft toegevoegd.
-                geocodeJob.join()
-                geocode(withContext(Dispatchers.IO) { db.photosNeedingPlace() })
 
-                // Volledige crawl klaar: 'processed' nullen, zodat de delta-lus geen oude X/Y toont.
-                _state.value = _state.value.copy(processed = 0)
+                // Vang foto's op die nog geen plaats hebben (geocode-fout tijdens de crawl, of een
+                // map die al geïndexeerd was maar het geocoden niet afmaakte).
+                geocode(withContext(Dispatchers.IO) { db.photosNeedingPlace(folderId) })
+
+                _state.value = _state.value.copy(
+                    syncing = false,
+                    processed = 0,
+                    indexed = withContext(Dispatchers.IO) { db.count(folderId) },
+                )
+
                 // Periodieke incrementele verversing.
                 while (isActive) {
                     delay(REFRESH_INTERVAL_MS)
-                    incrementalRefresh()
+                    incrementalRefresh(folderId)
                 }
             } catch (e: Exception) {
                 _state.value = _state.value.copy(lastError = e.message ?: e.javaClass.simpleName)
@@ -85,24 +94,26 @@ class SyncEngine(
         }
     }
 
-    private fun needsFullCrawl(): Boolean =
-        db.count() == 0 || db.getMeta(RECONCILE_KEY) != RECONCILE_TAG
+    private suspend fun needsFullCrawl(folderId: String): Boolean = withContext(Dispatchers.IO) {
+        db.count(folderId) == 0 || db.getMeta(reconcileKey(folderId)) != RECONCILE_TAG
+    }
 
-    private suspend fun incrementalRefresh() {
+    private suspend fun incrementalRefresh(folderId: String) {
+        val link = withContext(Dispatchers.IO) { db.deltaLinkFor(folderId) }?.ifBlank { null } ?: return
         _state.value = _state.value.copy(syncing = true)
         try {
-            val changes = sync.refresh()
+            val changes = sync.refresh(link)
             if (changes.deletedIds.isNotEmpty()) {
                 withContext(Dispatchers.IO) { db.deleteIds(changes.deletedIds) }
                 onRemoved(changes.deletedIds)
             }
             if (changes.upserts.isNotEmpty()) {
-                withContext(Dispatchers.IO) { db.upsertAll(changes.upserts) }
+                withContext(Dispatchers.IO) { db.upsertAll(folderId, changes.upserts) }
                 geocode(changes.upserts)
             }
-            _state.value = _state.value.copy(indexed = withContext(Dispatchers.IO) { db.count() }, lastError = null)
+            withContext(Dispatchers.IO) { db.setDeltaLink(folderId, changes.newDeltaLink) }
+            _state.value = _state.value.copy(indexed = withContext(Dispatchers.IO) { db.count(folderId) }, lastError = null)
         } catch (e: Exception) {
-            // Best effort: laat de fout zien maar blijf de lus draaien (volgende ronde kan weer slagen).
             _state.value = _state.value.copy(lastError = e.message ?: e.javaClass.simpleName)
         } finally {
             _state.value = _state.value.copy(syncing = false)
@@ -110,14 +121,14 @@ class SyncEngine(
     }
 
     /**
-     * Reverse-geocode de foto's met GPS en schrijf het plaats-label terug in de index. We pacen alleen
-     * echte opzoekingen (cache-missers) zodat we de Geocoder niet overvragen; gedeelde locaties (veel
-     * foto's op één plek) komen uit de cache en gaan direct.
+     * Reverse-geocode de foto's met GPS en schrijf het plaats-label terug. We pacen alleen echte
+     * opzoekingen (cache-missers); gedeelde locaties komen uit de cache en gaan direct. Foto's zonder
+     * GPS worden overgeslagen (geen locatie), maar tellen verder gewoon als verwerkt.
      */
     private suspend fun geocode(rows: List<PhotoRow>) = withContext(Dispatchers.IO) {
         for (p in rows) {
-            if (p.lat == null || p.lon == null || p.place != null) continue
             if (!isActive) break
+            if (p.lat == null || p.lon == null || p.place != null) continue
             val fresh = !placeResolver.isCached(p.lat, p.lon)
             placeResolver.resolve(p.lat, p.lon)?.let { db.updatePlace(p.id, it) }
             if (fresh) delay(GEOCODE_PACE_MS)
@@ -133,12 +144,12 @@ class SyncEngine(
         _state.value = State()
     }
 
+    private fun reconcileKey(folderId: String) = "reconcile:$folderId"
+
     private companion object {
         const val REFRESH_INTERVAL_MS = 10 * 60 * 1000L
         const val GEOCODE_PACE_MS = 80L
-        const val RECONCILE_KEY = "reconcile_tag"
-        // Verhoog deze waarde om bij de volgende start één volledige her-crawl af te dwingen
-        // (bv. na een wijziging in hoe we metadata uitlezen). v3: ingebedde EXIF-bijschriften.
-        const val RECONCILE_TAG = "v3-exif-place"
+        // Verhoog om bij de volgende start één volledige her-crawl per map af te dwingen.
+        const val RECONCILE_TAG = "v4-exif-place"
     }
 }

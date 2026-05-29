@@ -27,29 +27,42 @@ data class PhotoRow(
  * Lokale index (bron van waarheid voor de show), zie ADR-0004.
  * Handgeschreven SQLite i.p.v. Room — zelfde rol, geen KSP/annotation-processing.
  * Alle calls horen op een achtergrond-thread te draaien (ViewModel doet dat via IO).
+ *
+ * De index is **per gekozen map** (`root_id`): wisselen van map wist niets, elke map houdt z'n eigen
+ * rijen, delta-token en reconcile-vlag. Zo is terugschakelen naar een eerder geïndexeerde map direct
+ * + een goedkope delta-verversing, i.p.v. een volledige her-crawl.
  */
-class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "throwback.db", null, 3) {
+class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "throwback.db", null, 5) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE photo (" +
                 "id TEXT PRIMARY KEY, name TEXT, event TEXT, year INTEGER, " +
-                "description TEXT, taken TEXT, path TEXT, lat REAL, lon REAL, place TEXT)"
+                "description TEXT, taken TEXT, path TEXT, lat REAL, lon REAL, place TEXT, root_id TEXT)"
         )
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_photo_root ON photo(root_id)")
         db.execSQL("CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT)")
     }
 
     /**
      * Additieve migratie: voeg ontbrekende kolommen toe i.p.v. de index weg te gooien, zodat een
-     * upgrade de (grote) bibliotheek niet opnieuw hoeft te downloaden. v1→ kreeg lat/lon, v2→ place.
-     * De daadwerkelijke vulling van nieuwe kolommen doet de achtergrond-sync (her-crawl + geocode).
+     * upgrade de (grote) bibliotheek niet opnieuw hoeft te downloaden. v1→ lat/lon, v2→ place,
+     * v3→ root_id. Bestaande rijen krijgen root_id = null; [claimUnassigned] wijst ze bij de eerste
+     * sync toe aan de huidige map. Nieuwe kolommen worden door de achtergrond-sync gevuld.
+     *
+     * v4→v5: place wissen zodat de geocode-pass ze opnieuw opzoekt. De oude cache rondde coördinaten
+     * af op ~111 m, waardoor foto's binnen één cel de straat + huisnummer van de eerst-opgezochte foto
+     * erfden. Met de fijnere sleutel ([PlaceResolver.key]) zoekt elke foto z'n eigen adres op.
      */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         val cols = existingColumns(db, "photo")
         if ("lat" !in cols) db.execSQL("ALTER TABLE photo ADD COLUMN lat REAL")
         if ("lon" !in cols) db.execSQL("ALTER TABLE photo ADD COLUMN lon REAL")
         if ("place" !in cols) db.execSQL("ALTER TABLE photo ADD COLUMN place TEXT")
+        if ("root_id" !in cols) db.execSQL("ALTER TABLE photo ADD COLUMN root_id TEXT")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_photo_root ON photo(root_id)")
         db.execSQL("CREATE TABLE IF NOT EXISTS meta (k TEXT PRIMARY KEY, v TEXT)")
+        if (oldVersion < 5 && "place" in cols) db.execSQL("UPDATE photo SET place = NULL")
     }
 
     private fun existingColumns(db: SQLiteDatabase, table: String): Set<String> {
@@ -61,13 +74,19 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         return cols
     }
 
+    /** Wijs nog niet-toegewezen rijen (uit een oudere één-index-versie) toe aan [rootId]. */
+    fun claimUnassigned(rootId: String) {
+        val cv = ContentValues().apply { put("root_id", rootId) }
+        writableDatabase.update("photo", cv, "root_id IS NULL", null)
+    }
+
     /**
-     * Upsert per foto. Crucial: bij een bestaande rij werken we de data-kolommen bij maar laten we
-     * [PhotoRow.place] met rust (een crawl levert nooit een place; die zet de geocode-pass apart) —
-     * anders zou een her-crawl het zojuist gegeocodete label weer wissen. Nieuwe rijen worden
-     * ingevoegd inclusief place. (Geen SQLite-UPSERT-syntax: niet beschikbaar < API 30 / minSdk 26.)
+     * Upsert per foto onder map [rootId]. Crucial: bij een bestaande rij werken we de data-kolommen
+     * bij maar laten we [PhotoRow.place] met rust (een crawl levert nooit een place; die zet de
+     * geocode-pass apart) — anders zou een her-crawl het zojuist gegeocodete label weer wissen.
+     * Nieuwe rijen worden ingevoegd inclusief place. (Geen SQLite-UPSERT: < API 30 / minSdk 26.)
      */
-    fun upsertAll(rows: List<PhotoRow>) {
+    fun upsertAll(rootId: String, rows: List<PhotoRow>) {
         if (rows.isEmpty()) return
         with(writableDatabase) {
             beginTransaction()
@@ -82,6 +101,7 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
                         put("path", r.path)
                         if (r.lat != null) put("lat", r.lat) else putNull("lat")
                         if (r.lon != null) put("lon", r.lon) else putNull("lon")
+                        put("root_id", rootId)
                     }
                     val updated = update("photo", data, "id = ?", arrayOf(r.id))
                     if (updated == 0) {
@@ -116,17 +136,14 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         }
     }
 
-    fun count(): Int = readableDatabase.rawQuery("SELECT COUNT(*) FROM photo", null).use {
-        if (it.moveToFirst()) it.getInt(0) else 0
-    }
+    fun count(rootId: String): Int =
+        readableDatabase.rawQuery("SELECT COUNT(*) FROM photo WHERE root_id = ?", arrayOf(rootId)).use {
+            if (it.moveToFirst()) it.getInt(0) else 0
+        }
 
-    fun countWithDescription(): Int = readableDatabase.rawQuery(
-        "SELECT COUNT(*) FROM photo WHERE description IS NOT NULL AND description <> ''", null
-    ).use { if (it.moveToFirst()) it.getInt(0) else 0 }
-
-    fun allIds(): List<String> {
+    fun allIds(rootId: String): List<String> {
         val ids = ArrayList<String>()
-        readableDatabase.rawQuery("SELECT id FROM photo", null).use {
+        readableDatabase.rawQuery("SELECT id FROM photo WHERE root_id = ?", arrayOf(rootId)).use {
             while (it.moveToNext()) ids.add(it.getString(0))
         }
         return ids
@@ -138,20 +155,20 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         }
     }
 
-    fun allPhotos(): List<PhotoRow> {
+    fun allPhotos(rootId: String): List<PhotoRow> {
         val out = ArrayList<PhotoRow>()
-        readableDatabase.rawQuery("SELECT $PHOTO_COLS FROM photo", null).use {
+        readableDatabase.rawQuery("SELECT $PHOTO_COLS FROM photo WHERE root_id = ?", arrayOf(rootId)).use {
             while (it.moveToNext()) out.add(it.toPhotoRow())
         }
         return out
     }
 
-    /** Foto's met GPS maar nog zonder geocodet [PhotoRow.place] — input voor de geocode-pass. */
-    fun photosNeedingPlace(): List<PhotoRow> {
+    /** Foto's (in map [rootId]) met GPS maar nog zonder geocodet [PhotoRow.place]. */
+    fun photosNeedingPlace(rootId: String): List<PhotoRow> {
         val out = ArrayList<PhotoRow>()
         readableDatabase.rawQuery(
-            "SELECT $PHOTO_COLS FROM photo WHERE lat IS NOT NULL AND lon IS NOT NULL AND place IS NULL",
-            null,
+            "SELECT $PHOTO_COLS FROM photo WHERE root_id = ? AND lat IS NOT NULL AND lon IS NOT NULL AND place IS NULL",
+            arrayOf(rootId),
         ).use { while (it.moveToNext()) out.add(it.toPhotoRow()) }
         return out
     }
@@ -184,12 +201,12 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
         writableDatabase.insertWithOnConflict("meta", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
     }
 
-    var deltaLink: String?
-        get() = getMeta("delta_link")
-        set(value) = setMeta("delta_link", value)
+    // Delta-token per map.
+    fun deltaLinkFor(rootId: String): String? = getMeta("delta_link:$rootId")
+    fun setDeltaLink(rootId: String, value: String?) = setMeta("delta_link:$rootId", value)
 
-    /** Wis index + deltaLink (bv. bij een andere gekozen map). */
-    fun clearIndex() {
+    /** Alles wissen (bij loskoppelen). Wisselen van map doet dit níét meer. */
+    fun clearAll() {
         with(writableDatabase) {
             execSQL("DELETE FROM photo")
             execSQL("DELETE FROM meta")

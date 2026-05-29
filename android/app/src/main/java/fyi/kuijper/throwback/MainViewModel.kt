@@ -89,8 +89,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             sync.state.collect { s ->
                 if (navFlow.value is Nav.Preparing && s.indexed > 0) startShowFromIndex()
                 if (wasSyncing && !s.syncing && slideshow.hasPlaylist) {
-                    val ids = withContext(Dispatchers.IO) { db.allIds() }
-                    slideshow.appendIds(ids)
+                    val root = store.folderId
+                    if (root != null) {
+                        val ids = withContext(Dispatchers.IO) { db.allIds(root) }
+                        slideshow.appendIds(ids)
+                    }
                 }
                 wasSyncing = s.syncing
             }
@@ -194,10 +197,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         viewModelScope.launch {
+            // Index per map behouden: niets wissen. We resetten alleen de lopende show + sync zodat
+            // ze de nieuwe map oppakken; bestaande index van die map wordt direct hergebruikt en met
+            // delta bijgewerkt, anders een verse crawl.
             sync.cancel()
             store.folderId = id
             store.folderName = name
-            withContext(Dispatchers.IO) { db.clearIndex() }
             slideshow.reset()
             sync.reset()
             startShow()
@@ -215,7 +220,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (folderId != null) sync.ensure(folderId)
                 return@launch
             }
-            val photos = withContext(Dispatchers.IO) { db.allPhotos() }
+            val photos = if (folderId != null) withContext(Dispatchers.IO) { db.allPhotos(folderId) } else emptyList()
             if (photos.isEmpty()) {
                 navFlow.value = Nav.Preparing
                 if (folderId != null) sync.ensure(folderId)
@@ -235,7 +240,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 navFlow.value = Nav.Showing
                 return@launch
             }
-            val photos = withContext(Dispatchers.IO) { db.allPhotos() }
+            val root = store.folderId ?: return@launch
+            val photos = withContext(Dispatchers.IO) { db.allPhotos(root) }
             if (photos.isEmpty()) return@launch
             slideshow.start(photos, settings.shuffle)
             navFlow.value = Nav.Showing
@@ -300,7 +306,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         slideshow.reset()
         sync.reset()
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { db.clearIndex() }
+            withContext(Dispatchers.IO) { db.clearAll() }
             session.clear()
             navFlow.value = Nav.Connect
         }

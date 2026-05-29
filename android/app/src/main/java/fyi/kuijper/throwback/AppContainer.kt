@@ -30,7 +30,7 @@ class AppContainer(app: Application) {
     val graph = GraphClient(session::accessToken)
 
     private val media = GraphMedia(session::accessToken)
-    private val graphSync = GraphSync(db, session::accessToken)
+    private val graphSync = GraphSync(session::accessToken)
     private val placeResolver = PlaceResolver(app)
 
     val slideshow = SlideshowEngine(app, db, media, scope) { settings.slideSeconds }
