@@ -41,6 +41,7 @@ import fyi.kuijper.throwback.ui.theme.SpaceL
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceXl
 import fyi.kuijper.throwback.ui.theme.TvScreen
+import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -66,6 +67,7 @@ fun SettingsScreen(
         ) {
           Column(Modifier.widthIn(max = ContentMaxWidth)) {
             ScreenHeader(title = "Instellingen")
+            IndexStatus(state)
             Spacer(Modifier.height(SpaceL))
             SecondsRow(
                 seconds = state.slideSeconds,
@@ -109,6 +111,23 @@ fun SettingsScreen(
           }
         }
     }
+}
+
+/** Subtiel statusregeltje onder de titel: hoeveel foto's geïndexeerd zijn en of er bijgewerkt wordt. */
+@Composable
+private fun IndexStatus(state: UiState.Settings) {
+    if (state.indexed == 0 && !state.indexing) return
+    val count = String.format(Locale("nl", "NL"), "%,d", state.indexed)
+    val text = when {
+        state.indexing -> "Bibliotheek bijwerken… $count foto's"
+        state.syncError != null -> "$count foto's · laatste verversing mislukt"
+        else -> "$count foto's geïndexeerd"
+    }
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

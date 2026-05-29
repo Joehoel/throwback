@@ -69,7 +69,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             syncing = syncS.syncing,
             offlineHint = slide.offlineHint,
         )
-        is Nav.SettingsOpen -> UiState.Settings(set.slideSeconds, set.shuffle, set.captionEnabled)
+        is Nav.SettingsOpen -> UiState.Settings(
+            slideSeconds = set.slideSeconds,
+            shuffle = set.shuffle,
+            captionEnabled = set.captionEnabled,
+            indexed = syncS.indexed,
+            indexing = syncS.syncing,
+            syncError = syncS.lastError,
+        )
         is Nav.Failed -> UiState.Error(nav.message)
     }
 

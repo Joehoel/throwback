@@ -38,7 +38,14 @@ sealed interface UiState {
         val syncing: Boolean,
         val offlineHint: Boolean,
     ) : UiState
-    data class Settings(val slideSeconds: Int, val shuffle: Boolean, val captionEnabled: Boolean) : UiState
+    data class Settings(
+        val slideSeconds: Int,
+        val shuffle: Boolean,
+        val captionEnabled: Boolean,
+        val indexed: Int = 0,
+        val indexing: Boolean = false,
+        val syncError: String? = null,
+    ) : UiState
     data class Error(val message: String) : UiState
 }
 
