@@ -3,6 +3,8 @@
 package fyi.kuijper.throwback.ui.screens
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -17,14 +19,23 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Place
@@ -49,6 +60,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.random.Random
 
 /**
  * Puur de foto-weergave (geen input/bediening): vervaagde achtergrond + scherpe foto +
@@ -62,16 +74,37 @@ fun SlideshowCanvas(
     offlineHint: Boolean,
     paused: Boolean,
     modifier: Modifier = Modifier,
+    slideMillis: Int = 15_000,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
         // Crossfade tussen foto's; de vorige blijft zichtbaar tijdens de overgang (geen zwart).
         Crossfade(targetState = imageUrl, animationSpec = tween(1500), label = "foto") { url ->
             if (url != null) {
                 val context = LocalContext.current
-                Box(modifier = Modifier.fillMaxSize()) {
-                    // Wazige, schermvullende achtergrond — vult letterbox-randen. De blur zit in de
-                    // bitmap (BlurTransformation) i.p.v. Modifier.blur, zodat het ook op Android < 12
-                    // (o.a. de KPN-box) werkt.
+
+                // Liggende foto's (breedte ≥ hoogte) vullen het scherm (Crop, geen randen);
+                // staande foto's blijven heel (Fit) op de wazige achtergrond. We kennen de
+                // verhouding pas na het laden, dus we vullen alvast (Crop) en schakelen voor
+                // staande foto's terug naar Fit zodra de afmetingen bekend zijn.
+                var landscape by remember(url) { mutableStateOf<Boolean?>(null) }
+                var boxSize by remember(url) { mutableStateOf(IntSize.Zero) }
+
+                // Per foto één willekeurige, trage Ken Burns-beweging (in-/uitzoomen of pannen),
+                // gezaaid op de URL zodat de keuze stabiel blijft over recomposities. Staande foto's
+                // pannen niet horizontaal (dat oogt raar), dus we kiezen opnieuw zodra de oriëntatie
+                // bekend is — voor liggende foto's geeft dezelfde seed dezelfde keuze, dus geen sprong.
+                val kb = remember(url, landscape) {
+                    randomKenBurns(Random(url.hashCode()), allowHorizontalPan = landscape != false)
+                }
+                val progress = remember(url, landscape) { Animatable(0f) }
+                LaunchedEffect(url, landscape) {
+                    progress.animateTo(1f, tween(durationMillis = slideMillis, easing = LinearEasing))
+                }
+
+                Box(modifier = Modifier.fillMaxSize().onSizeChanged { boxSize = it }) {
+                    // Wazige, schermvullende achtergrond — vult letterbox-randen bij staande foto's.
+                    // De blur zit in de bitmap (BlurTransformation) i.p.v. Modifier.blur, zodat het
+                    // ook op Android < 12 (o.a. de KPN-box) werkt.
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .data(url)
@@ -81,12 +114,28 @@ fun SlideshowCanvas(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    // Scherpe, volledige foto erbovenop.
+                    // Scherpe foto erbovenop, met de Ken Burns-transformatie.
                     AsyncImage(
                         model = url,
                         contentDescription = null,
-                        contentScale = ContentScale.Fit,
-                        modifier = Modifier.fillMaxSize(),
+                        contentScale = if (landscape == false) ContentScale.Fit else ContentScale.Crop,
+                        onSuccess = { landscape = it.result.image.width >= it.result.image.height },
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                val p = progress.value
+                                // Staande foto's starten wat verder ingezoomd zodat ze meer van
+                                // het scherm vullen i.p.v. klein tussen de wazige randen te staan.
+                                val bump = if (landscape == false) 0.18f else 0f
+                                val s = lerp(kb.scaleStart, kb.scaleEnd, p) + bump
+                                scaleX = s
+                                scaleY = s
+                                // Pan binnen de overscan (s - 1), zodat de randen nooit zwart worden.
+                                val overscanX = (s - 1f) * boxSize.width / 2f
+                                val overscanY = (s - 1f) * boxSize.height / 2f
+                                translationX = lerp(kb.panXStart, kb.panXEnd, p) * overscanX
+                                translationY = lerp(kb.panYStart, kb.panYEnd, p) * overscanY
+                            },
                     )
                 }
             }
@@ -105,6 +154,41 @@ fun SlideshowCanvas(
                 color = Color.White,
                 modifier = Modifier.align(Alignment.TopStart).padding(32.dp),
             )
+        }
+    }
+}
+
+/**
+ * Eén Ken Burns-beweging voor een dia: een schaal die van [scaleStart] naar [scaleEnd] loopt en een
+ * pan-fractie (−1..1) van de beschikbare overscan, per as. Schaal 1.0 = precies passend; >1 geeft
+ * ruimte om te pannen zonder zwarte randen.
+ */
+private data class KenBurns(
+    val scaleStart: Float,
+    val scaleEnd: Float,
+    val panXStart: Float,
+    val panXEnd: Float,
+    val panYStart: Float,
+    val panYEnd: Float,
+)
+
+/**
+ * Kies willekeurig één trage beweging: langzaam in-/uitzoomen of pannen. Heel subtiel (~10–16%
+ * beweging over de hele dia), in de stijl van de Google Foto's-screensaver. Horizontaal pannen
+ * doen we alleen als [allowHorizontalPan] aanstaat (uit voor staande foto's, waar het raar oogt).
+ */
+private fun randomKenBurns(r: Random, allowHorizontalPan: Boolean): KenBurns {
+    val z = 0.10f + r.nextFloat() * 0.06f // zoombereik 0.10–0.16
+    return when (r.nextInt(if (allowHorizontalPan) 4 else 3)) {
+        0 -> KenBurns(1.0f, 1.0f + z, 0f, 0f, 0f, 0f) // langzaam inzoomen
+        1 -> KenBurns(1.0f + z, 1.0f, 0f, 0f, 0f, 0f) // langzaam uitzoomen
+        2 -> { // verticaal pannen, vaste schaal
+            val dir = if (r.nextBoolean()) 1f else -1f
+            KenBurns(1.0f + z, 1.0f + z, 0f, 0f, -dir * 0.5f, dir * 0.5f)
+        }
+        else -> { // horizontaal pannen, vaste schaal (alleen liggende foto's)
+            val dir = if (r.nextBoolean()) 1f else -1f
+            KenBurns(1.0f + z, 1.0f + z, -dir * 0.6f, dir * 0.6f, 0f, 0f)
         }
     }
 }
