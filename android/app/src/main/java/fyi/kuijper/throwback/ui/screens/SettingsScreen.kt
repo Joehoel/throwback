@@ -117,9 +117,15 @@ fun SettingsScreen(
 @Composable
 private fun IndexStatus(state: UiState.Settings) {
     if (state.indexed == 0 && !state.indexing) return
-    val count = String.format(Locale("nl", "NL"), "%,d", state.indexed)
+    fun fmt(n: Int) = String.format(Locale("nl", "NL"), "%,d", n)
+    val count = fmt(state.indexed)
     val text = when {
-        state.indexing -> "Bibliotheek bijwerken… $count foto's"
+        // Volledige crawl met bekend totaal: toon "verwerkt / totaal".
+        state.indexing && state.processed > 0 && state.indexed > state.processed ->
+            "Indexeren… ${fmt(state.processed)} / $count foto's"
+        // Eerste crawl (nog geen totaal bekend): toon enkel het lopende aantal.
+        state.indexing && state.processed > 0 -> "Indexeren… ${fmt(state.processed)} foto's"
+        state.indexing -> "Bibliotheek bijwerken…"
         state.syncError != null -> "$count foto's · laatste verversing mislukt"
         else -> "$count foto's geïndexeerd"
     }

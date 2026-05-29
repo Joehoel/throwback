@@ -43,6 +43,7 @@ sealed interface UiState {
         val shuffle: Boolean,
         val captionEnabled: Boolean,
         val indexed: Int = 0,
+        val processed: Int = 0,
         val indexing: Boolean = false,
         val syncError: String? = null,
     ) : UiState

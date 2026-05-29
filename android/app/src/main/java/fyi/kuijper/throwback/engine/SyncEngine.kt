@@ -70,6 +70,8 @@ class SyncEngine(
                 geocodeJob.join()
                 geocode(withContext(Dispatchers.IO) { db.photosNeedingPlace() })
 
+                // Volledige crawl klaar: 'processed' nullen, zodat de delta-lus geen oude X/Y toont.
+                _state.value = _state.value.copy(processed = 0)
                 // Periodieke incrementele verversing.
                 while (isActive) {
                     delay(REFRESH_INTERVAL_MS)

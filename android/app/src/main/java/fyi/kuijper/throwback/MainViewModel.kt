@@ -74,6 +74,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             shuffle = set.shuffle,
             captionEnabled = set.captionEnabled,
             indexed = syncS.indexed,
+            processed = syncS.processed,
             indexing = syncS.syncing,
             syncError = syncS.lastError,
         )
