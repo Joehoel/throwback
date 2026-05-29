@@ -30,8 +30,14 @@ object PhotoParser {
             } else null,
             taken = photo?.optString("takenDateTime")?.ifBlank { null },
             path = folderPath,
+            lat = item.optJSONObject("location")?.coord("latitude"),
+            lon = item.optJSONObject("location")?.coord("longitude"),
         )
     }
+
+    /** Eén GPS-coördinaat uit de location-facet, of null als die ontbreekt. */
+    private fun JSONObject.coord(key: String): Double? =
+        if (has(key)) optDouble(key).takeIf { !it.isNaN() } else null
 
     /** Laatste padsegment = de gebeurtenis-map (bijv. "Bruiloft Anne & Tom"). */
     fun eventFromPath(path: String): String =

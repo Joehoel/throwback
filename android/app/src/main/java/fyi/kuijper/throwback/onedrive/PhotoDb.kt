@@ -2,10 +2,11 @@ package fyi.kuijper.throwback.onedrive
 
 import android.content.ContentValues
 import android.content.Context
+import android.database.Cursor
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-/** Eén geïndexeerde foto uit de bibliotheek. */
+/** Eén geïndexeerde foto uit de bibliotheek. [lat]/[lon] = GPS uit de fotometadata, indien aanwezig. */
 data class PhotoRow(
     val id: String,
     val name: String,
@@ -14,6 +15,8 @@ data class PhotoRow(
     val description: String?,
     val taken: String?,
     val path: String,
+    val lat: Double? = null,
+    val lon: Double? = null,
 )
 
 /**
@@ -21,13 +24,13 @@ data class PhotoRow(
  * Handgeschreven SQLite i.p.v. Room — zelfde rol, geen KSP/annotation-processing.
  * Alle calls horen op een achtergrond-thread te draaien (ViewModel doet dat via IO).
  */
-class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "throwback.db", null, 1) {
+class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "throwback.db", null, 2) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             "CREATE TABLE photo (" +
                 "id TEXT PRIMARY KEY, name TEXT, event TEXT, year INTEGER, " +
-                "description TEXT, taken TEXT, path TEXT)"
+                "description TEXT, taken TEXT, path TEXT, lat REAL, lon REAL)"
         )
         db.execSQL("CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT)")
     }
@@ -52,6 +55,8 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
                         if (r.description != null) put("description", r.description) else putNull("description")
                         if (r.taken != null) put("taken", r.taken) else putNull("taken")
                         put("path", r.path)
+                        if (r.lat != null) put("lat", r.lat) else putNull("lat")
+                        if (r.lon != null) put("lon", r.lon) else putNull("lon")
                     }
                     insertWithOnConflict("photo", null, cv, SQLiteDatabase.CONFLICT_REPLACE)
                 }
@@ -96,44 +101,30 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
     }
 
     fun get(id: String): PhotoRow? {
-        readableDatabase.rawQuery(
-            "SELECT id,name,event,year,description,taken,path FROM photo WHERE id = ?",
-            arrayOf(id),
-        ).use {
-            if (!it.moveToFirst()) return null
-            return PhotoRow(
-                id = it.getString(0),
-                name = it.getString(1),
-                event = it.getString(2),
-                year = if (it.isNull(3)) null else it.getInt(3),
-                description = if (it.isNull(4)) null else it.getString(4),
-                taken = if (it.isNull(5)) null else it.getString(5),
-                path = it.getString(6),
-            )
+        readableDatabase.rawQuery("SELECT $PHOTO_COLS FROM photo WHERE id = ?", arrayOf(id)).use {
+            return if (it.moveToFirst()) it.toPhotoRow() else null
         }
     }
 
     fun allPhotos(): List<PhotoRow> {
         val out = ArrayList<PhotoRow>()
-        readableDatabase.rawQuery(
-            "SELECT id,name,event,year,description,taken,path FROM photo", null,
-        ).use {
-            while (it.moveToNext()) {
-                out.add(
-                    PhotoRow(
-                        id = it.getString(0),
-                        name = it.getString(1),
-                        event = it.getString(2),
-                        year = if (it.isNull(3)) null else it.getInt(3),
-                        description = if (it.isNull(4)) null else it.getString(4),
-                        taken = if (it.isNull(5)) null else it.getString(5),
-                        path = it.getString(6),
-                    )
-                )
-            }
+        readableDatabase.rawQuery("SELECT $PHOTO_COLS FROM photo", null).use {
+            while (it.moveToNext()) out.add(it.toPhotoRow())
         }
         return out
     }
+
+    private fun Cursor.toPhotoRow() = PhotoRow(
+        id = getString(0),
+        name = getString(1),
+        event = getString(2),
+        year = if (isNull(3)) null else getInt(3),
+        description = if (isNull(4)) null else getString(4),
+        taken = if (isNull(5)) null else getString(5),
+        path = getString(6),
+        lat = if (isNull(7)) null else getDouble(7),
+        lon = if (isNull(8)) null else getDouble(8),
+    )
 
     var deltaLink: String?
         get() = readableDatabase.rawQuery("SELECT v FROM meta WHERE k = 'delta_link'", null).use {
@@ -153,5 +144,9 @@ class PhotoDb(context: Context) : SQLiteOpenHelper(context.applicationContext, "
             execSQL("DELETE FROM photo")
             execSQL("DELETE FROM meta")
         }
+    }
+
+    private companion object {
+        const val PHOTO_COLS = "id,name,event,year,description,taken,path,lat,lon"
     }
 }

@@ -66,6 +66,25 @@ class PhotoParserTest {
     }
 
     @Test
+    fun `pakt GPS-coordinaten uit de location-facet`() {
+        val json = item(
+            """{"id":"L","name":"x.jpg","file":{"mimeType":"image/jpeg"},
+               "location":{"latitude":51.9225,"longitude":4.47917,"altitude":12.0}}"""
+        )
+        val row = PhotoParser.toPhotoRow("/x", json)!!
+        assertEquals(51.9225, row.lat!!, 1e-6)
+        assertEquals(4.47917, row.lon!!, 1e-6)
+    }
+
+    @Test
+    fun `geen location-facet levert lat en lon null`() {
+        val json = item("""{"id":"M","name":"y.jpg","file":{"mimeType":"image/jpeg"}}""")
+        val row = PhotoParser.toPhotoRow("/x", json)!!
+        assertNull(row.lat)
+        assertNull(row.lon)
+    }
+
+    @Test
     fun `lege of ontbrekende beschrijving wordt null, niet leeg`() {
         val blank = item("""{"id":"F","name":"a.jpg","description":"  ","file":{"mimeType":"image/jpeg"}}""")
         val missing = item("""{"id":"G","name":"b.jpg","file":{"mimeType":"image/jpeg"}}""")

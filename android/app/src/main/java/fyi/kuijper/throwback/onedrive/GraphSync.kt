@@ -40,7 +40,7 @@ class GraphSync(
 
     /** Alle children van een map, paginatie afgehandeld. */
     private suspend fun fetchAllChildren(folderId: String): List<JSONObject> {
-        val select = "id,name,description,folder,file,photo,parentReference"
+        val select = "id,name,description,folder,file,photo,location,parentReference"
         var url = "$base/me/drive/items/$folderId/children?%24select=$select&%24top=200"
         val out = ArrayList<JSONObject>()
         while (true) {
