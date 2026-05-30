@@ -31,7 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
@@ -61,8 +61,8 @@ fun SlideshowScreen(
     val showFocus = remember { FocusRequester() }
     val barFocus = remember { FocusRequester() }
 
-    // Up opens the control bar (see onKeyEvent). Back closes the bar, or exits the app if the bar
-    // is already hidden.
+    // Down opens the control bar (see onPreviewKeyEvent). Back closes the bar, or exits the app if the
+    // bar is already hidden.
     BackHandler(enabled = true) {
         if (controlsVisible) controlsVisible = false else onExitApp()
     }
@@ -84,10 +84,15 @@ fun SlideshowScreen(
             .background(Color.Black)
             .focusRequester(showFocus)
             .focusable()
-            .onKeyEvent { e ->
-                if (controlsVisible || e.type != KeyEventType.KeyDown) return@onKeyEvent false
-                when (e.key) {
-                    Key.DirectionUp -> { controlsVisible = true; true }
+            // Down opens the control bar; Down again closes it (Back does too). While the bar is open
+            // the other keys fall through to its buttons. onPreviewKeyEvent (top-down) so this outer
+            // Box catches Down before a focused bar button consumes it as a focus move.
+            .onPreviewKeyEvent { e ->
+                if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                if (controlsVisible) {
+                    if (e.key == Key.DirectionDown) { controlsVisible = false; true } else false
+                } else when (e.key) {
+                    Key.DirectionDown -> { controlsVisible = true; true }
                     Key.DirectionLeft -> { onPrev(); true }
                     Key.DirectionRight -> { onNext(); true }
                     Key.DirectionCenter, Key.Enter -> { onTogglePause(); true }
