@@ -79,3 +79,24 @@ positionele cursor-mapping. Daarom terug naar het oorspronkelijke plan: **Room**
 - **Clusteren per gebeurtenis** (`GeoCluster`): foto's van dezelfde gebeurtenis binnen één grove cel
   (~111 m) delen één opzoeking — O(gebeurtenissen) i.p.v. O(foto's). De gebeurtenis in de clustersleutel
   voorkomt dat verschillende gebeurtenissen op één plaats-label worden geveegd.
+
+## Update 4 (2026-05-30) — shuffle als *bag* i.p.v. vaste geschudde lijst
+
+De afspeellijst was een vooraf-geschudde lijst + `currentIndex` (zie de oorspronkelijke beslissing
+hierboven). Dat botste met het incrementeel opbouwen van de index: de crawl levert één map-batch per
+stap, en latere batches konden alleen worden áángeplakt. Gevolg: de show speelde map-voor-map af
+(elke map intern geschud, maar de mappen netjes na elkaar) — de globale shuffle was weg.
+
+- **`ShufflePlaylist` is nu een shuffle-bag.** Foto's worden één voor één willekeurig getrokken uit een
+  pool van nog-niet-getoonde ids. Is de pool leeg, dan begint een nieuwe ronde (de hele collectie schudt
+  opnieuw), dus de loop herhaalt nooit dezelfde volgorde, en de eerste foto van een nieuwe ronde is nooit
+  de net getoonde (geen directe herhaling op de naad).
+- **Groei is triviaal.** `append` laat nieuwe ids gewoon in de pool van de huidige ronde vallen, waar ze
+  meteen even waarschijnlijk getrokken worden als al het andere — de shuffle blijft globaal terwijl de
+  bibliotheek binnenstroomt. Geen interleave-truc meer nodig.
+- **Prefetch klopt nu exact.** Een kleine vooruit-getrokken buffer (`upcoming`) voedt het prefetch-venster
+  én bepaalt wat `next()` daarna teruggeeft, in precies die volgorde — we warmen dus de échte volgende
+  foto's, niet een voorspelling.
+- **`previous()` loopt terug door een `history`** (geclamped aan het sessiebegin; er is niets vóór de
+  start). De history is begrensd (`MAX_HISTORY`) zodat een dagenlange show 'm niet onbeperkt laat groeien.
+- **`ordered` (chronologisch, shuffle uit) blijft een lineaire lijst met wrap-around** — ongewijzigd.
