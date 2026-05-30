@@ -1,5 +1,7 @@
 package fyi.kuijper.throwback.onedrive
 
+import fyi.kuijper.throwback.core.HomeCountryCode
+
 /**
  * Pure (Android-free) composition of the place caption from address fields, so it is unit-testable on
  * its own. See [PlaceResolver] for the Geocoder side.
@@ -18,7 +20,7 @@ object PlaceLabel {
         adminArea: String?,
         countryName: String?,
         countryCode: String?,
-        homeCountryCode: String = "NL",
+        homeCountryCode: String = HomeCountryCode,
     ): String? {
         val road = thoroughfare.trimToNull()?.takeUnless { it.lowercase() in JUNK_STREETS }
         val street = road?.let { r -> subThoroughfare.trimToNull()?.let { "$r $it" } ?: r }

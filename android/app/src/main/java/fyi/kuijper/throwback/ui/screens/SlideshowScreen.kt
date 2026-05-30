@@ -44,6 +44,9 @@ import fyi.kuijper.throwback.UiState
 import fyi.kuijper.throwback.ui.components.ActionButton
 import fyi.kuijper.throwback.ui.theme.SpaceM
 
+/** How long the control bar stays up after the last interaction before auto-hiding. */
+private const val CONTROLS_HIDE_DELAY_MS = 8_000L
+
 @Composable
 fun SlideshowScreen(
     state: UiState.Show,
@@ -68,7 +71,7 @@ fun SlideshowScreen(
     LaunchedEffect(controlsVisible) {
         if (controlsVisible) {
             runCatching { barFocus.requestFocus() }
-            kotlinx.coroutines.delay(8000)
+            kotlinx.coroutines.delay(CONTROLS_HIDE_DELAY_MS)
             controlsVisible = false
         } else {
             runCatching { showFocus.requestFocus() }

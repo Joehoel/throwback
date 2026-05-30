@@ -142,7 +142,7 @@ class SlideshowEngine(
 
     private suspend fun urlFor(id: String): String? =
         urlCache[id] ?: media.thumbnailUrl(id)?.also {
-            if (urlCache.size > 2000) urlCache.clear()
+            if (urlCache.size > MAX_CACHED_URLS) urlCache.clear()
             urlCache[id] = it
         }
 
@@ -156,5 +156,10 @@ class SlideshowEngine(
                 loader.enqueue(ImageRequest.Builder(appContext).data(url).build())
             }
         }
+    }
+
+    private companion object {
+        // Evict the whole thumbnail-URL cache past this size; URLs are cheap to re-fetch.
+        const val MAX_CACHED_URLS = 2000
     }
 }

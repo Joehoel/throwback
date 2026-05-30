@@ -46,6 +46,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Icon
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import fyi.kuijper.throwback.core.AppLocale
 import fyi.kuijper.throwback.onedrive.PhotoRow
 import fyi.kuijper.throwback.ui.components.BlurTransformation
 import fyi.kuijper.throwback.ui.theme.SpaceM
@@ -53,7 +54,6 @@ import fyi.kuijper.throwback.ui.theme.SpaceS
 import fyi.kuijper.throwback.ui.theme.SpaceXs
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 import kotlin.random.Random
 
 /**
@@ -215,7 +215,7 @@ private fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
     }
 }
 
-private val dutchDate = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("nl", "NL"))
+private val dutchDate = DateTimeFormatter.ofPattern("d MMMM yyyy", AppLocale)
 
 /**
  * Exact capture date from [PhotoRow.taken] (ISO like "2009-08-15T…") in NL format. Uses only the

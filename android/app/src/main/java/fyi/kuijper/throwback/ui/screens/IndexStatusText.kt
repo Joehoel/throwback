@@ -1,7 +1,7 @@
 package fyi.kuijper.throwback.ui.screens
 
 import fyi.kuijper.throwback.UiState
-import java.util.Locale
+import fyi.kuijper.throwback.core.AppLocale
 
 /**
  * The status line under the Settings title: how many photos are indexed and whether a sync is running.
@@ -9,7 +9,7 @@ import java.util.Locale
  */
 fun indexStatusText(state: UiState.Settings): String? {
     if (state.indexed == 0 && !state.indexing) return null
-    fun fmt(n: Int) = String.format(Locale("nl", "NL"), "%,d", n)
+    fun fmt(n: Int) = String.format(AppLocale, "%,d", n)
     val count = fmt(state.indexed)
     return when {
         state.indexing && state.processed > 0 && state.indexed > state.processed ->

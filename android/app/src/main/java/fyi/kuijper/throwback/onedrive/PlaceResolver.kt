@@ -5,6 +5,8 @@ import android.location.Address
 import android.location.Geocoder
 import android.os.Build
 import androidx.annotation.RequiresApi
+import fyi.kuijper.throwback.core.AppLocale
+import fyi.kuijper.throwback.core.HomeCountryCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -24,8 +26,8 @@ import kotlin.coroutines.resumeWithException
  */
 class PlaceResolver(
     context: Context,
-    private val locale: Locale = Locale("nl", "NL"),
-    private val homeCountryCode: String = "NL",
+    private val locale: Locale = AppLocale,
+    private val homeCountryCode: String = HomeCountryCode,
 ) {
     private val appContext = context.applicationContext
     // "" = looked up but nothing usable (negative cache), so we stop retrying.

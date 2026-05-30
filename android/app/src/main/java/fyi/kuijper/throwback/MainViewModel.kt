@@ -226,17 +226,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun closeSettings() = resumeShow()
 
-    /** Central error handling: expired connection → re-login; otherwise a clean message. */
+    /** Central error handling: an expired connection also tears down the session so 'Retry' re-logs in. */
     private fun handleError(e: Throwable) {
         if (e is OneDriveAuth.ReauthRequired) {
             session.invalidate() // forces NeedsConnect on 'Retry'
             connectJob?.cancel()
             slideshow.stop()
             sync.cancel()
-            navFlow.value = Nav.Failed("Je OneDrive-koppeling is verlopen. Kies 'Opnieuw' om weer in te loggen.")
-        } else {
-            navFlow.value = Nav.Failed(Errors.message(e))
         }
+        navFlow.value = Nav.Failed(Errors.message(e))
     }
 
     fun retry() {
