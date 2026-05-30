@@ -20,7 +20,8 @@ import org.json.JSONObject
  */
 class GraphSync(
     private val http: GraphHttp,
-    private val readCaption: (ByteArray) -> String? = ExifCaption::parse,
+    private val descriptions: DescriptionResolver =
+        DescriptionResolver({ id -> http.getBytes("/me/drive/items/$id/content", HEAD_BYTES) }),
 ) {
     private val select = "id,name,description,folder,file,photo,location,parentReference"
 
@@ -81,18 +82,11 @@ class GraphSync(
         return Changes(enrichDescriptions(rows), deleted, newDelta)
     }
 
-    /** Vul ontbrekende beschrijvingen aan uit ingebedde fotometadata (begrensde parallelliteit). */
+    /** Vul de Beschrijving per foto aan via [DescriptionResolver] (begrensde parallelle content-GET's). */
     private suspend fun enrichDescriptions(rows: List<PhotoRow>): List<PhotoRow> = coroutineScope {
         val gate = Semaphore(MAX_CONCURRENT_HEADS)
         rows.map { r ->
-            if (!r.description.isNullOrBlank()) async { r }
-            else async {
-                gate.withPermit {
-                    val caption = runCatching { http.getBytes("/me/drive/items/${r.id}/content", HEAD_BYTES) }
-                        .getOrNull()?.let(readCaption)
-                    if (caption != null) r.copy(description = caption) else r
-                }
-            }
+            async { gate.withPermit { r.copy(description = descriptions.resolve(r.description, r.id)) } }
         }.awaitAll()
     }
 
