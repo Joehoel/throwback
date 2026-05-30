@@ -28,13 +28,12 @@ class AppContainer(app: Application) {
     val store = TokenStore(app)
     val session = Session(store)
     val db = PhotoDb(app)
-    val graph = GraphClient(session::accessToken)
-
-    // Eén gedeeld Graph-transport (token, retry, foutvertaling). Voorlopig alleen GraphMedia migreert
-    // hierheen; GraphClient/GraphSync volgen in dezelfde refactor.
+    // Eén gedeeld Graph-transport (token, retry, paginatie, foutvertaling) onder alle Graph-modules.
     private val graphHttp = OkHttpGraphHttp(session::accessToken)
+    val graph = GraphClient(graphHttp)
+
     private val media = GraphMedia(graphHttp)
-    private val graphSync = GraphSync(session::accessToken)
+    private val graphSync = GraphSync(graphHttp)
     private val placeResolver = PlaceResolver(app)
 
     val slideshow = SlideshowEngine(app, db, media, scope) { settings.slideSeconds }
