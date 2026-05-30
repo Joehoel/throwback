@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -31,6 +32,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
@@ -40,6 +42,7 @@ import fyi.kuijper.throwback.UiState
 import fyi.kuijper.throwback.ui.components.ActionButton
 import fyi.kuijper.throwback.ui.components.LoadingRow
 import fyi.kuijper.throwback.ui.components.ScreenHeader
+import fyi.kuijper.throwback.ui.components.TvSpinner
 import fyi.kuijper.throwback.ui.components.WideRow
 import fyi.kuijper.throwback.ui.theme.ContentMaxWidth
 import fyi.kuijper.throwback.ui.theme.SpaceL
@@ -57,18 +60,22 @@ fun FolderPickerScreen(
     onCancel: () -> Unit,
 ) {
     val canActOnFolder = state.path.size > 1
-    // Back: go up in the path, or (when entered from the show) cancel back to the show.
-    BackHandler(enabled = canActOnFolder || state.canCancel) {
-        if (canActOnFolder) onBack() else onCancel()
+    // Back: ignored while preparing; else go up in the path, or (from the show) cancel back to it.
+    BackHandler(enabled = state.preparing || canActOnFolder || state.canCancel) {
+        when {
+            state.preparing -> {} // the show appears as soon as the first photos arrive
+            canActOnFolder -> onBack()
+            else -> onCancel()
+        }
     }
 
     val chooseFocus = remember { FocusRequester() }
     val listFirstFocus = remember { FocusRequester() }
-    // After each (re)load, place focus sensibly: in a subfolder on "Kies deze map" (the likely
-    // action), at the root on the first row of the list.
-    LaunchedEffect(state.path, state.loading, state.folders, state.suggestions) {
+    // After each (re)load, place focus sensibly: on the choose button while preparing or in a subfolder
+    // (the likely action), else at the root on the first row of the list.
+    LaunchedEffect(state.path, state.loading, state.folders, state.suggestions, state.preparing) {
         if (state.loading) return@LaunchedEffect
-        val target = if (canActOnFolder) chooseFocus else listFirstFocus
+        val target = if (canActOnFolder || state.preparing) chooseFocus else listFirstFocus
         runCatching { target.requestFocus() }
     }
     // horizontalPadding = 0: the LazyColumn fills the full width and clips there; rows are capped at
@@ -81,21 +88,27 @@ fun FolderPickerScreen(
                     title = "Kies de fotomap",
                     subtitle = state.path.joinToString("  ›  ") { it.name },
                 )
-                if (canActOnFolder || state.canCancel) {
-                    Spacer(Modifier.height(SpaceL))
-                    Row(horizontalArrangement = Arrangement.spacedBy(SpaceM)) {
-                        if (canActOnFolder) {
-                            ActionButton(
-                                "Kies deze map",
-                                Icons.Default.Check,
-                                onSelect,
-                                modifier = Modifier.focusRequester(chooseFocus),
-                                primary = true,
-                            )
-                            ActionButton("Terug", Icons.AutoMirrored.Filled.ArrowBack, onBack)
-                        }
-                        if (state.canCancel) {
-                            ActionButton("Annuleren", Icons.Default.Close, onCancel)
+                when {
+                    state.preparing -> {
+                        Spacer(Modifier.height(SpaceL))
+                        PreparingButton(Modifier.focusRequester(chooseFocus))
+                    }
+                    canActOnFolder || state.canCancel -> {
+                        Spacer(Modifier.height(SpaceL))
+                        Row(horizontalArrangement = Arrangement.spacedBy(SpaceM)) {
+                            if (canActOnFolder) {
+                                ActionButton(
+                                    "Kies deze map",
+                                    Icons.Default.Check,
+                                    onSelect,
+                                    modifier = Modifier.focusRequester(chooseFocus),
+                                    primary = true,
+                                )
+                                ActionButton("Terug", Icons.AutoMirrored.Filled.ArrowBack, onBack)
+                            }
+                            if (state.canCancel) {
+                                ActionButton("Annuleren", Icons.Default.Close, onCancel)
+                            }
                         }
                     }
                 }
@@ -116,13 +129,24 @@ fun FolderPickerScreen(
                 }
                 else -> FolderAndSuggestionList(
                     state = state,
-                    onOpen = onOpen,
-                    onSelectSuggestion = onSelectSuggestion,
+                    // Freeze navigation while preparing; focus sits on the loading button.
+                    onOpen = { if (!state.preparing) onOpen(it) },
+                    onSelectSuggestion = { if (!state.preparing) onSelectSuggestion(it) },
                     firstFocus = listFirstFocus,
                     upTarget = if (canActOnFolder) chooseFocus else null,
                 )
             }
         }
+    }
+}
+
+/** The "Kies deze map" button turned into a loading state while the first photos are fetched. */
+@Composable
+private fun PreparingButton(modifier: Modifier = Modifier) {
+    Button(onClick = {}, modifier = modifier) {
+        TvSpinner(size = 20.dp, strokeWidth = 2.dp)
+        Spacer(Modifier.width(SpaceM))
+        Text("Map voorbereiden…", style = MaterialTheme.typography.labelLarge)
     }
 }
 

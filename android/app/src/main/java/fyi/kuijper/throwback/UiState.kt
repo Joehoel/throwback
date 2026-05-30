@@ -25,9 +25,9 @@ sealed interface UiState {
         val suggestions: List<FolderSuggestion>,
         val loading: Boolean,
         val canCancel: Boolean,
+        /** A folder was just chosen; the "Kies deze map" button shows a loading state until photos arrive. */
+        val preparing: Boolean,
     ) : UiState
-    /** Folder just chosen but nothing indexed yet: brief preparation state. */
-    data class Preparing(val folderName: String, val count: Int) : UiState
     /** The running slideshow (the app's "home"). */
     data class Show(
         val photo: PhotoRow?,
@@ -59,9 +59,8 @@ sealed interface Nav {
     data object Booting : Nav
     data object Connect : Nav
     data class ShowingCode(val code: OneDriveAuth.DeviceCode) : Nav
-    /** Marker; the browse state (path/folders/suggestions) lives in [engine.FolderPicker]. */
+    /** Marker; the browse state (path/folders/suggestions/preparing) lives in [engine.FolderPicker]. */
     data object PickingFolder : Nav
-    data object Preparing : Nav
     data object Showing : Nav
     data object SettingsOpen : Nav
     data class Failed(val message: String) : Nav

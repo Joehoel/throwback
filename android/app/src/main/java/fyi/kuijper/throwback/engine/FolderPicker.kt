@@ -32,12 +32,19 @@ class FolderPicker(
         val folders: List<DriveItem> = emptyList(),
         val suggestions: List<FolderSuggestion> = emptyList(),
         val loading: Boolean = false,
+        /** A folder was chosen and we're waiting for its first photos; freezes the picker meanwhile. */
+        val preparing: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
 
     private var loadJob: Job? = null
+
+    /** The coordinator chose a folder: show the loading state until the first photos arrive. */
+    fun markPreparing() {
+        _state.value = _state.value.copy(preparing = true)
+    }
 
     /** Start at the OneDrive root (id null is not selectable, only browsable). */
     fun openRoot() = load(listOf(Crumb(null, "OneDrive")))

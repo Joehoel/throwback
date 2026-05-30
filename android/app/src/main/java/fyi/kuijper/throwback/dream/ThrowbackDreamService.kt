@@ -23,7 +23,6 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import fyi.kuijper.throwback.MainViewModel
 import fyi.kuijper.throwback.UiState
-import fyi.kuijper.throwback.ui.screens.PreparingScreen
 import fyi.kuijper.throwback.ui.screens.SlideshowCanvas
 import fyi.kuijper.throwback.ui.theme.ThrowbackTheme
 
@@ -73,8 +72,7 @@ class ThrowbackDreamService : DreamService(), LifecycleOwner, ViewModelStoreOwne
                             offlineHint = s.offlineHint,
                             paused = false,
                         )
-                        is UiState.Preparing -> PreparingScreen(s)
-                        // Not configured / connect screen: just black in the screensaver.
+                        // Not yet showing (connecting / preparing the index): just black.
                         else -> Box(Modifier.fillMaxSize().background(Color.Black))
                     }
                 }

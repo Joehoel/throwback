@@ -65,9 +65,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         is Nav.Connect -> UiState.NeedsConnect
         is Nav.ShowingCode -> UiState.ShowCode(nav.code)
         is Nav.PickingFolder -> UiState.PickFolder(
-            pick.path, pick.folders, pick.suggestions, pick.loading, canCancel = store.hasFolder,
+            pick.path, pick.folders, pick.suggestions, pick.loading,
+            canCancel = store.hasFolder, preparing = pick.preparing,
         )
-        is Nav.Preparing -> UiState.Preparing(store.folderName ?: "Gekozen map", syncS.processed)
         is Nav.Showing -> UiState.Show(
             photo = slide.photo,
             imageUrl = slide.imageUrl,
@@ -93,7 +93,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // running show directly by the sync engine (onAdded → slideshow.appendIds).
         viewModelScope.launch {
             sync.state.collect { s ->
-                if (navFlow.value is Nav.Preparing && s.indexed > 0) startShowFromIndex()
+                if (s.indexed > 0 && isAwaitingFirstPhotos()) startShowFromIndex()
             }
         }
 
@@ -151,6 +151,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             resumeShow()
             return
         }
+        // Show the loading state on the picker's choose button straight away (no flicker frame).
+        picker.markPreparing()
         viewModelScope.launch {
             // Keep the per-folder index: wipe nothing. Only reset the running show + sync so they pick up
             // the new folder; an existing index for that folder is reused and delta-updated, else a fresh crawl.
@@ -174,7 +176,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             val photos = if (folderId != null) db.allPhotos(folderId) else emptyList()
             if (photos.isEmpty()) {
-                navFlow.value = Nav.Preparing
+                // No index yet → wait for the first photos. From the picker we stay there (its choose
+                // button shows the loading state); otherwise show the quiet loading frame.
+                if (navFlow.value !is Nav.PickingFolder) navFlow.value = Nav.Booting
                 if (folderId != null) sync.ensure(folderId)
                 return@launch
             }
@@ -184,10 +188,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Background sync reported the first photos while preparing → start the show. */
+    /** Are we on a screen that's waiting for the first photos to appear (picker-prepare or boot)? */
+    private fun isAwaitingFirstPhotos(): Boolean = when (val nav = navFlow.value) {
+        is Nav.Booting -> true
+        is Nav.PickingFolder -> picker.state.value.preparing
+        else -> false
+    }
+
+    /** Background sync reported the first photos while we were waiting → start the show. */
     private fun startShowFromIndex() {
         viewModelScope.launch {
-            if (navFlow.value !is Nav.Preparing) return@launch
+            if (!isAwaitingFirstPhotos()) return@launch
             if (slideshow.hasPlaylist) {
                 navFlow.value = Nav.Showing
                 return@launch

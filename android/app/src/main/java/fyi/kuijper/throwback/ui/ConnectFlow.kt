@@ -8,7 +8,6 @@ import fyi.kuijper.throwback.ui.screens.ConnectScreen
 import fyi.kuijper.throwback.ui.screens.ErrorScreen
 import fyi.kuijper.throwback.ui.screens.FolderPickerScreen
 import fyi.kuijper.throwback.ui.screens.LoadingScreen
-import fyi.kuijper.throwback.ui.screens.PreparingScreen
 import fyi.kuijper.throwback.ui.screens.SettingsScreen
 import fyi.kuijper.throwback.ui.screens.SlideshowScreen
 
@@ -36,7 +35,6 @@ fun ConnectFlow(
             onSelectSuggestion = vm::selectSuggestion,
             onCancel = vm::cancelFolderPick,
         )
-        is UiState.Preparing -> PreparingScreen(state)
         is UiState.Show -> SlideshowScreen(
             state = state,
             onNext = vm::nextPhoto,

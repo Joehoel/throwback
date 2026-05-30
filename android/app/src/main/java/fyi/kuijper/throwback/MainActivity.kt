@@ -38,8 +38,8 @@ class MainActivity : ComponentActivity() {
                     val state by vm.state.collectAsState()
                     var showHint by remember { mutableStateOf(!appSettings.screensaverHintShown) }
 
-                    // One-time hint after setup, before the show, only if the device can configure screensavers.
-                    val configured = state is UiState.Show || state is UiState.Preparing
+                    // One-time hint once the show is running, only if the device can configure screensavers.
+                    val configured = state is UiState.Show
                     if (showHint && configured && screensaverConfigurable) {
                         ScreensaverHintScreen(
                             onOpenSettings = {
