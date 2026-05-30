@@ -21,13 +21,29 @@ class Playlist private constructor(
     val current: String? get() = order.getOrNull(index)
     val size: Int get() = order.size
 
-    /** Append photos without disturbing the current position; already-present ids are ignored. */
+    /**
+     * Add photos without disturbing the current position; already-present ids are ignored.
+     *
+     * When shuffling, fresh ids are mixed through the not-yet-shown tail (each lands at a uniformly
+     * random spot after the cursor) rather than clustered at the end. The crawl streams in one batch
+     * per folder, so a plain tail-append would play folder-by-folder; interleaving keeps the shuffle
+     * global as folders arrive. Items already behind the cursor are left alone — they've been shown.
+     */
     fun append(ids: List<String>) {
         if (ids.isEmpty()) return
         val existing = HashSet(_order)
         val fresh = ids.filterNot { existing.contains(it) }
         if (fresh.isEmpty()) return
-        _order.addAll(if (shuffleNew && random != null) fresh.shuffled(random) else fresh)
+        val rng = random
+        if (shuffleNew && rng != null) {
+            for (id in fresh) {
+                val upcoming = _order.size - index // insertable slots in index+1..size
+                val pos = if (upcoming <= 0) _order.size else index + 1 + rng.nextInt(upcoming)
+                _order.add(pos, id)
+            }
+        } else {
+            _order.addAll(fresh)
+        }
     }
 
     /**
