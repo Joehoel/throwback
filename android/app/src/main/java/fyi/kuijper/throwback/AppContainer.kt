@@ -6,6 +6,7 @@ import fyi.kuijper.throwback.engine.SyncEngine
 import fyi.kuijper.throwback.onedrive.GraphClient
 import fyi.kuijper.throwback.onedrive.GraphMedia
 import fyi.kuijper.throwback.onedrive.GraphSync
+import fyi.kuijper.throwback.onedrive.OkHttpGraphHttp
 import fyi.kuijper.throwback.onedrive.PhotoDb
 import fyi.kuijper.throwback.onedrive.PlaceResolver
 import fyi.kuijper.throwback.onedrive.Session
@@ -29,7 +30,10 @@ class AppContainer(app: Application) {
     val db = PhotoDb(app)
     val graph = GraphClient(session::accessToken)
 
-    private val media = GraphMedia(session::accessToken)
+    // Eén gedeeld Graph-transport (token, retry, foutvertaling). Voorlopig alleen GraphMedia migreert
+    // hierheen; GraphClient/GraphSync volgen in dezelfde refactor.
+    private val graphHttp = OkHttpGraphHttp(session::accessToken)
+    private val media = GraphMedia(graphHttp)
     private val graphSync = GraphSync(session::accessToken)
     private val placeResolver = PlaceResolver(app)
 
