@@ -58,9 +58,10 @@ fun SlideshowScreen(
     val showFocus = remember { FocusRequester() }
     val barFocus = remember { FocusRequester() }
 
-    // Terug: eerst de bedieningsbalk tonen; nog een keer Terug sluit de app.
+    // Omhoog opent de bedieningsbalk (zie onKeyEvent). Terug sluit de balk weer, of — als die al
+    // verborgen is — sluit de app.
     BackHandler(enabled = true) {
-        if (controlsVisible) onExitApp() else controlsVisible = true
+        if (controlsVisible) controlsVisible = false else onExitApp()
     }
 
     // Balk verbergt zichzelf na een tijdje inactiviteit; focus terug naar de show.
@@ -83,6 +84,7 @@ fun SlideshowScreen(
             .onKeyEvent { e ->
                 if (controlsVisible || e.type != KeyEventType.KeyDown) return@onKeyEvent false
                 when (e.key) {
+                    Key.DirectionUp -> { controlsVisible = true; true }
                     Key.DirectionLeft -> { onPrev(); true }
                     Key.DirectionRight -> { onNext(); true }
                     Key.DirectionCenter, Key.Enter -> { onTogglePause(); true }

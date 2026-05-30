@@ -27,6 +27,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.unit.dp
@@ -60,6 +61,16 @@ fun FolderPickerScreen(
     BackHandler(enabled = canActOnFolder || state.canCancel) {
         if (canActOnFolder) onBack() else onCancel()
     }
+
+    val chooseFocus = remember { FocusRequester() }
+    val listFirstFocus = remember { FocusRequester() }
+    // Na elke (her)laadbeurt de focus zinnig plaatsen: in een submap meteen op "Kies deze map"
+    // (de meest waarschijnlijke actie), op de hoofdmap op de eerste rij in de lijst.
+    LaunchedEffect(state.path, state.loading, state.folders, state.suggestions) {
+        if (state.loading) return@LaunchedEffect
+        val target = if (canActOnFolder) chooseFocus else listFirstFocus
+        runCatching { target.requestFocus() }
+    }
     // horizontalPadding = 0: de LazyColumn vult de volle breedte en clipt daarop; de rijen worden op
     // ContentMaxWidth gecapt + gecentreerd, zodat de focus-schaal niet tegen de clip-rand afkapt.
     TvScreen(horizontalPadding = 0.dp) {
@@ -74,7 +85,13 @@ fun FolderPickerScreen(
                     Spacer(Modifier.height(SpaceL))
                     Row(horizontalArrangement = Arrangement.spacedBy(SpaceM)) {
                         if (canActOnFolder) {
-                            ActionButton("Kies deze map", Icons.Default.Check, onSelect, primary = true)
+                            ActionButton(
+                                "Kies deze map",
+                                Icons.Default.Check,
+                                onSelect,
+                                modifier = Modifier.focusRequester(chooseFocus),
+                                primary = true,
+                            )
                             ActionButton("Terug", Icons.AutoMirrored.Filled.ArrowBack, onBack)
                         }
                         if (state.canCancel) {
@@ -97,7 +114,13 @@ fun FolderPickerScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                else -> FolderAndSuggestionList(state, onOpen, onSelectSuggestion)
+                else -> FolderAndSuggestionList(
+                    state = state,
+                    onOpen = onOpen,
+                    onSelectSuggestion = onSelectSuggestion,
+                    firstFocus = listFirstFocus,
+                    upTarget = if (canActOnFolder) chooseFocus else null,
+                )
             }
         }
     }
@@ -118,15 +141,20 @@ private fun FolderAndSuggestionList(
     state: UiState.PickFolder,
     onOpen: (Crumb) -> Unit,
     onSelectSuggestion: (FolderSuggestion) -> Unit,
+    firstFocus: FocusRequester,
+    upTarget: FocusRequester?,
 ) {
-    val first = remember { FocusRequester() }
-    LaunchedEffect(state.suggestions, state.folders) { runCatching { first.requestFocus() } }
     // De lijst vult de volle breedte en clipt daarop; de rijen worden gecapt en gecentreerd zodat
     // de focus-schaal (1.1×) ruimte heeft binnen de clip i.p.v. tegen de rand afgekapt te worden.
     // De verticale contentPadding geeft de bovenste/onderste rij dezelfde ruimte.
     val rowWidth = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth()
+    // De bovenste rij stuurt "omhoog" expliciet naar de Kies-knop, anders kiest de focus-zoeker
+    // geometrisch de dichtstbijzijnde (rechtse) knop i.p.v. de bedoelde linker.
+    val firstRowMod = rowWidth.focusRequester(firstFocus).let {
+        if (upTarget != null) it.focusProperties { up = upTarget } else it
+    }
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().focusRestorer { first },
+        modifier = Modifier.fillMaxWidth().focusRestorer { firstFocus },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(SpaceS),
         contentPadding = PaddingValues(vertical = SpaceS),
@@ -134,7 +162,7 @@ private fun FolderAndSuggestionList(
         if (state.suggestions.isNotEmpty()) {
             item { SectionLabel("Voorgesteld", rowWidth) }
             items(state.suggestions) { s ->
-                val mod = if (s == state.suggestions.first()) rowWidth.focusRequester(first) else rowWidth
+                val mod = if (s == state.suggestions.first()) firstRowMod else rowWidth
                 WideRow(
                     title = s.name,
                     icon = Icons.Default.PhotoLibrary,
@@ -148,7 +176,7 @@ private fun FolderAndSuggestionList(
             item { SectionLabel("Mappen", rowWidth) }
             items(state.folders) { item ->
                 val isFirstFocusable = state.suggestions.isEmpty() && item == state.folders.first()
-                val mod = if (isFirstFocusable) rowWidth.focusRequester(first) else rowWidth
+                val mod = if (isFirstFocusable) firstRowMod else rowWidth
                 WideRow(
                     title = item.name,
                     icon = Icons.Default.Folder,

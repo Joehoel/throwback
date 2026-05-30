@@ -2,6 +2,7 @@
 
 package fyi.kuijper.throwback.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -55,6 +56,8 @@ fun SettingsScreen(
     screensaverConfigurable: Boolean,
 ) {
     val focus = rememberInitialFocus()
+    // Terug brengt je naar de fotoshow terug — niet de app uit.
+    BackHandler { onClose() }
     // horizontalPadding = 0: de scroll-container vult de volle schermbreedte en clipt daarop, terwijl
     // de inhoud op ContentMaxWidth gecapt + gecentreerd wordt. Zo heeft de focus-schaal (1.1×) ruimte
     // binnen de clip i.p.v. afgekapt te worden — de overscan-marge zit nu in de (lege) centreerruimte.
