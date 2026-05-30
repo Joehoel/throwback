@@ -9,9 +9,8 @@ import okhttp3.Request
 import org.json.JSONObject
 
 /**
- * OAuth 2.0 device authorization grant tegen het persoonlijke Microsoft-account.
- * Dezelfde flow die we in spike/verify_description.py bewezen: er is geen MSAL-SDK
- * nodig — twee HTTP-calls (devicecode + token) plus refresh.
+ * OAuth 2.0 device authorization grant against the personal Microsoft account. No MSAL SDK needed —
+ * two HTTP calls (devicecode + token) plus refresh.
  */
 object OneDriveAuth {
     const val CLIENT_ID = "0bb9b8c8-a9e6-475d-b44f-74521e46aaf1"
@@ -34,10 +33,10 @@ object OneDriveAuth {
         val expiresAtMillis: Long,
     )
 
-    /** De refresh-token is ongeldig/verlopen: de gebruiker moet opnieuw inloggen. */
+    /** The refresh token is invalid/expired: the user must log in again. */
     class ReauthRequired(message: String) : Exception(message)
 
-    /** Stap 1: vraag een gebruikerscode aan om op de telefoon in te voeren. */
+    /** Step 1: request a user code to enter on the phone. */
     suspend fun startDeviceCode(): DeviceCode = withContext(Dispatchers.IO) {
         val body = FormBody.Builder()
             .add("client_id", CLIENT_ID)
@@ -57,7 +56,7 @@ object OneDriveAuth {
         }
     }
 
-    /** Stap 2: poll tot de gebruiker inlogt. Geeft tokens terug of gooit een fout. */
+    /** Step 2: poll until the user logs in. Returns tokens or throws. */
     suspend fun pollForTokens(dc: DeviceCode): Tokens = withContext(Dispatchers.IO) {
         var intervalMs = dc.intervalSeconds * 1000L
         while (true) {
@@ -73,7 +72,7 @@ object OneDriveAuth {
             }
             if (json.has("access_token")) return@withContext json.toTokens()
             when (json.optString("error")) {
-                "authorization_pending" -> {} // gewoon doorpollen
+                "authorization_pending" -> {} // keep polling
                 "slow_down" -> intervalMs += 5000L
                 else -> error(json.optString("error_description", "inloggen mislukt"))
             }
@@ -82,7 +81,7 @@ object OneDriveAuth {
         throw IllegalStateException("unreachable")
     }
 
-    /** Verleng een verlopen access token met de bewaarde refresh token. */
+    /** Renew an expired access token using the stored refresh token. */
     suspend fun refresh(refreshToken: String): Tokens = withContext(Dispatchers.IO) {
         val body = FormBody.Builder()
             .add("grant_type", "refresh_token")
@@ -107,7 +106,7 @@ object OneDriveAuth {
         return Tokens(
             accessToken = getString("access_token"),
             refreshToken = if (has("refresh_token")) getString("refresh_token") else null,
-            // 60s marge zodat we niet net op de grens een verlopen token gebruiken.
+            // 60s margin so we don't use a token right as it expires.
             expiresAtMillis = System.currentTimeMillis() + (expiresIn - 60) * 1000,
         )
     }

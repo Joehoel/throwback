@@ -3,9 +3,8 @@ package fyi.kuijper.throwback.onedrive
 import android.content.Context
 
 /**
- * App-privé opslag van de refresh token en de gekozen hoofdmap.
- * v1: gewone SharedPreferences (sandboxed per app). Later hardenen met
- * EncryptedSharedPreferences — zie PRD "Open punten".
+ * App-private storage of the refresh token and chosen root folder. v1: plain SharedPreferences
+ * (sandboxed per app). To be hardened later with EncryptedSharedPreferences — see PRD "Open punten".
  */
 class TokenStore(context: Context) {
     private val prefs = context.applicationContext

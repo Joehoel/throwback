@@ -44,7 +44,6 @@ import androidx.tv.material3.Text
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceS
 
-/** Begininfocus: maakt een FocusRequester en vraagt focus aan zodra het scherm verschijnt. */
 @Composable
 fun rememberInitialFocus(): FocusRequester {
     val requester = remember { FocusRequester() }
@@ -52,7 +51,6 @@ fun rememberInitialFocus(): FocusRequester {
     return requester
 }
 
-/** Consistente schermkop: titel + optionele subtitel in de juiste typografierollen. */
 @Composable
 fun ScreenHeader(
     title: String,
@@ -72,7 +70,6 @@ fun ScreenHeader(
     }
 }
 
-/** Actieknop met een leading icon + label. [primary] kiest tussen gevulde en outline-knop. */
 @Composable
 fun ActionButton(
     label: String,
@@ -94,9 +91,8 @@ fun ActionButton(
 }
 
 /**
- * Volledige, focusbare rij met een leading-element + titel + optionele subtitel.
- * Eigen Surface-rij (niet WideButton) zodat de hoogte met de inhoud meegroeit en de
- * subtitel nooit afkapt; de tekst erft de content-kleur die op focus mee-flipt.
+ * Own Surface row (not WideButton) so the height grows with the content and the subtitle never
+ * clips; the text inherits the content color, which flips on focus.
  */
 @Composable
 private fun SurfaceRow(
@@ -135,7 +131,6 @@ private fun SurfaceRow(
     }
 }
 
-/** Maprij: folder-icoon + naam + aantal subitems. */
 @Composable
 fun WideRow(
     title: String,
@@ -149,7 +144,6 @@ fun WideRow(
     }
 }
 
-/** Instellingsrij met een Switch als leading affordance (focusbaar via de hele rij). */
 @Composable
 fun SwitchRow(
     title: String,
@@ -163,7 +157,7 @@ fun SwitchRow(
     }
 }
 
-/** Eenvoudige indeterminate spinner (tv-material levert geen progress-indicator). */
+/** Indeterminate spinner; tv-material ships no progress indicator. */
 @Composable
 fun TvSpinner(
     modifier: Modifier = Modifier,
@@ -195,7 +189,6 @@ fun TvSpinner(
     }
 }
 
-/** Spinner met een tekstlabel ernaast — voor wacht-/laadstaten. */
 @Composable
 fun LoadingRow(label: String, modifier: Modifier = Modifier) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {

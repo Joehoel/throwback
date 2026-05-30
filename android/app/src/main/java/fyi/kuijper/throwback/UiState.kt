@@ -4,19 +4,18 @@ import fyi.kuijper.throwback.onedrive.DriveItem
 import fyi.kuijper.throwback.onedrive.OneDriveAuth
 import fyi.kuijper.throwback.onedrive.PhotoRow
 
-/** Eén map in het navigatiepad van de kiezer (root = id null). */
+/** One folder in the picker's navigation path (root = id null). */
 data class Crumb(val id: String?, val name: String)
 
-/** Een automatisch gevonden fotomap (camera-album / foto's) die we bovenaan aanbieden. */
+/** An auto-detected photo folder (camera album / photos) offered at the top. */
 data class FolderSuggestion(val id: String, val name: String, val childCount: Int)
 
 /**
- * De toestand die een scherm consumeert. Wordt door [MainViewModel] afgeleid uit de
- * navigatie-flow ([Nav]) gecombineerd met de gedeelde engines (slideshow/sync/settings) —
- * de UI hoeft dus niets te weten van die onderliggende state.
+ * The state a screen consumes. Derived by [MainViewModel] from the navigation flow ([Nav]) combined
+ * with the shared engines (slideshow/sync/settings), so the UI knows nothing of that underlying state.
  */
 sealed interface UiState {
-    /** Eerste frame terwijl we (synchroon) al weten dat we gekoppeld zijn maar de index nog laden. */
+    /** First frame while we synchronously know we're connected but the index is still loading. */
     data object Loading : UiState
     data object NeedsConnect : UiState
     data class ShowCode(val code: OneDriveAuth.DeviceCode) : UiState
@@ -27,9 +26,9 @@ sealed interface UiState {
         val loading: Boolean,
         val canCancel: Boolean,
     ) : UiState
-    /** Net een map gekozen maar nog niets geïndexeerd: korte voorbereidingsstaat. */
+    /** Folder just chosen but nothing indexed yet: brief preparation state. */
     data class Preparing(val folderName: String, val count: Int) : UiState
-    /** De draaiende slideshow (de "home" van de app). */
+    /** The running slideshow (the app's "home"). */
     data class Show(
         val photo: PhotoRow?,
         val imageUrl: String?,
@@ -51,16 +50,16 @@ sealed interface UiState {
 }
 
 /**
- * De navigatie-flow van de app: de discrete "waar zijn we"-staat die de [MainViewModel] bezit.
- * Bewust losgekoppeld van [UiState] zodat de transities op één plek (de coördinator) zitten en
- * de doorlopende engine-state (foto, sync-voortgang, instellingen) er apart in gecombineerd wordt.
+ * The app's navigation flow: the discrete "where are we" state owned by [MainViewModel]. Deliberately
+ * decoupled from [UiState] so transitions live in one place (the coordinator), with the ongoing engine
+ * state (photo, sync progress, settings) combined in separately.
  */
 sealed interface Nav {
-    /** Synchroon bepaald bij start: we zijn gekoppeld, index wordt geladen → toont [UiState.Loading]. */
+    /** Determined synchronously at start: connected, index loading → shows [UiState.Loading]. */
     data object Booting : Nav
     data object Connect : Nav
     data class ShowingCode(val code: OneDriveAuth.DeviceCode) : Nav
-    /** Marker; de bladertoestand (pad/mappen/voorstellen) leeft in [engine.FolderPicker]. */
+    /** Marker; the browse state (path/folders/suggestions) lives in [engine.FolderPicker]. */
     data object PickingFolder : Nav
     data object Preparing : Nav
     data object Showing : Nav

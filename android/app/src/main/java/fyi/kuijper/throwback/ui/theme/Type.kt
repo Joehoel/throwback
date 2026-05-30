@@ -7,8 +7,8 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Typography
 
-// TV-typografieschaal: ruimer dan mobiel zodat alles vanaf ~3 m leesbaar is.
-// Alles in sp zodat de tekstschaling van het systeem gerespecteerd wordt.
+// TV type scale: larger than mobile so everything stays legible from ~3 m.
+// All sizes in sp so the system text scaling is respected.
 @OptIn(ExperimentalTvMaterial3Api::class)
 val Typography = Typography(
     displayLarge = TextStyle(

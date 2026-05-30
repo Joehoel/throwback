@@ -40,7 +40,7 @@ fun CodeScreen(state: UiState.ShowCode) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(SpaceXl),
         ) {
-            // QR-code: wit kader zodat hij ook op de donkere achtergrond scanbaar blijft.
+            // White frame keeps the QR code scannable against the dark background.
             if (qr != null) {
                 Image(
                     bitmap = qr,

@@ -21,15 +21,14 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
 /**
- * De achtergrond-indexering, **per gekozen map**. Bij de eerste keer (of na een logica-upgrade) een
- * volledige `children`-crawl; daarna een goedkope delta-lus die periodiek alleen wijzigingen ophaalt.
- * Elke map houdt z'n eigen index, delta-token en reconcile-vlag, zodat wisselen niets weggooit.
+ * Per-folder background indexing. First run (or after a logic upgrade) does a full `children` crawl;
+ * thereafter a cheap delta loop periodically fetches only changes. Each folder keeps its own index,
+ * delta token and reconcile flag, so switching folders discards nothing.
  *
- * Geocoden is **ontkoppeld van de crawl**: de crawl schrijft alleen rijen weg (zodat afspelen meteen
- * kan starten), en het reverse-geocoden draait daarna als aparte, parallelle pass die de plaats-labels
- * op de achtergrond invult terwijl de show al loopt. Voortgang ([State.processed]) telt per
- * geïndexeerde foto, ongeacht de geocode-stap. Fouten staan in [State.lastError] i.p.v. stil geslikt;
- * de show draait door op wat al geïndexeerd is.
+ * Geocoding is decoupled from the crawl: the crawl only writes rows (so playback can start at once),
+ * and reverse-geocoding then runs as a separate parallel pass off the crawl critical path, filling in
+ * place labels while the show is already running. Errors surface in [State.lastError] instead of being
+ * swallowed; the show keeps running on whatever is already indexed.
  */
 class SyncEngine(
     private val db: PhotoDao,
@@ -50,7 +49,7 @@ class SyncEngine(
 
     private var job: Job? = null
 
-    /** Start de indexering voor [folderId] als er nog geen loopt. Idempotent. */
+    /** Idempotent: starts indexing for [folderId] only if none is already running. */
     fun ensure(folderId: String) {
         if (job?.isActive == true) return
         _state.value = State(syncing = true, processed = 0)
@@ -61,7 +60,7 @@ class SyncEngine(
                 if (needsFullCrawl(folderId)) {
                     var processed = 0
                     sync.crawl(folderId) { rows ->
-                        db.upsertAll(folderId, rows) // geocoden gebeurt los, na de crawl
+                        db.upsertAll(folderId, rows) // geocoding runs separately, after the crawl
                         processed += rows.size
                         _state.value = _state.value.copy(processed = processed, indexed = db.count(folderId))
                     }
@@ -71,13 +70,10 @@ class SyncEngine(
                     }
                 }
 
-                // Reverse-geocode alle foto's met GPS die nog geen plaats hebben — als parallelle pass
-                // náást de lopende show, niet op het kritieke pad van de crawl.
                 geocode(db.photosNeedingPlace(folderId))
 
                 _state.value = _state.value.copy(syncing = false, processed = 0, indexed = db.count(folderId))
 
-                // Periodieke incrementele verversing.
                 while (isActive) {
                     delay(REFRESH_INTERVAL_MS)
                     incrementalRefresh(folderId)
@@ -116,10 +112,9 @@ class SyncEngine(
     }
 
     /**
-     * Reverse-geocode de foto's met GPS en schrijf het plaats-label terug. We clusteren eerst per
-     * gebeurtenis + grove cel ([GeoCluster]): één opzoeking per cluster, label naar alle leden. De
-     * clusters lopen parallel ([MAX_CONCURRENT_GEOCODES] tegelijk); foto's zonder GPS of met een al
-     * ingevuld label vallen weg. Een mislukte opzoeking laat de cluster ongemoeid (volgende pass).
+     * Reverse-geocode photos with GPS and write back the place label. Clustered by event + coarse cell
+     * ([GeoCluster]): one lookup per cluster, label applied to all members. Clusters run in parallel
+     * ([MAX_CONCURRENT_GEOCODES] at a time). A failed lookup leaves its cluster untouched for the next pass.
      */
     private suspend fun geocode(rows: List<PhotoRow>) {
         val located = rows.filter { it.lat != null && it.lon != null && it.place == null }
@@ -154,7 +149,7 @@ class SyncEngine(
     private companion object {
         const val REFRESH_INTERVAL_MS = 10 * 60 * 1000L
         const val MAX_CONCURRENT_GEOCODES = 6
-        // Verhoog om bij de volgende start één volledige her-crawl per map af te dwingen.
+        // Bump to force one full re-crawl per folder on next start.
         const val RECONCILE_TAG = "v4-exif-place"
     }
 }

@@ -30,7 +30,7 @@ import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceXl
 import fyi.kuijper.throwback.ui.theme.TvScreen
 
-/** Eenmalige hint na de setup: stel Throwback in als systeem-screensaver. */
+/** One-time post-setup hint to set Throwback as the system screensaver. */
 @Composable
 fun ScreensaverHintScreen(onOpenSettings: () -> Unit, onLater: () -> Unit) {
     val focus = rememberInitialFocus()

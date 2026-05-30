@@ -14,14 +14,13 @@ import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * De map-kiezer: laat de gebruiker door de OneDrive-mappenboom bladeren en de **Hoofdmap** kiezen die
- * de app voortaan volgt. Bezit alleen de bladertoestand (pad + submappen + voorstellen) en kent enkel
- * [GraphClient] — niets van de [TokenStore], de engines of de navigatie. Wát een keuze betekent
- * (zelfde map → hervatten, andere map → herindexeren) beslist de coördinator ([MainViewModel]); de
- * kiezer levert alleen de gekozen [Crumb].
+ * Lets the user browse the OneDrive folder tree and pick the root folder the app will follow. Owns
+ * only the browse state (path + subfolders + suggestions) and knows only [GraphClient] — nothing of
+ * the TokenStore, the engines or navigation. What a choice means (same folder → resume, other folder
+ * → reindex) is decided by the coordinator ([MainViewModel]); the picker only yields the chosen [Crumb].
  *
- * Intents zijn synchroon (zetten meteen `loading`, dus geen flikkerframe); het ophalen draait op
- * [scope]. Laadfouten gaan naar [onError] zodat de coördinator ze kan routeren (bv. her-inloggen).
+ * Intents are synchronous (set `loading` immediately, so no flicker frame); fetching runs on [scope].
+ * Load errors go to [onError] so the coordinator can route them (e.g. re-login).
  */
 class FolderPicker(
     private val graph: GraphClient,
@@ -40,28 +39,27 @@ class FolderPicker(
 
     private var loadJob: Job? = null
 
-    /** Begin bovenaan: de OneDrive-root (id null is niet kiesbaar, alleen om in te bladeren). */
+    /** Start at the OneDrive root (id null is not selectable, only browsable). */
     fun openRoot() = load(listOf(Crumb(null, "OneDrive")))
 
-    /** Daal af in [crumb] (een submap van het huidige pad). */
     fun open(crumb: Crumb) = load(_state.value.path + crumb)
 
-    /** Eén niveau omhoog; op de root doet dit niets. */
+    /** One level up; no-op at the root. */
     fun back() {
         val path = _state.value.path
         if (path.size > 1) load(path.dropLast(1))
     }
 
-    /** De map waar de gebruiker nu in staat, als die kiesbaar is (niet de root); anders null. */
+    /** The folder the user is currently in, if selectable (not the root); else null. */
     fun chooseCurrent(): Crumb? = _state.value.path.lastOrNull()?.takeIf { it.id != null }
 
     private fun load(path: List<Crumb>) {
-        _state.value = State(path = path, loading = true) // synchroon: meteen 'laden', geen flikker
+        _state.value = State(path = path, loading = true) // synchronous: 'loading' at once, no flicker
         loadJob?.cancel()
         loadJob = scope.launch {
             try {
                 val folders = graph.listFolders(path.last().id)
-                // Voorgestelde fotomappen alleen bovenaan tonen, niet diep in de boom.
+                // Only show suggested photo folders at the top, not deep in the tree.
                 val suggestions = if (path.size == 1) detectSuggestions() else emptyList()
                 _state.value = State(path, folders, suggestions, loading = false)
             } catch (e: CancellationException) {
@@ -72,7 +70,6 @@ class FolderPicker(
         }
     }
 
-    /** Probeert de bekende fotomappen (camera-album / foto's) te vinden; ontbrekende → overslaan. */
     private suspend fun detectSuggestions(): List<FolderSuggestion> {
         val found = LinkedHashMap<String, FolderSuggestion>()
         graph.specialFolder("cameraroll")?.let {

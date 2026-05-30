@@ -12,9 +12,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Bewijst dat de map-kiezer los van [fyi.kuijper.throwback.MainViewModel] testbaar is: gevoed met een
- * nep-[GraphHttp] (dezelfde seam als candidate #1) loopt de hele bladerlogica zonder netwerk of UI.
- * [Dispatchers.Unconfined] draait de fetch-launch synchroon, dus na een intent staat de state meteen.
+ * Proves the folder picker is testable apart from [fyi.kuijper.throwback.MainViewModel]: fed a fake
+ * [GraphHttp], the whole browse logic runs without network or UI. [Dispatchers.Unconfined] runs the
+ * fetch launch synchronously, so the state is set immediately after an intent.
  */
 class FolderPickerTest {
 
@@ -38,7 +38,7 @@ class FolderPickerTest {
             "/me/drive/items/y2019/children?%24select=id,name,folder&%24top=200" to json(
                 """{"value":[{"id":"ev","name":"Bruiloft","folder":{"childCount":5}}]}"""
             ),
-            // cameraroll én photos wijzen naar hetzelfde id → de voorstellen moeten dedupliceren.
+            // cameraroll and photos point at the same id → suggestions must dedupe.
             "/me/drive/special/cameraroll?%24select=id,name,folder" to json(
                 """{"id":"cam","name":"Camera Roll","folder":{"childCount":100}}"""
             ),
@@ -57,8 +57,8 @@ class FolderPickerTest {
 
         val s = picker.state.value
         assertEquals(listOf("OneDrive"), s.path.map { it.name })
-        assertEquals(listOf("2018", "2019"), s.folders.map { it.name }) // op naam gesorteerd
-        assertEquals(listOf("Camera-album"), s.suggestions.map { it.name }) // cameraroll+photos delen id
+        assertEquals(listOf("2018", "2019"), s.folders.map { it.name }) // sorted by name
+        assertEquals(listOf("Camera-album"), s.suggestions.map { it.name }) // cameraroll+photos share id
         assertTrue(!s.loading)
     }
 

@@ -10,32 +10,31 @@ import java.io.ByteArrayOutputStream
 import java.io.InputStream
 
 /**
- * Low-level transport naar Microsoft Graph: bezit de éne OkHttp-client, plakt het Bearer-token,
- * loopt `@odata.nextLink`-paginatie af, vertaalt Graph-fouten naar excepties (incl. 401 →
- * [OneDriveAuth.ReauthRequired]) en wacht 429/503 met `Retry-After` uit. De feature-modules
- * ([GraphClient], [GraphMedia], [GraphSync]) kennen alleen Graph's *resource-vormen* — welke paden,
- * welke `$select`-velden — niet dít transport.
+ * Low-level transport to Microsoft Graph: owns the single OkHttp client, attaches the Bearer token,
+ * walks `@odata.nextLink` pagination, translates Graph errors to exceptions (incl. 401 →
+ * [OneDriveAuth.ReauthRequired]) and honours 429/503 `Retry-After`. The feature modules
+ * ([GraphClient], [GraphMedia], [GraphSync]) only know Graph's resource shapes, not this transport.
  *
- * Het is een interface (niet enkel een class) zodat die feature-modules in tests een nep-transport
- * met ingeblikte JSON krijgen — dezelfde injecteerbare-fetcher-aanpak als [GraphCrawler].
+ * An interface (not just a class) so those feature modules get a fake transport with canned JSON in
+ * tests — same injectable-fetcher approach as [GraphCrawler].
  */
 interface GraphHttp {
     /**
-     * GET de JSON op [pathOrUrl] — relatief t.o.v. de Graph-base (`/me/drive/...`) of een absolute
-     * vervolg-URL (een `@odata.nextLink`/`deltaLink`). Gooit bij élke fout (404 incluis).
+     * GET the JSON at [pathOrUrl] — relative to the Graph base (`/me/drive/...`) or an absolute
+     * continuation URL (`@odata.nextLink`/`deltaLink`). Throws on any error (404 included).
      */
     suspend fun getJson(pathOrUrl: String): JSONObject
 
-    /** Als [getJson], maar geeft `null` bij een 404 (legitiem afwezig) i.p.v. te gooien. */
+    /** Like [getJson], but returns `null` on 404 (legitimately absent) instead of throwing. */
     suspend fun getJsonOrNull(pathOrUrl: String): JSONObject?
 
-    /** Eerste [byteCount] bytes van [pathOrUrl] (Range-request); best-effort, `null` bij mislukken. */
+    /** First [byteCount] bytes of [pathOrUrl] (Range request); best-effort, `null` on failure. */
     suspend fun getBytes(pathOrUrl: String, byteCount: Int): ByteArray?
 
     /**
-     * Loopt `@odata.nextLink` af en geeft elke pagina aan [onPage]. Gebouwd op [getJson], zodat élke
-     * nep-transport deze lus vanzelf meeoefent; de aanroeper haalt zelf `value`/`@odata.deltaLink`
-     * uit elke pagina (de terminale waarde verschilt per aanroeper, dus die blijft zichtbaar bij hem).
+     * Walks `@odata.nextLink`, handing each page to [onPage]. Built on [getJson] so every fake
+     * transport exercises this loop for free; the caller extracts `value`/`@odata.deltaLink` itself
+     * (the terminal value differs per caller).
      */
     suspend fun paginate(firstPathOrUrl: String, onPage: (JSONObject) -> Unit) {
         var url: String? = firstPathOrUrl
@@ -47,7 +46,7 @@ interface GraphHttp {
     }
 }
 
-/** De echte [GraphHttp]: één gedeelde OkHttp-client, token via [accessToken]. */
+/** The real [GraphHttp]: one shared OkHttp client, token via [accessToken]. */
 class OkHttpGraphHttp(
     private val accessToken: suspend () -> String,
     private val base: String = "https://graph.microsoft.com/v1.0",
@@ -71,8 +70,8 @@ class OkHttpGraphHttp(
     }
 
     /**
-     * GET met centrale foutafhandeling: `null` bij 404, [OneDriveAuth.ReauthRequired] bij 401,
-     * 429/503 worden met `Retry-After` opnieuw geprobeerd, overige fouten worden gegooid.
+     * GET with central error handling: `null` on 404, [OneDriveAuth.ReauthRequired] on 401,
+     * 429/503 retried per `Retry-After`, other errors thrown.
      */
     private suspend fun request(pathOrUrl: String): JSONObject? = withContext(Dispatchers.IO) {
         val url = urlOf(pathOrUrl)

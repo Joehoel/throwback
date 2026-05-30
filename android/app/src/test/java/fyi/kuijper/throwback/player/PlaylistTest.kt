@@ -18,7 +18,7 @@ class PlaylistTest {
     @Test
     fun `previous loopt terug en wrapt van eerste naar laatste`() {
         val p = Playlist.ordered(listOf("a", "b", "c"))
-        assertEquals("c", p.previous()) // wrap-around vanaf de eerste
+        assertEquals("c", p.previous()) // wrap-around from the first
         assertEquals("b", p.previous())
     }
 
@@ -26,7 +26,7 @@ class PlaylistTest {
     fun `prefetch-venster geeft buren rondom huidige, gewrapt en zonder huidige`() {
         val p = Playlist.ordered(listOf("a", "b", "c", "d", "e")) // current = a (index 0)
         val window = p.window(ahead = 2, behind = 1)
-        // vooruit: b, c ; terug (gewrapt): e
+        // ahead: b, c ; behind (wrapped): e
         assertEquals(setOf("b", "c", "e"), window.toSet())
     }
 
@@ -35,7 +35,7 @@ class PlaylistTest {
         val ids = (1..50).map { it.toString() }
         val a = Playlist.shuffled(ids, Random(42)).order
         val b = Playlist.shuffled(ids, Random(42)).order
-        assertEquals(ids.toSet(), a.toSet()) // alle items, geen verlies/duplicaat
-        assertEquals(a, b)                    // zelfde seed → zelfde volgorde
+        assertEquals(ids.toSet(), a.toSet()) // all items, no loss/duplicate
+        assertEquals(a, b)                    // same seed → same order
     }
 }

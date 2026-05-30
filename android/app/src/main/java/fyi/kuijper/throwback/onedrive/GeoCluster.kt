@@ -3,16 +3,13 @@ package fyi.kuijper.throwback.onedrive
 import java.util.Locale
 
 /**
- * Groepeert foto's voor het reverse-geocoden. Foto's van dezelfde gebeurtenis liggen ruimtelijk dicht
- * bij elkaar, dus we hoeven het plaats-label maar één keer op te zoeken per (gebeurtenis × grove cel)
- * en delen het over de cluster — O(gebeurtenissen) opzoekingen i.p.v. O(foto's).
- *
- * De grove cel ([PRECISION] decimalen ≈ 111 m) zou tússen gebeurtenissen verschillende straten op één
- * hoop kunnen vegen, maar omdat de gebeurtenis in de sleutel zit blijft elke gebeurtenis z'n eigen
- * opzoeking houden. Pure functie, zodat het gedrag los te testen is.
+ * Groups photos for reverse-geocoding. Photos of the same event sit close together, so the place label
+ * is looked up once per (event x coarse cell) and shared across the cluster — O(events) lookups instead
+ * of O(photos). The event is part of the key, so a coarse cell never merges two different events; pure
+ * function for testability.
  */
 object GeoCluster {
-    /** Aantal decimalen voor de cel-afronding; ~111 m, ruim binnen de spreiding van één gebeurtenis. */
+    /** Decimals for cell rounding; ~111 m, well within the spread of a single event. */
     const val PRECISION = 3
 
     fun keyOf(event: String, lat: Double, lon: Double): String =

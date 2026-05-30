@@ -5,7 +5,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.darkColorScheme
 
-// TV is dark-first: we forceren altijd het donkere schema (geen light variant).
+// TV is dark-first: always force the dark scheme, no light variant.
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun ThrowbackTheme(content: @Composable () -> Unit) {

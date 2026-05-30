@@ -8,15 +8,14 @@ import kotlinx.coroutines.sync.withPermit
 import org.json.JSONObject
 
 /**
- * Praat met Graph (geen DB-kennis — [fyi.kuijper.throwback.engine.SyncEngine] doet de opslag). Twee
- * modi:
- *  - [crawl]   : volledige recursieve `children`-crawl, levert foto's per map-batch aan de aanroeper.
- *  - [refresh] : goedkope incrementele update via een `@odata.deltaLink` (alleen wijzigingen).
+ * Talks to Graph (no DB knowledge — [fyi.kuijper.throwback.engine.SyncEngine] handles storage). Two
+ * modes:
+ *  - [crawl]   : full recursive `children` crawl, delivers photos per folder batch.
+ *  - [refresh] : cheap incremental update via an `@odata.deltaLink` (changes only).
  *
- * Transport (token, retry, paginatie, foutvertaling) zit in [GraphHttp]; hier kennen we alleen de
- * Graph-paden + de resource-vorm. Bijschriften die OneDrive's nieuwe opslag-backend níét meer als
- * `driveItem.description` teruggeeft, halen we uit de *ingebedde* fotometadata: voor elke
- * beschrijvingsloze foto laden we ~32 KB van het bestand en leest [ExifCaption] het eruit (ADR-0004).
+ * Captions that OneDrive's new storage backend no longer returns as `driveItem.description` are read
+ * from the embedded photo metadata: for each description-less photo we load ~32 KB of the file and
+ * [ExifCaption] extracts it (ADR-0004).
  */
 class GraphSync(
     private val http: GraphHttp,
@@ -25,12 +24,12 @@ class GraphSync(
 ) {
     private val select = "id,name,description,folder,file,photo,location,parentReference"
 
-    /** Resultaat van een [refresh]: te upserten foto's, verwijderde id's, en het nieuwe delta-token. */
+    /** Result of a [refresh]: photos to upsert, deleted ids, and the new delta token. */
     data class Changes(val upserts: List<PhotoRow>, val deletedIds: List<String>, val newDeltaLink: String?)
 
     /**
-     * Crawlt [folderId] recursief en levert per map een batch (al verrijkt met EXIF-bijschriften) aan
-     * [onBatch], zodat de aanroeper kan opslaan + voortgang tonen terwijl de crawl doorloopt.
+     * Crawls [folderId] recursively, delivering one batch per folder (already enriched with EXIF
+     * captions) to [onBatch], so the caller can store + show progress while the crawl continues.
      */
     suspend fun crawl(folderId: String, onBatch: suspend (List<PhotoRow>) -> Unit) {
         val crawler = GraphCrawler { id -> fetchAllChildren(id) }
@@ -38,8 +37,8 @@ class GraphSync(
     }
 
     /**
-     * Zet een delta-token voor "nu" zonder de hele map te enumereren (`token=latest`), zodat een
-     * volgende [refresh] alleen wijzigingen sinds dit moment ophaalt.
+     * Establishes a delta token for "now" without enumerating the whole folder (`token=latest`), so
+     * a later [refresh] only fetches changes since this moment.
      */
     suspend fun initDeltaToken(folderId: String): String? {
         var deltaLink: String? = null
@@ -50,9 +49,9 @@ class GraphSync(
     }
 
     /**
-     * Incrementele verversing vanaf [deltaLink]. Delta geeft geen `description`, dus voor elke
-     * gewijzigde foto halen we het volledige item op (mét `description`) en vullen we eventueel uit
-     * EXIF aan. Geeft de wijzigingen + het nieuwe token terug; schrijft zelf niets naar de DB.
+     * Incremental refresh from [deltaLink]. Delta omits `description`, so for each changed photo we
+     * fetch the full item (with `description`) and fall back to EXIF. Returns the changes + new
+     * token; writes nothing to the DB itself.
      */
     suspend fun refresh(deltaLink: String): Changes {
         val changedIds = LinkedHashSet<String>()
@@ -66,7 +65,7 @@ class GraphSync(
                     val mime = o.optJSONObject("file")?.optString("mimeType").orEmpty()
                     when {
                         o.has("deleted") -> deleted.add(id)
-                        o.has("folder") -> {} // mappen slaan we over; hun foto's komen als losse items
+                        o.has("folder") -> {} // skip folders; their photos arrive as separate items
                         o.has("photo") || mime.startsWith("image/") -> changedIds.add(id)
                     }
                 }
@@ -82,7 +81,7 @@ class GraphSync(
         return Changes(enrichDescriptions(rows), deleted, newDelta)
     }
 
-    /** Vul de Beschrijving per foto aan via [DescriptionResolver] (begrensde parallelle content-GET's). */
+    /** Fill in each photo's description via [DescriptionResolver] (bounded parallel content GETs). */
     private suspend fun enrichDescriptions(rows: List<PhotoRow>): List<PhotoRow> = coroutineScope {
         val gate = Semaphore(MAX_CONCURRENT_HEADS)
         rows.map { r ->
@@ -90,7 +89,6 @@ class GraphSync(
         }.awaitAll()
     }
 
-    /** Alle children van een map, paginatie afgehandeld. */
     private suspend fun fetchAllChildren(folderId: String): List<JSONObject> {
         val out = ArrayList<JSONObject>()
         http.paginate("/me/drive/items/$folderId/children?%24select=$select&%24top=200") { page ->

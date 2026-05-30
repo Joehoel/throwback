@@ -1,12 +1,12 @@
 package fyi.kuijper.throwback.onedrive
 
 /**
- * Pure (Android-vrije) tekst-helpers voor het uitlezen van ingebedde bijschriften, los unit-testbaar.
- * [ExifCaption] gebruikt deze bovenop Android's ExifInterface.
+ * Pure (Android-free) text helpers for reading embedded captions, unit-testable on their own.
+ * [ExifCaption] uses these on top of Android's ExifInterface.
  */
 object EmbeddedCaptionText {
 
-    /** Strip control-/NUL-tekens (o.a. de UTF-16 null-terminator), normaliseer witruimte; null bij leeg. */
+    /** Strip control/NUL chars (incl. the UTF-16 null terminator), normalize whitespace; null if empty. */
     fun clean(value: String?): String? = value
         ?.replace(Regex("\\p{Cntrl}"), " ")
         ?.replace(Regex("\\s+"), " ")
@@ -14,8 +14,8 @@ object EmbeddedCaptionText {
         ?.ifBlank { null }
 
     /**
-     * De Windows `XP*`-tags komen uit ExifInterface als komma-gescheiden byte-getallen
-     * (UTF-16LE, null-getermineerd). Decodeer terug naar tekst.
+     * Windows `XP*` tags come out of ExifInterface as comma-separated byte numbers (UTF-16LE,
+     * null-terminated). Decode back to text.
      */
     fun decodeXpString(raw: String?): String? {
         if (raw.isNullOrBlank()) return null
@@ -24,13 +24,12 @@ object EmbeddedCaptionText {
         return clean(runCatching { String(bytes, Charsets.UTF_16LE) }.getOrNull())
     }
 
-    /** Pak `dc:description` (anders `dc:title`) uit een XMP-packet. */
     fun captionFromXmp(xmp: String?): String? {
         if (xmp.isNullOrBlank()) return null
         for (tag in arrayOf("dc:description", "dc:title")) {
             val block = Regex("<$tag[^>]*>(.*?)</$tag>", setOf(RegexOption.DOT_MATCHES_ALL))
                 .find(xmp)?.groupValues?.get(1) ?: continue
-            // Waarde zit vaak in een rdf:Alt/rdf:li; strip alle tags en normaliseer.
+            // Value is often wrapped in rdf:Alt/rdf:li; strip all tags and normalize.
             clean(block.replace(Regex("<[^>]+>"), " "))?.let { return it }
         }
         return null

@@ -15,17 +15,12 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Zet GPS uit de fotometadata om naar een leesbaar bijschrift-label, bij het *indexeren* (niet per
- * weergave). Reverse-geocodet via de ingebouwde [Geocoder] met een cache op (op ~1 m afgeronde)
- * coördinaten, zodat herhaalde opzoekingen van dezelfde locatie gratis zijn. Het clusteren van foto's
- * tot één opzoeking per gebeurtenis gebeurt een laag hoger (zie [GeoCluster] / SyncEngine).
+ * Turns photo GPS into a readable caption label at *index* time (not per display). Reverse-geocodes via
+ * the built-in [Geocoder] with a cache keyed on (~1 m rounded) coordinates, so repeated lookups of the
+ * same location are free. Clustering photos to one lookup per event happens a layer up (see [GeoCluster]).
  *
- * Op Android 13+ gebruikt dit de niet-blokkerende listener-API, zodat de aanroeper meerdere lookups
- * tegelijk kan laten lopen; op oudere toestellen valt het terug op de synchrone API (op een IO-thread).
- *
- * Label: straat (+ huisnummer indien aanwezig), plaats, en het land alleen als het niet
- * [homeCountryCode] is. Zinloze straatwaarden ("Unnamed Road") worden weggelaten; ontbreekt alles,
- * dan null (we tonen dan geen locatie). De labelopbouw zit in [PlaceLabel] — puur en unit-testbaar.
+ * On Android 13+ this uses the non-blocking listener API so the caller can run several lookups at once;
+ * older devices fall back to the synchronous API on an IO thread. Label composition lives in [PlaceLabel].
  */
 class PlaceResolver(
     context: Context,
@@ -33,15 +28,15 @@ class PlaceResolver(
     private val homeCountryCode: String = "NL",
 ) {
     private val appContext = context.applicationContext
-    // "" = opgezocht maar niets bruikbaars (negatieve cache), zodat we niet blijven herproberen.
+    // "" = looked up but nothing usable (negative cache), so we stop retrying.
     private val cache = ConcurrentHashMap<String, String>()
 
     suspend fun resolve(lat: Double, lon: Double): String? {
         if (!Geocoder.isPresent()) return null
         val key = key(lat, lon)
         cache[key]?.let { return it.ifBlank { null } }
-        // Tijdelijke fout (rate-limit / "Service not Available"): niét cachen, zodat een latere pass
-        // het opnieuw probeert. Een geslaagde lookup (incl. "geen adres") cachen we wél.
+        // Transient errors (rate-limit / "Service not Available") are not cached so a later pass retries;
+        // a successful lookup (including "no address") is cached.
         val label = runCatching { addressLabel(lat, lon) }.getOrElse { return null }
         cache[key] = label ?: ""
         return label
@@ -70,8 +65,8 @@ class PlaceResolver(
             })
         }
 
-    // 5 decimalen ≈ 1 m — fijner dan consumenten-GPS, dus de cache dedupt alleen écht identieke
-    // coördinaten (bv. dezelfde foto). Het grovere groeperen per gebeurtenis doet [GeoCluster].
+    // 5 decimals ~= 1 m, finer than consumer GPS, so the cache only dedups truly identical coordinates
+    // (e.g. the same photo). The coarser per-event grouping is done by [GeoCluster].
     private fun key(lat: Double, lon: Double) = "%.5f,%.5f".format(Locale.US, lat, lon)
 
     private fun labelOf(a: Address): String? = PlaceLabel.compose(

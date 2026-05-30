@@ -8,7 +8,7 @@ import org.junit.Test
 
 class GraphSyncTest {
 
-    /** Nep-transport: ingeblikte JSON per URL. `paginate` (interface-default) loopt vanzelf mee. */
+    /** Fake transport: canned JSON per URL. `paginate` (interface default) comes along for free. */
     private class FakeGraphHttp(private val pages: Map<String, JSONObject>) : GraphHttp {
         override suspend fun getJson(pathOrUrl: String): JSONObject =
             pages[pathOrUrl] ?: error("onbekende URL: $pathOrUrl")
@@ -23,20 +23,20 @@ class GraphSyncTest {
     fun `refresh loopt delta-paginatie af, splitst wijzigingen van verwijderingen, en haalt het nieuwe token op`() = runBlocking {
         val http = FakeGraphHttp(
             mapOf(
-                // Pagina 1 van de delta: een gewijzigde foto + een verwijdering, dan nextLink.
+                // Delta page 1: a changed photo + a deletion, then nextLink.
                 "https://g/delta1" to json(
                     """{"value":[
                          {"id":"p1","photo":{}},
                          {"id":"gone","deleted":{}}
                        ],"@odata.nextLink":"https://g/delta2"}"""
                 ),
-                // Pagina 2: nog een gewijzigde foto, en het verse delta-token aan het eind.
+                // Page 2: another changed photo, and the fresh delta token at the end.
                 "https://g/delta2" to json(
                     """{"value":[
                          {"id":"p2","file":{"mimeType":"image/png"}}
                        ],"@odata.deltaLink":"https://g/newtoken"}"""
                 ),
-                // Delta geeft geen description → per gewijzigd item een volledige GET.
+                // Delta omits description → a full GET per changed item.
                 "/me/drive/items/p1?%24select=$select" to json(
                     """{"id":"p1","name":"a.jpg","description":"Dans","file":{"mimeType":"image/jpeg"},
                         "parentReference":{"path":"/drive/root:/F/2019/Bruiloft"}}"""

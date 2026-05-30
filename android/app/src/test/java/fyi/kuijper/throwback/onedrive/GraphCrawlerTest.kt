@@ -11,7 +11,7 @@ class GraphCrawlerTest {
 
     @Test
     fun `crawlt recursief en levert foto's met gebeurtenis en jaar, documenten overslaand`() = runBlocking {
-        // Nep-boom: root → 2019 → Bruiloft → (foto + pdf)
+        // Fake tree: root → 2019 → Bruiloft → (photo + pdf)
         val tree = mapOf(
             "root" to listOf(item("""{"id":"y2019","name":"2019","folder":{"childCount":1}}""")),
             "y2019" to listOf(item("""{"id":"ev","name":"Bruiloft","folder":{"childCount":2}}""")),

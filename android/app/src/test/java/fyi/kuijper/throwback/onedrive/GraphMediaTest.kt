@@ -9,7 +9,7 @@ import org.junit.Test
 
 class GraphMediaTest {
 
-    /** Nep-transport: één lambda bepaalt wat een GET teruggeeft (of `null` = 404). */
+    /** Fake transport: one lambda decides what a GET returns (or `null` = 404). */
     private class FakeGraphHttp(private val onGet: (String) -> JSONObject?) : GraphHttp {
         override suspend fun getJson(pathOrUrl: String): JSONObject =
             onGet(pathOrUrl) ?: error("404 — $pathOrUrl")
@@ -25,15 +25,15 @@ class GraphMediaTest {
 
     @Test
     fun `geeft null als de thumbnail (nog) niet bestaat`() = runBlocking {
-        // 404 → getJsonOrNull geeft null; legitiem afwezig, geen fout.
+        // 404 → getJsonOrNull returns null; legitimately absent, not an error.
         val media = GraphMedia(FakeGraphHttp { null })
         assertNull(media.thumbnailUrl("p1"))
     }
 
     @Test
     fun `slikt een transiente fout niet in maar laat 'm door`() {
-        // De oude GraphMedia gaf bij élke fout null ("geen thumbnail"). Nu propageert een 503,
-        // zodat de aanroeper (SlideshowEngine) bewust kan beslissen te degraderen.
+        // The old GraphMedia returned null on any error. Now a 503 propagates, so the caller
+        // (SlideshowEngine) can deliberately decide to degrade.
         val media = GraphMedia(object : GraphHttp {
             override suspend fun getJson(pathOrUrl: String) = error("Graph-fout 503")
             override suspend fun getJsonOrNull(pathOrUrl: String): JSONObject? = error("Graph-fout 503")

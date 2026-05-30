@@ -10,8 +10,8 @@ import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 
 /**
- * Genereert een QR-code voor [content] als ImageBitmap (zwart op wit, scanbaar ook in dark thema).
- * Cached op (content, sizePx). Geeft null terug als coderen mislukt.
+ * QR code for [content] as an ImageBitmap. Black on white so it stays scannable in a dark theme.
+ * Returns null if encoding fails.
  */
 @Composable
 fun rememberQrBitmap(content: String, sizePx: Int = 512): ImageBitmap? = remember(content, sizePx) {

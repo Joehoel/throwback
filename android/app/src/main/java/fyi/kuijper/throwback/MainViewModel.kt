@@ -16,10 +16,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /**
- * Coördinator: bezit alleen de navigatie-flow ([Nav]) en leidt daaruit — gecombineerd met de
- * gedeelde engines (slideshow/sync/settings) — de [UiState] af. De doorlopende state (afspeellijst,
- * sync-voortgang, instellingen) leeft in de engines uit [AppContainer], niet hier. Zo zit alle
- * mutable state bij de eigenaar ervan en hoeft niets handmatig gesynchroniseerd te worden.
+ * Coordinator: owns only the navigation flow ([Nav]) and derives [UiState] from it, combined with the
+ * shared engines (slideshow/sync/settings). The ongoing state (playlist, sync progress, settings) lives
+ * in the engines from [AppContainer], not here, so all mutable state sits with its owner and nothing
+ * has to be synced by hand.
  */
 class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val container = (app as ThrowbackApp).container
@@ -31,12 +31,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val slideshow: SlideshowEngine = container.slideshow
     private val sync: SyncEngine = container.sync
 
-    // De map-kiezer bezit de bladertoestand; laadfouten routeren we via handleError (her-inloggen e.d.).
+    // Load errors are routed via handleError (re-login etc.).
     private val picker = FolderPicker(graph, viewModelScope, ::handleError)
 
-    // Synchroon bepaald bij start uit SharedPreferences: gekoppeld → Booting (Loading), nooit het
-    // koppelscherm. Dit haalt de flits van het koppelscherm weg die ontstond doordat de oude
-    // beginwaarde NeedsConnect was terwijl de async DB-lees nog liep.
+    // Determined synchronously at start from SharedPreferences: connected → Booting (Loading), never the
+    // connect screen. Avoids the connect-screen flash that occurred when the initial value was
+    // NeedsConnect while the async DB read was still running.
     private val navFlow = MutableStateFlow<Nav>(
         if (store.isConnected) Nav.Booting else Nav.Connect
     )
@@ -89,8 +89,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
-        // Reageer op de achtergrond-sync: start de show zodra de eerste foto's binnen zijn,
-        // en vul de lopende show aan zodra een crawl klaar is.
+        // React to background sync: start the show once the first photos arrive, and append to the
+        // running show once a crawl finishes.
         viewModelScope.launch {
             var wasSyncing = false
             sync.state.collect { s ->
@@ -108,11 +108,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         when {
             store.isConnected && store.hasFolder -> startShow()
             store.isConnected -> openRootFolder()
-            else -> {} // navFlow staat al op Connect
+            else -> {} // navFlow is already on Connect
         }
     }
-
-    // --- Koppelen ---
 
     fun connect() {
         connectJob?.cancel()
@@ -128,21 +126,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    // --- Mapkeuze (behoudt altijd de koppeling) ---
-
-    /** Open de map-kiezer bovenaan; behoudt de koppeling. */
     private fun openRootFolder() {
         navFlow.value = Nav.PickingFolder
         picker.openRoot()
     }
 
-    /** Open de mapkiezer zonder de koppeling te wissen — "Andere map". */
+    /** Open the folder picker without clearing the connection — "Other folder". */
     fun changeFolder() {
         slideshow.stop()
         openRootFolder()
     }
 
-    /** Annuleren in de kiezer: terug naar de show als er al een map is. */
+    /** Cancel in the picker: back to the show if a folder already exists. */
     fun cancelFolderPick() {
         if (store.hasFolder) resumeShow()
     }
@@ -157,7 +152,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         picker.chooseCurrent()?.let(::onFolderChosen)
     }
 
-    /** De gebruiker koos een Hoofdmap. Zelfde map → gewoon hervatten; anders herindexeren op die map. */
+    /** The user chose a root folder. Same folder → resume; otherwise reindex on that folder. */
     private fun onFolderChosen(crumb: Crumb) {
         val id = crumb.id ?: return
         if (id == store.folderId) {
@@ -165,9 +160,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         viewModelScope.launch {
-            // Index per map behouden: niets wissen. We resetten alleen de lopende show + sync zodat
-            // ze de nieuwe map oppakken; bestaande index van die map wordt direct hergebruikt en met
-            // delta bijgewerkt, anders een verse crawl.
+            // Keep the per-folder index: wipe nothing. Only reset the running show + sync so they pick up
+            // the new folder; an existing index for that folder is reused and delta-updated, else a fresh crawl.
             sync.cancel()
             store.folderId = id
             store.folderName = crumb.name
@@ -176,8 +170,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             startShow()
         }
     }
-
-    // --- Slideshow ---
 
     fun startShow() {
         viewModelScope.launch {
@@ -196,11 +188,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
             slideshow.start(photos, settings.shuffle)
             navFlow.value = Nav.Showing
-            if (folderId != null) sync.ensure(folderId) // achtergrond-verversing voor nieuwe foto's
+            if (folderId != null) sync.ensure(folderId) // background refresh for new photos
         }
     }
 
-    /** De achtergrond-sync meldde de eerste foto's terwijl we voorbereidden → start de show. */
+    /** Background sync reported the first photos while preparing → start the show. */
     private fun startShowFromIndex() {
         viewModelScope.launch {
             if (navFlow.value !is Nav.Preparing) return@launch
@@ -216,7 +208,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Hervat de bestaande show (na instellingen / annuleren), of start vers als er nog niets is. */
+    /** Resume the existing show (after settings / cancel), or start fresh if there's nothing yet. */
     private fun resumeShow() {
         if (slideshow.hasPlaylist) {
             slideshow.resume()
@@ -230,26 +222,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun previousPhoto() = slideshow.previous()
     fun togglePause() = slideshow.togglePause()
 
-    // --- Instellingen ---
-
     fun openSettings() {
-        slideshow.stop() // pauzeer de lus zodat hij niet doortelt terwijl we in de instellingen zitten
+        slideshow.stop() // pause the loop so it doesn't keep advancing while in settings
         navFlow.value = Nav.SettingsOpen
     }
 
-    // Schrijven naar [settings] werkt settings.state bij → de gecombineerde UiState volgt vanzelf.
+    // Writing to [settings] updates settings.state → the combined UiState follows automatically.
     fun setSlideSeconds(seconds: Int) { settings.slideSeconds = seconds }
     fun setShuffle(shuffle: Boolean) { settings.shuffle = shuffle }
     fun setCaptionEnabled(enabled: Boolean) { settings.captionEnabled = enabled }
 
     fun closeSettings() = resumeShow()
 
-    // --- Fouten & koppeling ---
-
-    /** Centrale foutafhandeling: verlopen koppeling → opnieuw inloggen; anders nette melding. */
+    /** Central error handling: expired connection → re-login; otherwise a clean message. */
     private fun handleError(e: Throwable) {
         if (e is OneDriveAuth.ReauthRequired) {
-            session.invalidate() // forceert NeedsConnect bij 'Opnieuw'
+            session.invalidate() // forces NeedsConnect on 'Retry'
             connectJob?.cancel()
             slideshow.stop()
             sync.cancel()
@@ -268,7 +256,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Loskoppelen: wist token + map en gaat terug naar het koppelscherm (alleen vanuit Instellingen). */
+    /** Disconnect: wipes token + folder and returns to the connect screen (only from Settings). */
     fun disconnect() {
         connectJob?.cancel()
         slideshow.reset()

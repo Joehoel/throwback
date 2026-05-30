@@ -28,7 +28,7 @@ class PhotoParserTest {
 
     @Test
     fun `jaar komt uit de jaar-map, niet uit EXIF (ingescande foto)`() {
-        // Map zegt 1998, EXIF zegt 2020 (scandatum). De map is leidend (ADR-0002).
+        // Folder says 1998, EXIF says 2020 (scan date). The folder wins (ADR-0002).
         val json = item(
             """{"id":"B","name":"scan.jpg","file":{"mimeType":"image/jpeg"},
                "photo":{"takenDateTime":"2020-03-01T00:00:00Z"}}"""

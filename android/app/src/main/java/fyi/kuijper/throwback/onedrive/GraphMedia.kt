@@ -1,13 +1,12 @@
 package fyi.kuijper.throwback.onedrive
 
 /**
- * Levert een TV-formaat thumbnail-URL voor een foto. Graph maakt thumbnails als
- * JPEG, ongeacht het bronformaat (HEIC/PNG/…), dus dit ondersteunt alle formaten.
- * URL's zijn kortlevend → vlak vóór weergave ophalen, niet bewaren (ADR-0004).
+ * Provides a TV-sized thumbnail URL for a photo. Graph renders thumbnails as JPEG regardless of
+ * source format (HEIC/PNG/…), so all formats are supported. URLs are short-lived → fetch just
+ * before display, don't persist (ADR-0004).
  *
- * Transport (token, retry, foutvertaling) zit in [GraphHttp]; hier kennen we alleen het pad.
- * Een ontbrekende thumbnail (404) is legitiem → `null`; een transiente fout (503) gooit en wordt
- * bewust door [fyi.kuijper.throwback.engine.SlideshowEngine] tot een offline-hintje afgevangen.
+ * A missing thumbnail (404) is legitimate → `null`; a transient error (503) throws and is
+ * deliberately caught by [fyi.kuijper.throwback.engine.SlideshowEngine] into an offline hint.
  */
 class GraphMedia(private val http: GraphHttp) {
 

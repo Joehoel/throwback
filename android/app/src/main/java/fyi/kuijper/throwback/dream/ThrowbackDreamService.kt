@@ -28,9 +28,9 @@ import fyi.kuijper.throwback.ui.screens.SlideshowCanvas
 import fyi.kuijper.throwback.ui.theme.ThrowbackTheme
 
 /**
- * Systeem-screensaver: hergebruikt dezelfde slideshow-rendering ([SlideshowCanvas]) en
- * ViewModel-logica als de app. Niet-interactief — de show draait vanzelf en stopt bij input.
- * Compose buiten een Activity vereist dat we zelf de lifecycle-/viewmodel-/savedstate-owners leveren.
+ * System screensaver: reuses the same slideshow rendering ([SlideshowCanvas]) and ViewModel logic as
+ * the app. Compose outside an Activity requires us to supply the lifecycle/viewmodel/savedstate owners
+ * ourselves.
  */
 class ThrowbackDreamService : DreamService(), LifecycleOwner, ViewModelStoreOwner, SavedStateRegistryOwner {
 
@@ -74,7 +74,7 @@ class ThrowbackDreamService : DreamService(), LifecycleOwner, ViewModelStoreOwne
                             paused = false,
                         )
                         is UiState.Preparing -> PreparingScreen(s)
-                        // Niet geconfigureerd / koppelscherm: gewoon zwart in de screensaver.
+                        // Not configured / connect screen: just black in the screensaver.
                         else -> Box(Modifier.fillMaxSize().background(Color.Black))
                     }
                 }

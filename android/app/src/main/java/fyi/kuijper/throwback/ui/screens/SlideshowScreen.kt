@@ -58,13 +58,13 @@ fun SlideshowScreen(
     val showFocus = remember { FocusRequester() }
     val barFocus = remember { FocusRequester() }
 
-    // Omhoog opent de bedieningsbalk (zie onKeyEvent). Terug sluit de balk weer, of — als die al
-    // verborgen is — sluit de app.
+    // Up opens the control bar (see onKeyEvent). Back closes the bar, or exits the app if the bar
+    // is already hidden.
     BackHandler(enabled = true) {
         if (controlsVisible) controlsVisible = false else onExitApp()
     }
 
-    // Balk verbergt zichzelf na een tijdje inactiviteit; focus terug naar de show.
+    // The bar auto-hides after a while of inactivity; focus returns to the show.
     LaunchedEffect(controlsVisible) {
         if (controlsVisible) {
             runCatching { barFocus.requestFocus() }

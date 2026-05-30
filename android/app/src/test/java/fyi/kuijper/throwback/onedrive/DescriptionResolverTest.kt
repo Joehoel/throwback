@@ -7,8 +7,8 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 /**
- * Toetst de Beschrijving-terugvalketen los van Graph én Android: byte-bron en parser zijn injecteerbaar.
- * De parser-stub leest bytes hier gewoon als UTF-8 (de echte EXIF/XMP-parsing zit in [ExifCaption]).
+ * Tests the Beschrijving fallback chain apart from Graph and Android: byte source and parser are
+ * injectable. The parser stub here just reads bytes as UTF-8 (real EXIF/XMP parsing is in [ExifCaption]).
  */
 class DescriptionResolverTest {
 
@@ -26,12 +26,12 @@ class DescriptionResolverTest {
     fun `een leeg veld valt terug op de ingebedde metadata`() = runBlocking {
         val resolver = DescriptionResolver({ "Ingebed bijschrift".toByteArray() }, asText)
         assertEquals("Ingebed bijschrift", resolver.resolve(null, "p1"))
-        assertEquals("Ingebed bijschrift", resolver.resolve("   ", "p1")) // blanco telt als leeg
+        assertEquals("Ingebed bijschrift", resolver.resolve("   ", "p1")) // blank counts as empty
     }
 
     @Test
     fun `geen veld en geen ingebedde tekst geeft null`() = runBlocking {
-        val resolver = DescriptionResolver({ ByteArray(0) }, asText) // parser → null bij lege bytes
+        val resolver = DescriptionResolver({ ByteArray(0) }, asText) // parser -> null on empty bytes
         assertNull(resolver.resolve(null, "p1"))
     }
 

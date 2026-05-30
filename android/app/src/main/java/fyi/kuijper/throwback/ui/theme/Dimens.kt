@@ -13,16 +13,15 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 
-// 10-foot UI / overscan: alle bedienbare content binnen de veilige marge van ~5%.
+// 10-foot UI / overscan: keep all interactive content within the ~5% safe margin.
 val SafeH = 48.dp
 val SafeV = 27.dp
 
-// Max breedte van een leesbaar contentblok (lijsten/instellingen). Bewust smaller dan de veilige
-// zone zodat een gefocuste rij die opschaalt (TV-focus 1.1×) ruimte houdt en niet tegen de
-// clip-rand van een scroll-/lazy-container valt — die clipt namelijk op zijn eigen breedte.
+// Max width of a readable content block (lists/settings). Deliberately narrower than the safe zone
+// so a focused row that scales up (TV focus 1.1×) keeps room and doesn't hit the clip edge of a
+// scroll/lazy container, which clips at its own width.
 val ContentMaxWidth = 820.dp
 
-// Standaard spacing-stappen voor een rustige, consistente layout.
 val SpaceXs = 4.dp
 val SpaceS = 8.dp
 val SpaceM = 16.dp
@@ -30,9 +29,8 @@ val SpaceL = 24.dp
 val SpaceXl = 40.dp
 
 /**
- * Eén gedeelde schermwrapper: vult het scherm, zet de thema-achtergrond en past de
- * veilige overscan-marge toe. Vervangt het oude `Centered`-patroon zodat elk scherm
- * dezelfde marges deelt.
+ * Shared screen wrapper: fills the screen, sets the theme background, and applies the safe overscan
+ * margin so every screen shares the same margins.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -42,9 +40,9 @@ fun TvScreen(
     horizontalPadding: Dp = SafeH,
     content: @Composable BoxScope.() -> Unit,
 ) {
-    // Scrollende schermen geven horizontalPadding = 0 mee: hun scroll-/lazy-container vult dan de
-    // volle breedte en clipt daarop, terwijl de inhoud zelf gecapt + gecentreerd wordt. Zo kan een
-    // gefocuste rij opschalen in de overscan-marge i.p.v. tegen de clip-rand afgekapt te worden.
+    // Scrolling screens pass horizontalPadding = 0: their scroll/lazy container then fills the full
+    // width and clips there, while the content is capped and centered. This lets a focused row scale
+    // up into the overscan margin instead of being cut off at the clip edge.
     Box(
         modifier = modifier
             .fillMaxSize()

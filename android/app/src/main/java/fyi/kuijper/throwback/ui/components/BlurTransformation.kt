@@ -5,10 +5,9 @@ import coil3.size.Size
 import coil3.transform.Transformation
 
 /**
- * Vervaag een afbeelding via de bitmap zelf (CPU), zodat de wazige achtergrond op élk Android-niveau
- * werkt — `Modifier.blur` doet pas iets vanaf API 31 (Android 12). De KPN-box draait Android 11, dus
- * daar viel de blur weg. We schalen flink terug en doen een gescheiden box-blur (2× ≈ Gaussiaans);
- * Coil schaalt het resultaat weer schermvullend op, wat extra smoothing geeft. Snel én gecachet.
+ * Blurs an image on the CPU via the bitmap itself so it works on every Android level — `Modifier.blur`
+ * only does anything from API 31 (Android 12). We downscale heavily and run a separable box-blur
+ * (2× ≈ Gaussian); Coil scales the result back up full-screen, which adds extra smoothing.
  */
 class BlurTransformation(
     private val radius: Int = 3,
@@ -32,7 +31,7 @@ class BlurTransformation(
         return out
     }
 
-    /** Gescheiden box-blur (horizontaal daarna verticaal) over een [r]-venster per kanaal. */
+    /** Separable box-blur (horizontal then vertical) over an [r]-window per channel. */
     private fun boxBlur(p: IntArray, w: Int, h: Int, r: Int) {
         val tmp = IntArray(p.size)
         for (y in 0 until h) {

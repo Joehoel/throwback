@@ -4,10 +4,10 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Eigenaar van de OneDrive-koppeling: token-cache, automatisch verversen, device-code-login en
- * loskoppelen. De refresh-token wordt persistent bewaard in [TokenStore]; het access-token leeft
- * alleen in het geheugen. De [Mutex] voorkomt dat slideshow- en sync-engine tegelijk verversen
- * (ze delen nu één sessie). De map-keuze blijft eigendom van [TokenStore] zelf (zie [store]).
+ * Owns the OneDrive connection: token cache, automatic refresh, device-code login and disconnect.
+ * The refresh token is persisted in [TokenStore]; the access token lives only in memory. The
+ * [Mutex] prevents the slideshow and sync engines from refreshing simultaneously (they now share
+ * one session). The folder choice stays owned by [TokenStore] itself (see [store]).
  */
 class Session(val store: TokenStore) {
 
@@ -18,11 +18,11 @@ class Session(val store: TokenStore) {
     val isConnected: Boolean get() = store.isConnected
     val hasFolder: Boolean get() = store.hasFolder
 
-    /** Een geldig access-token, zo nodig (thread-safe) ververst. Gooit [OneDriveAuth.ReauthRequired]. */
+    /** A valid access token, refreshed (thread-safe) if needed. Throws [OneDriveAuth.ReauthRequired]. */
     suspend fun accessToken(): String {
         tokens?.let { if (it.expiresAtMillis > System.currentTimeMillis()) return it.accessToken }
         return refreshLock.withLock {
-            // Dubbel-check: een andere coroutine kan net ververst hebben terwijl we wachtten.
+            // Double-check: another coroutine may have refreshed while we waited for the lock.
             tokens?.let { if (it.expiresAtMillis > System.currentTimeMillis()) return it.accessToken }
             val rt = store.refreshToken ?: error("Niet gekoppeld")
             val fresh = OneDriveAuth.refresh(rt)
@@ -32,23 +32,22 @@ class Session(val store: TokenStore) {
         }
     }
 
-    /** Stap 1 van de device-code-login. */
     suspend fun startDeviceCode(): OneDriveAuth.DeviceCode = OneDriveAuth.startDeviceCode()
 
-    /** Stap 2: poll tot de gebruiker inlogt, bewaar daarna de refresh-token. */
+    /** Step 2: poll until the user logs in, then persist the refresh token. */
     suspend fun completeLogin(dc: OneDriveAuth.DeviceCode) {
         val t = OneDriveAuth.pollForTokens(dc)
         tokens = t
         store.refreshToken = t.refreshToken
     }
 
-    /** Koppeling is verlopen (reauth nodig): vergeet de tokens zodat 'Opnieuw' weer naar login leidt. */
+    /** Connection expired (reauth needed): forget the tokens so 'Opnieuw' leads back to login. */
     fun invalidate() {
         tokens = null
         store.refreshToken = null
     }
 
-    /** Volledig loskoppelen: tokens + opgeslagen map wissen. */
+    /** Full disconnect: clears tokens + the stored folder. */
     fun clear() {
         tokens = null
         store.clear()

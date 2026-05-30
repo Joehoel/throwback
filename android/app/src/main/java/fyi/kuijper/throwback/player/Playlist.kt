@@ -3,9 +3,8 @@ package fyi.kuijper.throwback.player
 import kotlin.random.Random
 
 /**
- * Pure afspeel-volgorde voor de slideshow: een lijst foto-`id`'s + een cursor.
- * O(1) vooruit/terug met wrap-around, plus een prefetch-venster. Geen IO,
- * dus snel unit-testbaar (ADR-0004: in-memory geschudde afspeellijst).
+ * Pure playback order for the slideshow: a list of photo ids + a cursor. O(1) forward/back with
+ * wrap-around, plus a prefetch window. No IO, so fast to unit-test (ADR-0004: in-memory shuffled playlist).
  */
 class Playlist private constructor(
     initial: List<String>,
@@ -22,10 +21,7 @@ class Playlist private constructor(
     val current: String? get() = order.getOrNull(index)
     val size: Int get() = order.size
 
-    /**
-     * Voeg nieuw geïndexeerde foto's toe zonder de huidige positie te verstoren, zodat een
-     * achtergrond-verversing de lopende show kan aanvullen. Reeds aanwezige id's worden genegeerd.
-     */
+    /** Append photos without disturbing the current position; already-present ids are ignored. */
     fun append(ids: List<String>) {
         if (ids.isEmpty()) return
         val existing = HashSet(_order)
@@ -35,8 +31,8 @@ class Playlist private constructor(
     }
 
     /**
-     * Verwijder foto's uit de afspeellijst (bv. in OneDrive verwijderd). Houdt de cursor zo veel
-     * mogelijk op dezelfde foto; viel die weg, dan op dezelfde positie (geclamped).
+     * Remove photos from the playlist. Keeps the cursor on the same photo where possible; if that one
+     * is gone, stays at the same position (clamped).
      */
     fun remove(ids: List<String>) {
         if (ids.isEmpty()) return
@@ -62,7 +58,7 @@ class Playlist private constructor(
         return current
     }
 
-    /** Buren rondom de huidige positie (voor prefetch), gewrapt, zonder de huidige. */
+    /** Neighbours around the current position (for prefetch), wrapped, excluding the current. */
     fun window(ahead: Int, behind: Int): List<String> {
         if (order.isEmpty()) return emptyList()
         val result = LinkedHashSet<String>()

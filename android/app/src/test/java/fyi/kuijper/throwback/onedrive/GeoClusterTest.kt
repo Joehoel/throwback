@@ -7,7 +7,7 @@ import org.junit.Test
 class GeoClusterTest {
 
     @Test fun `same event, coordinates within one cell share a key`() {
-        // ~10 m uit elkaar: zelfde grove cel (3 decimalen ≈ 111 m).
+        // ~10 m apart: same coarse cell (3 decimals ~= 111 m).
         val a = GeoCluster.keyOf("Bruiloft", 52.30811, 5.04141)
         val b = GeoCluster.keyOf("Bruiloft", 52.30815, 5.04149)
         assertEquals(a, b)
@@ -20,14 +20,14 @@ class GeoClusterTest {
     }
 
     @Test fun `same event but far apart do not share a key`() {
-        // > 111 m verschil in de derde decimaal: aparte cel, dus aparte opzoeking.
+        // > 111 m apart in the third decimal: separate cell, separate lookup.
         val a = GeoCluster.keyOf("Vakantie", 52.30811, 5.04141)
         val b = GeoCluster.keyOf("Vakantie", 52.31511, 5.05041)
         assertNotEquals(a, b)
     }
 
     @Test fun `key uses a locale-independent decimal point`() {
-        // Niet afhankelijk van de default locale (bv. NL met komma's).
+        // Independent of the default locale (e.g. NL with commas).
         val key = GeoCluster.keyOf("Event", 52.5, 5.0)
         assertEquals("Event|52.500,5.000", key)
     }

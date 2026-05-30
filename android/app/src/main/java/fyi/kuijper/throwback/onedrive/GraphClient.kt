@@ -7,15 +7,15 @@ data class DriveItem(
 )
 
 /**
- * Microsoft Graph-toegang voor de map-kiezer: leest de submappen van een map. Transport (token,
- * retry, foutvertaling, paginatie) zit in [GraphHttp]; hier kennen we alleen de paden + `$select`.
+ * Microsoft Graph access for the folder picker: reads a folder's subfolders. Transport (token,
+ * retry, error translation, pagination) lives in [GraphHttp]; here we only know paths + `$select`.
  */
 class GraphClient(private val http: GraphHttp) {
 
     /**
-     * Een "special folder" van OneDrive (bv. "cameraroll" of "photos"), of null als die
-     * niet bestaat op dit account. Bij alleen Files.Read geeft Graph 404 voor een ontbrekende
-     * special folder — [GraphHttp.getJsonOrNull] maakt daar gewoon "niet aanwezig" van.
+     * A OneDrive "special folder" (e.g. "cameraroll" or "photos"), or null if it doesn't exist on
+     * this account. With only Files.Read, Graph returns 404 for a missing special folder —
+     * [GraphHttp.getJsonOrNull] turns that into "absent".
      */
     suspend fun specialFolder(name: String): DriveItem? {
         val o = http.getJsonOrNull("/me/drive/special/$name?%24select=id,name,folder") ?: return null
@@ -27,20 +27,19 @@ class GraphClient(private val http: GraphHttp) {
         )
     }
 
-    /** Submappen van [folderId], of van de root als [folderId] null is. Paginatie afgehandeld. */
     suspend fun listFolders(folderId: String?): List<DriveItem> {
         val first = if (folderId == null) {
             "/me/drive/root/children"
         } else {
             "/me/drive/items/$folderId/children"
         }
-        // $-parameters URL-geëncodeerd (%24) om Kotlin string-templates te vermijden.
+        // $-parameters URL-encoded (%24) to avoid Kotlin string-template interpolation.
         val out = ArrayList<DriveItem>()
         http.paginate("$first?%24select=id,name,folder&%24top=200") { page ->
             val arr = page.getJSONArray("value")
             for (i in 0 until arr.length()) {
                 val o = arr.getJSONObject(i)
-                val folder = o.optJSONObject("folder") ?: continue // alleen mappen
+                val folder = o.optJSONObject("folder") ?: continue // folders only
                 out.add(
                     DriveItem(
                         id = o.getString("id"),

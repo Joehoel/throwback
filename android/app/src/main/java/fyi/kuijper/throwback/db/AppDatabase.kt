@@ -7,12 +7,11 @@ import androidx.room.RoomDatabase
 import fyi.kuijper.throwback.onedrive.PhotoRow
 
 /**
- * De lokale index (zie ADR-0004). Room beheert schema + migraties: bij een schemawijziging bump je
- * [version] en voeg je een `@AutoMigration` toe — Room genereert de SQL uit de geëxporteerde schema's
- * (zie `app/schemas`) en draait 'm zelf bij het openen. Geen handmatige versie-detectie meer.
+ * The local index (see ADR-0004). Room manages schema + migrations: on a schema change bump [version]
+ * and add an `@AutoMigration` — Room generates the SQL from the exported schemas (see `app/schemas`).
  *
- * De index is een herbouwbare cache (OneDrive is de bron van waarheid, ADR-0001), dus voor het zeldzame
- * geval dat een migratie ontbreekt valt Room terug op opnieuw opbouwen i.p.v. crashen — één re-crawl.
+ * The index is a rebuildable cache (OneDrive is the source of truth, ADR-0001), so on the rare missing
+ * migration Room falls back to rebuilding instead of crashing — one re-crawl.
  */
 @Database(entities = [PhotoRow::class, MetaEntity::class], version = 1, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {

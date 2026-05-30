@@ -20,7 +20,7 @@ import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceS
 import fyi.kuijper.throwback.ui.theme.TvScreen
 
-/** Korte voorbereidingsstaat: net een map gekozen, nog niets geïndexeerd. Gaat vanzelf naar de show. */
+/** Brief prepare state right after picking a folder; auto-advances to the show once photos arrive. */
 @Composable
 fun PreparingScreen(state: UiState.Preparing) {
     TvScreen(contentAlignment = Alignment.Center) {

@@ -24,8 +24,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val appSettings = (application as ThrowbackApp).container.settings
-        // Heeft dit toestel überhaupt een screensaver-instellingenpagina? (Emulators/sommige
-        // TV-flavors niet.) Zo niet: knop verbergen en de hint overslaan.
+        // Does this device even have a screensaver settings page? (Emulators / some TV flavors don't.)
+        // If not: hide the button and skip the hint.
         val screensaverConfigurable = Intent("android.settings.DREAM_SETTINGS")
             .resolveActivity(packageManager) != null
         setContent {
@@ -38,8 +38,7 @@ class MainActivity : ComponentActivity() {
                     val state by vm.state.collectAsState()
                     var showHint by remember { mutableStateOf(!appSettings.screensaverHintShown) }
 
-                    // Eenmalige hint ná setup (zodra geconfigureerd), één keer, vóór de show.
-                    // Alleen als het toestel screensavers kan instellen.
+                    // One-time hint after setup, before the show, only if the device can configure screensavers.
                     val configured = state is UiState.Show || state is UiState.Preparing
                     if (showHint && configured && screensaverConfigurable) {
                         ScreensaverHintScreen(
@@ -68,17 +67,17 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Open de screensaver/daydream-instelling. Op Android TV is er geen gegarandeerde deeplink,
-     * dus we proberen meerdere kandidaten en vallen terug op de algemene instellingen. We gebruiken
-     * GEEN resolveActivity-check: door package-visibility (Android 11+) geeft die vaak null terug
-     * ook voor instellingen die wél bestaan, waardoor de knop niets zou doen. startActivity met
-     * try/catch werkt wel — de laatste kandidaat (algemene instellingen) opent vrijwel altijd.
+     * Open the screensaver/daydream setting. Android TV has no guaranteed deeplink, so we try several
+     * candidates and fall back to general settings. We deliberately do NOT use a resolveActivity check:
+     * under package visibility (Android 11+) it often returns null even for settings that do exist,
+     * which would make the button do nothing. startActivity with try/catch works — the last candidate
+     * (general settings) almost always opens.
      */
     private fun openScreensaverSettings() {
-        // Let op: alleen intents die óf de juiste pagina openen óf netjes een exceptie gooien.
-        // Een expliciete component (bv. com.android.tv.settings/...DaydreamActivity) "slaagt" op
-        // sommige Google TV-flavors zonder iets te tonen ("Activity is not supported in current
-        // flavor") en zou de werkende fallback maskeren — die laten we dus weg.
+        // Only intents that either open the right page or throw cleanly. An explicit component (e.g.
+        // com.android.tv.settings/...DaydreamActivity) "succeeds" on some Google TV flavors without
+        // showing anything ("Activity is not supported in current flavor") and would mask the working
+        // fallback — so we leave it out.
         val candidates = listOf(
             Intent("android.settings.DREAM_SETTINGS"),
             Intent(android.provider.Settings.ACTION_SETTINGS),
@@ -88,7 +87,7 @@ class MainActivity : ComponentActivity() {
                 startActivity(intent)
                 return
             } catch (_: Exception) {
-                // niet beschikbaar op dit toestel → probeer de volgende
+                // not available on this device → try the next
             }
         }
     }

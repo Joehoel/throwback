@@ -4,9 +4,8 @@ import org.apache.commons.text.StringEscapeUtils
 import org.json.JSONObject
 
 /**
- * Pure parser: één Graph `children`-item → [PhotoRow] (of null als het geen foto is).
- * De map waarin we crawlen levert gebeurtenis + jaar (uit het pad). Geen netwerk/IO,
- * daarom snel unit-testbaar.
+ * Pure parser: one Graph `children` item -> [PhotoRow] (or null if it is not a photo). Event and year
+ * come from the folder path. No network/IO, so it stays fast to unit-test.
  */
 object PhotoParser {
     private val yearRegex = Regex("(?:19|20)\\d{2}")
@@ -24,8 +23,8 @@ object PhotoParser {
             event = eventFromPath(folderPath),
             year = yearFromPath(folderPath) ?: yearFromTaken(photo),
             description = if (item.has("description")) {
-                // OneDrive levert beschrijvingen soms HTML-geencodeerd (&amp; &quot; &#39; ...);
-                // Apache Commons Text decodeert alle HTML4-entiteiten netjes.
+                // OneDrive sometimes returns descriptions HTML-encoded (&amp; &quot; &#39; ...);
+                // decode all HTML4 entities.
                 item.optString("description").ifBlank { null }?.let(StringEscapeUtils::unescapeHtml4)
             } else null,
             taken = photo?.optString("takenDateTime")?.ifBlank { null },
@@ -35,15 +34,13 @@ object PhotoParser {
         )
     }
 
-    /** Eén GPS-coördinaat uit de location-facet, of null als die ontbreekt. */
     private fun JSONObject.coord(key: String): Double? =
         if (has(key)) optDouble(key).takeIf { !it.isNaN() } else null
 
-    /** Laatste padsegment = de gebeurtenis-map (bijv. "Bruiloft Anne & Tom"). */
     fun eventFromPath(path: String): String =
         path.substringAfter("root:", path).trim('/').substringAfterLast('/').ifBlank { "OneDrive" }
 
-    /** Jaar uit de mapnaam — leidend boven EXIF (ADR-0002). */
+    /** Year from the folder name, preferred over EXIF (ADR-0002). */
     fun yearFromPath(path: String): Int? =
         path.substringAfter("root:", path).split('/').firstNotNullOfOrNull { seg ->
             yearRegex.matchEntire(seg.trim())?.value?.toIntOrNull()

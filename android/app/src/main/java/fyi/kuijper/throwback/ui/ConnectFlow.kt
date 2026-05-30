@@ -13,8 +13,8 @@ import fyi.kuijper.throwback.ui.screens.SettingsScreen
 import fyi.kuijper.throwback.ui.screens.SlideshowScreen
 
 /**
- * Routeert de UiState naar het bijbehorende scherm. [onExitApp] sluit de app (tweede Terug in de
- * show); [onOpenScreensaverSettings] opent de Android screensaver-instelling.
+ * [onExitApp] exits the app (second Back while the show is running);
+ * [onOpenScreensaverSettings] opens the Android screensaver setting.
  */
 @Composable
 fun ConnectFlow(

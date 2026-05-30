@@ -7,7 +7,7 @@ import org.junit.Test
 class EmbeddedCaptionTextTest {
 
     @Test fun `decodes Windows XP tag bytes (UTF-16LE, comma-separated, null-terminated)`() {
-        // "Hoi" = H,o,i in UTF-16LE + trailing null terminator, as ExifInterface reports it.
+        // "Hoi" = H,o,i in UTF-16LE plus trailing null terminator, as ExifInterface reports it.
         val raw = "72, 0, 111, 0, 105, 0, 0, 0"
         assertEquals("Hoi", EmbeddedCaptionText.decodeXpString(raw))
     }

@@ -56,11 +56,11 @@ fun SettingsScreen(
     screensaverConfigurable: Boolean,
 ) {
     val focus = rememberInitialFocus()
-    // Terug brengt je naar de fotoshow terug — niet de app uit.
+    // Back returns to the photo show, not out of the app.
     BackHandler { onClose() }
-    // horizontalPadding = 0: de scroll-container vult de volle schermbreedte en clipt daarop, terwijl
-    // de inhoud op ContentMaxWidth gecapt + gecentreerd wordt. Zo heeft de focus-schaal (1.1×) ruimte
-    // binnen de clip i.p.v. afgekapt te worden — de overscan-marge zit nu in de (lege) centreerruimte.
+    // horizontalPadding = 0: the scroll container fills the full width and clips there, while content
+    // is capped at ContentMaxWidth and centered. This gives the focus scale (1.1×) room inside the
+    // clip; the overscan margin lives in the (empty) centering space.
     TvScreen(horizontalPadding = 0.dp) {
         Column(
             Modifier
@@ -91,7 +91,7 @@ fun SettingsScreen(
                 checked = state.captionEnabled,
                 onToggle = { onCaption(!state.captionEnabled) },
             )
-            // Alleen tonen als het toestel een screensaver-instelling heeft (niet op elke emulator/TV).
+            // Only shown when the device exposes a screensaver setting (not every emulator/TV does).
             if (screensaverConfigurable) {
                 Spacer(Modifier.height(SpaceM))
                 WideRow(
@@ -116,17 +116,17 @@ fun SettingsScreen(
     }
 }
 
-/** Subtiel statusregeltje onder de titel: hoeveel foto's geïndexeerd zijn en of er bijgewerkt wordt. */
+/** Status line under the title: how many photos are indexed and whether a sync is running. */
 @Composable
 private fun IndexStatus(state: UiState.Settings) {
     if (state.indexed == 0 && !state.indexing) return
     fun fmt(n: Int) = String.format(Locale("nl", "NL"), "%,d", n)
     val count = fmt(state.indexed)
     val text = when {
-        // Volledige crawl met bekend totaal: toon "verwerkt / totaal".
+        // Full crawl with a known total: show "processed / total".
         state.indexing && state.processed > 0 && state.indexed > state.processed ->
             "Indexeren… ${fmt(state.processed)} / $count foto's"
-        // Eerste crawl (nog geen totaal bekend): toon enkel het lopende aantal.
+        // First crawl (total not yet known): show only the running count.
         state.indexing && state.processed > 0 -> "Indexeren… ${fmt(state.processed)} foto's"
         state.indexing -> "Bibliotheek bijwerken…"
         state.syncError != null -> "$count foto's · laatste verversing mislukt"

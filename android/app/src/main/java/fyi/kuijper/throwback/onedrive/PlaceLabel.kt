@@ -1,11 +1,11 @@
 package fyi.kuijper.throwback.onedrive
 
 /**
- * Pure (Android-vrije) opbouw van het plaats-bijschrift uit losse adresvelden, zodat het los
- * unit-testbaar is. Zie [PlaceResolver] voor de Geocoder-kant.
+ * Pure (Android-free) composition of the place caption from address fields, so it is unit-testable on
+ * its own. See [PlaceResolver] for the Geocoder side.
  *
- * Regels: straat (+ huisnummer indien aanwezig), plaats, en het land alleen als het niet
- * [homeCountryCode] is. Zinloze straatwaarden ("Unnamed Road") vallen weg; is er niets, dan null.
+ * Country is included only when it differs from [homeCountryCode]; junk street values ("Unnamed Road")
+ * are dropped; null when nothing usable remains.
  */
 object PlaceLabel {
     private val JUNK_STREETS = setOf("unnamed road")

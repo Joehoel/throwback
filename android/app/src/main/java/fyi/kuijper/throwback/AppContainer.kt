@@ -16,10 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 
 /**
- * Proces-brede laag die één instantie van elke collaborator + engine bezit, zodat de app-Activity
- * en de screensaver-[dream.ThrowbackDreamService] dezelfde sessie, index en lopende slideshow
- * delen (i.p.v. elk een eigen ViewModel met dubbele engines). De engines draaien op een
- * proces-scope, niet op viewModelScope, zodat de show doorloopt bij de Activity↔Dream-overgang.
+ * Process-wide layer owning one instance of each collaborator + engine, so the Activity and the
+ * screensaver [dream.ThrowbackDreamService] share the same session, index and running slideshow. The
+ * engines run on a process scope, not viewModelScope, so the show survives the Activity↔Dream transition.
  */
 class AppContainer(app: Application) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -28,7 +27,7 @@ class AppContainer(app: Application) {
     val store = TokenStore(app)
     val session = Session(store)
     val db = AppDatabase.create(app).photoDao()
-    // Eén gedeeld Graph-transport (token, retry, paginatie, foutvertaling) onder alle Graph-modules.
+    // One shared Graph transport (token, retry, pagination, error translation) under all Graph modules.
     private val graphHttp = OkHttpGraphHttp(session::accessToken)
     val graph = GraphClient(graphHttp)
 

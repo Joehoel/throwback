@@ -8,9 +8,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 
 /**
- * Eerste frame wanneer we al gekoppeld zijn en de index laden. Bewust een rustig zwart vlak
- * (geen spinner) zodat er bij de gebruikelijke snelle start niets flitst — dit vervangt het
- * koppelscherm dat vroeger kort verscheen voordat de show begon.
+ * First frame when already connected and loading the index. Deliberately a quiet black box (no
+ * spinner) so nothing flashes on the usual fast start.
  */
 @Composable
 fun LoadingScreen() {

@@ -57,8 +57,7 @@ import java.util.Locale
 import kotlin.random.Random
 
 /**
- * Puur de foto-weergave (geen input/bediening): vervaagde achtergrond + scherpe foto +
- * subtiel bijschrift + offline-hint. Gedeeld door de app-show en de screensaver (DreamService).
+ * Pure photo display, no input handling. Shared by the in-app show and the screensaver (DreamService).
  */
 @Composable
 fun SlideshowCanvas(
@@ -71,22 +70,21 @@ fun SlideshowCanvas(
     slideMillis: Int = 15_000,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-        // Crossfade tussen foto's; de vorige blijft zichtbaar tijdens de overgang (geen zwart).
+        // The previous photo stays visible during the crossfade, so there is no black flash.
         Crossfade(targetState = imageUrl, animationSpec = tween(1500), label = "foto") { url ->
             if (url != null) {
                 val context = LocalContext.current
 
-                // Liggende foto's (breedte ≥ hoogte) vullen het scherm (Crop, geen randen);
-                // staande foto's blijven heel (Fit) op de wazige achtergrond. We kennen de
-                // verhouding pas na het laden, dus we vullen alvast (Crop) en schakelen voor
-                // staande foto's terug naar Fit zodra de afmetingen bekend zijn.
+                // Landscape photos fill the screen (Crop, no borders); portrait photos stay whole
+                // (Fit) over the blurred background. The aspect ratio is unknown until load, so we
+                // default to Crop and switch portrait photos to Fit once their size is known.
                 var landscape by remember(url) { mutableStateOf<Boolean?>(null) }
                 var boxSize by remember(url) { mutableStateOf(IntSize.Zero) }
 
-                // Per foto één willekeurige, trage Ken Burns-beweging (in-/uitzoomen of pannen),
-                // gezaaid op de URL zodat de keuze stabiel blijft over recomposities. Staande foto's
-                // pannen niet horizontaal (dat oogt raar), dus we kiezen opnieuw zodra de oriëntatie
-                // bekend is — voor liggende foto's geeft dezelfde seed dezelfde keuze, dus geen sprong.
+                // One random slow Ken Burns move per photo, seeded on the URL so the choice stays
+                // stable across recompositions. Portrait photos never pan horizontally (looks odd),
+                // so we re-pick once orientation is known; landscape photos keep the same seeded
+                // choice, so there is no visible jump.
                 val kb = remember(url, landscape) {
                     randomKenBurns(Random(url.hashCode()), allowHorizontalPan = landscape != false)
                 }
@@ -96,9 +94,9 @@ fun SlideshowCanvas(
                 }
 
                 Box(modifier = Modifier.fillMaxSize().onSizeChanged { boxSize = it }) {
-                    // Wazige, schermvullende achtergrond — vult letterbox-randen bij staande foto's.
-                    // De blur zit in de bitmap (BlurTransformation) i.p.v. Modifier.blur, zodat het
-                    // ook op Android < 12 (o.a. de KPN-box) werkt.
+                    // Blurred full-screen background fills the letterbox borders of portrait photos.
+                    // The blur is baked into the bitmap (BlurTransformation) instead of Modifier.blur
+                    // so it also works on Android < 12.
                     AsyncImage(
                         model = ImageRequest.Builder(context)
                             .data(url)
@@ -108,7 +106,7 @@ fun SlideshowCanvas(
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
-                    // Scherpe foto erbovenop, met de Ken Burns-transformatie.
+                    // Sharp photo on top, with the Ken Burns transform.
                     AsyncImage(
                         model = url,
                         contentDescription = null,
@@ -118,13 +116,13 @@ fun SlideshowCanvas(
                             .fillMaxSize()
                             .graphicsLayer {
                                 val p = progress.value
-                                // Staande foto's starten wat verder ingezoomd zodat ze meer van
-                                // het scherm vullen i.p.v. klein tussen de wazige randen te staan.
+                                // Portrait photos start zoomed in further so they fill more of the
+                                // screen instead of sitting small between the blurred borders.
                                 val bump = if (landscape == false) 0.18f else 0f
                                 val s = lerp(kb.scaleStart, kb.scaleEnd, p) + bump
                                 scaleX = s
                                 scaleY = s
-                                // Pan binnen de overscan (s - 1), zodat de randen nooit zwart worden.
+                                // Pan within the overscan (s - 1) so the edges never go black.
                                 val overscanX = (s - 1f) * boxSize.width / 2f
                                 val overscanY = (s - 1f) * boxSize.height / 2f
                                 translationX = lerp(kb.panXStart, kb.panXEnd, p) * overscanX
@@ -153,9 +151,9 @@ fun SlideshowCanvas(
 }
 
 /**
- * Eén Ken Burns-beweging voor een dia: een schaal die van [scaleStart] naar [scaleEnd] loopt en een
- * pan-fractie (−1..1) van de beschikbare overscan, per as. Schaal 1.0 = precies passend; >1 geeft
- * ruimte om te pannen zonder zwarte randen.
+ * One Ken Burns move for a slide: a scale from [scaleStart] to [scaleEnd] plus a per-axis pan
+ * fraction (−1..1) of the available overscan. Scale 1.0 = exact fit; >1 leaves room to pan without
+ * black borders.
  */
 private data class KenBurns(
     val scaleStart: Float,
@@ -167,20 +165,19 @@ private data class KenBurns(
 )
 
 /**
- * Kies willekeurig één trage beweging: langzaam in-/uitzoomen of pannen. Heel subtiel (~10–16%
- * beweging over de hele dia), in de stijl van de Google Foto's-screensaver. Horizontaal pannen
- * doen we alleen als [allowHorizontalPan] aanstaat (uit voor staande foto's, waar het raar oogt).
+ * Pick one random slow move: zoom in/out or pan. Kept very subtle (~10–16% over a full slide).
+ * Horizontal pan only happens when [allowHorizontalPan] is set (off for portrait, where it looks odd).
  */
 private fun randomKenBurns(r: Random, allowHorizontalPan: Boolean): KenBurns {
-    val z = 0.10f + r.nextFloat() * 0.06f // zoombereik 0.10–0.16
+    val z = 0.10f + r.nextFloat() * 0.06f
     return when (r.nextInt(if (allowHorizontalPan) 4 else 3)) {
-        0 -> KenBurns(1.0f, 1.0f + z, 0f, 0f, 0f, 0f) // langzaam inzoomen
-        1 -> KenBurns(1.0f + z, 1.0f, 0f, 0f, 0f, 0f) // langzaam uitzoomen
-        2 -> { // verticaal pannen, vaste schaal
+        0 -> KenBurns(1.0f, 1.0f + z, 0f, 0f, 0f, 0f)
+        1 -> KenBurns(1.0f + z, 1.0f, 0f, 0f, 0f, 0f)
+        2 -> {
             val dir = if (r.nextBoolean()) 1f else -1f
             KenBurns(1.0f + z, 1.0f + z, 0f, 0f, -dir * 0.5f, dir * 0.5f)
         }
-        else -> { // horizontaal pannen, vaste schaal (alleen liggende foto's)
+        else -> { // horizontal pan — landscape only
             val dir = if (r.nextBoolean()) 1f else -1f
             KenBurns(1.0f + z, 1.0f + z, -dir * 0.6f, dir * 0.6f, 0f, 0f)
         }
@@ -196,7 +193,6 @@ private fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
             .padding(start = 48.dp, end = 48.dp, bottom = 32.dp, top = 64.dp),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(SpaceXs)) {
-            // Beschrijving groot bovenaan, dan de datum, dan (indien aanwezig) de locatie.
             p.description?.let {
                 Text(it, style = MaterialTheme.typography.titleLarge, color = Color.White)
             }
@@ -222,9 +218,9 @@ private fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
 private val dutchDate = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale("nl", "NL"))
 
 /**
- * Exacte opnamedatum uit de fotometadata ([PhotoRow.taken], ISO zoals "2009-08-15T…") in NL-formaat,
- * bijv. "15 augustus 2009". We nemen alleen het datumdeel (eerste 10 tekens) zodat een tijdzone de
- * dag niet kan verschuiven. Valt terug op het jaar als een foto geen datum-metadata heeft.
+ * Exact capture date from [PhotoRow.taken] (ISO like "2009-08-15T…") in NL format. Uses only the
+ * date part (first 10 chars) so a timezone can't shift the day. Falls back to the year when a photo
+ * has no date metadata.
  */
 private fun takenDateLabel(taken: String?, year: Int?): String? {
     val date = taken?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }

@@ -57,25 +57,25 @@ fun FolderPickerScreen(
     onCancel: () -> Unit,
 ) {
     val canActOnFolder = state.path.size > 1
-    // Terug: omhoog in het pad, of (vanuit de show) annuleren terug naar de show.
+    // Back: go up in the path, or (when entered from the show) cancel back to the show.
     BackHandler(enabled = canActOnFolder || state.canCancel) {
         if (canActOnFolder) onBack() else onCancel()
     }
 
     val chooseFocus = remember { FocusRequester() }
     val listFirstFocus = remember { FocusRequester() }
-    // Na elke (her)laadbeurt de focus zinnig plaatsen: in een submap meteen op "Kies deze map"
-    // (de meest waarschijnlijke actie), op de hoofdmap op de eerste rij in de lijst.
+    // After each (re)load, place focus sensibly: in a subfolder on "Kies deze map" (the likely
+    // action), at the root on the first row of the list.
     LaunchedEffect(state.path, state.loading, state.folders, state.suggestions) {
         if (state.loading) return@LaunchedEffect
         val target = if (canActOnFolder) chooseFocus else listFirstFocus
         runCatching { target.requestFocus() }
     }
-    // horizontalPadding = 0: de LazyColumn vult de volle breedte en clipt daarop; de rijen worden op
-    // ContentMaxWidth gecapt + gecentreerd, zodat de focus-schaal niet tegen de clip-rand afkapt.
+    // horizontalPadding = 0: the LazyColumn fills the full width and clips there; rows are capped at
+    // ContentMaxWidth and centered so the focus scale doesn't clip against the edge.
     TvScreen(horizontalPadding = 0.dp) {
         Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-            // Kop + knoppen op dezelfde contentbreedte als de rijen, zodat alles uitlijnt.
+            // Header + buttons on the same content width as the rows so everything lines up.
             Column(Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth()) {
                 ScreenHeader(
                     title = "Kies de fotomap",
@@ -144,12 +144,12 @@ private fun FolderAndSuggestionList(
     firstFocus: FocusRequester,
     upTarget: FocusRequester?,
 ) {
-    // De lijst vult de volle breedte en clipt daarop; de rijen worden gecapt en gecentreerd zodat
-    // de focus-schaal (1.1×) ruimte heeft binnen de clip i.p.v. tegen de rand afgekapt te worden.
-    // De verticale contentPadding geeft de bovenste/onderste rij dezelfde ruimte.
+    // The list fills the full width and clips there; rows are capped and centered so the focus scale
+    // (1.1×) has room inside the clip instead of being cut off at the edge. The vertical
+    // contentPadding gives the top/bottom row the same room.
     val rowWidth = Modifier.widthIn(max = ContentMaxWidth).fillMaxWidth()
-    // De bovenste rij stuurt "omhoog" expliciet naar de Kies-knop, anders kiest de focus-zoeker
-    // geometrisch de dichtstbijzijnde (rechtse) knop i.p.v. de bedoelde linker.
+    // The top row sends "up" explicitly to the Choose button; otherwise the focus search geometrically
+    // picks the nearest (right) button instead of the intended left one.
     val firstRowMod = rowWidth.focusRequester(firstFocus).let {
         if (upTarget != null) it.focusProperties { up = upTarget } else it
     }
