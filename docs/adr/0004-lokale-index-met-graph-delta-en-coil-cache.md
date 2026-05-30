@@ -52,3 +52,30 @@ Empirisch onderzocht op de echte familie-bibliotheek (read-only via het toestel-
   NL; zinloze "Unnamed Road" valt weg. Zie `PlaceResolver` / `PlaceLabel`.
 - **Migratie is additief** (`ALTER TABLE ADD COLUMN`) i.p.v. de index droppen, zodat een upgrade de grote
   bibliotheek niet opnieuw hoeft te downloaden.
+
+## Update 3 (2026-05-30) — terug naar Room (KSP werkt op AGP 9), geocoden ontkoppeld + geclusterd
+
+De handgeschreven SQLite (`PhotoDb`) was rommelig: bij elke schemawijziging het versienummer in de
+`SQLiteOpenHelper`-constructor bumpen + losse `if (col !in cols)`-checks in één `onUpgrade`, plus
+positionele cursor-mapping. Daarom terug naar het oorspronkelijke plan: **Room**.
+
+- **KSP blijkt te werken met AGP 9.0.1** (de reden uit Update 1 om Room te mijden vervalt). KSP
+  registreert zijn gegenereerde bronnen via de `kotlin.sourceSets`-DSL, die AGP 9's ingebouwde Kotlin
+  standaard blokkeert; de gedocumenteerde flag `android.disallowKotlinSourceSets=false` lost dat op.
+  Geverifieerd: `kspDebugKotlin` + `copyRoomSchemas` + `assembleDebug` slagen.
+- **Migraties via Room.** `version` bumpen + een `@AutoMigration` toevoegen; Room genereert de SQL uit
+  de geëxporteerde schema's (`app/schemas`) en draait 'm zelf — geen handmatige versie-detectie meer.
+  De index is een herbouwbare cache (OneDrive is bron van waarheid, ADR-0001), dus geen backward-compat:
+  `fallbackToDestructiveMigration` voor het zeldzame ontbrekende-migratie-geval (één re-crawl). De
+  legacy `claimUnassigned`-toewijzing is daarmee dode code en geschrapt.
+- **Eén model.** `PhotoRow` is tegelijk domeinmodel én Room-`@Entity` — geen aparte entity + mapper +
+  doorgeef-wrapper (die voegde niets toe). De `@Dao` ís de persistentie-interface; de engines praten er
+  rechtstreeks tegenaan via suspend-functies (Room dispatcht zelf, dus de `withContext(Dispatchers.IO)`
+  wrappers vervielen).
+- **Geocoden ontkoppeld van de crawl.** Voorheen blokkeerde de seriële geocode-stap (80 ms/foto +
+  synchrone `Geocoder`) elke crawl-batch. Nu schrijft de crawl alleen rijen weg (afspelen start direct)
+  en draait het reverse-geocoden als aparte, **parallelle** pass (`Semaphore` + async; async
+  `Geocoder`-listener-API op API 33+, sync-fallback daaronder).
+- **Clusteren per gebeurtenis** (`GeoCluster`): foto's van dezelfde gebeurtenis binnen één grove cel
+  (~111 m) delen één opzoeking — O(gebeurtenissen) i.p.v. O(foto's). De gebeurtenis in de clustersleutel
+  voorkomt dat verschillende gebeurtenissen op één plaats-label worden geveegd.

@@ -7,7 +7,6 @@ import fyi.kuijper.throwback.engine.FolderPicker
 import fyi.kuijper.throwback.engine.SlideshowEngine
 import fyi.kuijper.throwback.engine.SyncEngine
 import fyi.kuijper.throwback.onedrive.OneDriveAuth
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -15,7 +14,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Coördinator: bezit alleen de navigatie-flow ([Nav]) en leidt daaruit — gecombineerd met de
@@ -100,8 +98,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (wasSyncing && !s.syncing && slideshow.hasPlaylist) {
                     val root = store.folderId
                     if (root != null) {
-                        val ids = withContext(Dispatchers.IO) { db.allIds(root) }
-                        slideshow.appendIds(ids)
+                        slideshow.appendIds(db.allIds(root))
                     }
                 }
                 wasSyncing = s.syncing
@@ -191,7 +188,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 if (folderId != null) sync.ensure(folderId)
                 return@launch
             }
-            val photos = if (folderId != null) withContext(Dispatchers.IO) { db.allPhotos(folderId) } else emptyList()
+            val photos = if (folderId != null) db.allPhotos(folderId) else emptyList()
             if (photos.isEmpty()) {
                 navFlow.value = Nav.Preparing
                 if (folderId != null) sync.ensure(folderId)
@@ -212,7 +209,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 return@launch
             }
             val root = store.folderId ?: return@launch
-            val photos = withContext(Dispatchers.IO) { db.allPhotos(root) }
+            val photos = db.allPhotos(root)
             if (photos.isEmpty()) return@launch
             slideshow.start(photos, settings.shuffle)
             navFlow.value = Nav.Showing
@@ -277,7 +274,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         slideshow.reset()
         sync.reset()
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { db.clearAll() }
+            db.clearAll()
             session.clear()
             navFlow.value = Nav.Connect
         }

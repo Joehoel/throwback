@@ -1,13 +1,13 @@
 package fyi.kuijper.throwback
 
 import android.app.Application
+import fyi.kuijper.throwback.db.AppDatabase
 import fyi.kuijper.throwback.engine.SlideshowEngine
 import fyi.kuijper.throwback.engine.SyncEngine
 import fyi.kuijper.throwback.onedrive.GraphClient
 import fyi.kuijper.throwback.onedrive.GraphMedia
 import fyi.kuijper.throwback.onedrive.GraphSync
 import fyi.kuijper.throwback.onedrive.OkHttpGraphHttp
-import fyi.kuijper.throwback.onedrive.PhotoDb
 import fyi.kuijper.throwback.onedrive.PlaceResolver
 import fyi.kuijper.throwback.onedrive.Session
 import fyi.kuijper.throwback.onedrive.TokenStore
@@ -27,7 +27,7 @@ class AppContainer(app: Application) {
     val settings = Settings(app)
     val store = TokenStore(app)
     val session = Session(store)
-    val db = PhotoDb(app)
+    val db = AppDatabase.create(app).photoDao()
     // Eén gedeeld Graph-transport (token, retry, paginatie, foutvertaling) onder alle Graph-modules.
     private val graphHttp = OkHttpGraphHttp(session::accessToken)
     val graph = GraphClient(graphHttp)

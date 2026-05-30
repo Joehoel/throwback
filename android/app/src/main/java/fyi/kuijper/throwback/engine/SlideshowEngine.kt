@@ -3,13 +3,12 @@ package fyi.kuijper.throwback.engine
 import android.content.Context
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
+import fyi.kuijper.throwback.db.PhotoDao
 import fyi.kuijper.throwback.onedrive.GraphMedia
-import fyi.kuijper.throwback.onedrive.PhotoDb
 import fyi.kuijper.throwback.onedrive.PhotoRow
 import fyi.kuijper.throwback.player.PhotoOrder
 import fyi.kuijper.throwback.player.Playlist
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,7 +16,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.random.Random
 
 /**
@@ -30,7 +28,7 @@ import kotlin.random.Random
  */
 class SlideshowEngine(
     private val appContext: Context,
-    private val db: PhotoDb,
+    private val db: PhotoDao,
     private val media: GraphMedia,
     private val scope: CoroutineScope,
     private val slideSeconds: () -> Int,
@@ -126,7 +124,7 @@ class SlideshowEngine(
 
     private suspend fun showCurrent() {
         val id = playlist?.current ?: return
-        val photo = withContext(Dispatchers.IO) { db.get(id) }
+        val photo = db.get(id)
         // Verlopen koppeling of netwerkblip: niet hard stoppen — toon het hintje en draai door.
         val url = try {
             urlFor(id)
