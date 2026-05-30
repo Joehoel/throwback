@@ -3,6 +3,7 @@ package fyi.kuijper.throwback
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import fyi.kuijper.throwback.engine.FolderPicker
 import fyi.kuijper.throwback.engine.SlideshowEngine
 import fyi.kuijper.throwback.engine.SyncEngine
 import fyi.kuijper.throwback.onedrive.OneDriveAuth
@@ -32,6 +33,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val slideshow: SlideshowEngine = container.slideshow
     private val sync: SyncEngine = container.sync
 
+    // De map-kiezer bezit de bladertoestand; laadfouten routeren we via handleError (her-inloggen e.d.).
+    private val picker = FolderPicker(graph, viewModelScope, ::handleError)
+
     // Synchroon bepaald bij start uit SharedPreferences: gekoppeld → Booting (Loading), nooit het
     // koppelscherm. Dit haalt de flits van het koppelscherm weg die ontstond doordat de oude
     // beginwaarde NeedsConnect was terwijl de async DB-lees nog liep.
@@ -42,12 +46,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private var connectJob: Job? = null
 
     val state: StateFlow<UiState> =
-        combine(navFlow, slideshow.state, sync.state, settings.state) { nav, slide, syncS, set ->
-            render(nav, slide, syncS, set)
+        combine(navFlow, slideshow.state, sync.state, settings.state, picker.state) { nav, slide, syncS, set, pick ->
+            render(nav, slide, syncS, set, pick)
         }.stateIn(
             scope = viewModelScope,
             started = SharingStarted.Eagerly,
-            initialValue = render(navFlow.value, slideshow.state.value, sync.state.value, settings.state.value),
+            initialValue = render(
+                navFlow.value, slideshow.state.value, sync.state.value, settings.state.value, picker.state.value,
+            ),
         )
 
     private fun render(
@@ -55,11 +61,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         slide: SlideshowEngine.State,
         syncS: SyncEngine.State,
         set: SettingsSnapshot,
+        pick: FolderPicker.State,
     ): UiState = when (nav) {
         is Nav.Booting -> UiState.Loading
         is Nav.Connect -> UiState.NeedsConnect
         is Nav.ShowingCode -> UiState.ShowCode(nav.code)
-        is Nav.PickingFolder -> UiState.PickFolder(nav.path, nav.folders, nav.suggestions, nav.loading, nav.canCancel)
+        is Nav.PickingFolder -> UiState.PickFolder(
+            pick.path, pick.folders, pick.suggestions, pick.loading, canCancel = store.hasFolder,
+        )
         is Nav.Preparing -> UiState.Preparing(store.folderName ?: "Gekozen map", syncS.processed)
         is Nav.Showing -> UiState.Show(
             photo = slide.photo,
@@ -124,7 +133,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // --- Mapkeuze (behoudt altijd de koppeling) ---
 
-    private fun openRootFolder() = openFolder(Crumb(null, "OneDrive"), reset = true)
+    /** Open de map-kiezer bovenaan; behoudt de koppeling. */
+    private fun openRootFolder() {
+        navFlow.value = Nav.PickingFolder
+        picker.openRoot()
+    }
 
     /** Open de mapkiezer zonder de koppeling te wissen — "Andere map". */
     fun changeFolder() {
@@ -137,61 +150,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (store.hasFolder) resumeShow()
     }
 
-    fun openFolder(crumb: Crumb, reset: Boolean = false) {
-        val current = navFlow.value
-        val path = when {
-            reset -> listOf(crumb)
-            current is Nav.PickingFolder -> current.path + crumb
-            else -> listOf(crumb)
-        }
-        loadFolder(path)
-    }
+    fun openFolder(crumb: Crumb) = picker.open(crumb)
 
-    fun back() {
-        val current = navFlow.value as? Nav.PickingFolder ?: return
-        if (current.path.size <= 1) return
-        loadFolder(current.path.dropLast(1))
-    }
+    fun back() = picker.back()
 
-    private fun loadFolder(path: List<Crumb>) {
-        navFlow.value = Nav.PickingFolder(path, emptyList(), emptyList(), loading = true, canCancel = store.hasFolder)
-        viewModelScope.launch {
-            try {
-                val folders = graph.listFolders(path.last().id)
-                val suggestions = if (path.size == 1) detectSuggestions() else emptyList()
-                navFlow.value = Nav.PickingFolder(path, folders, suggestions, loading = false, canCancel = store.hasFolder)
-            } catch (e: Exception) {
-                handleError(e)
-            }
-        }
-    }
-
-    /** Probeert de bekende foto-mappen te vinden; ontbrekende → gewoon overslaan. */
-    private suspend fun detectSuggestions(): List<FolderSuggestion> {
-        val found = LinkedHashMap<String, FolderSuggestion>()
-        graph.specialFolder("cameraroll")?.let {
-            found[it.id] = FolderSuggestion(it.id, "Camera-album", it.childCount)
-        }
-        graph.specialFolder("photos")?.let {
-            found.putIfAbsent(it.id, FolderSuggestion(it.id, "Foto's", it.childCount))
-        }
-        return found.values.toList()
-    }
-
-    fun selectSuggestion(suggestion: FolderSuggestion) = selectFolder(suggestion.id, suggestion.name)
+    fun selectSuggestion(suggestion: FolderSuggestion) = onFolderChosen(Crumb(suggestion.id, suggestion.name))
 
     fun selectCurrentFolder() {
-        val current = navFlow.value as? Nav.PickingFolder ?: return
-        val crumb = current.path.last()
-        val id = crumb.id ?: run {
-            navFlow.value = Nav.Failed("Kies een submap, niet de hele OneDrive-root.")
-            return
-        }
-        selectFolder(id, crumb.name)
+        picker.chooseCurrent()?.let(::onFolderChosen)
     }
 
-    private fun selectFolder(id: String, name: String) {
-        // Dezelfde map opnieuw kiezen: gewoon terug naar de show, niets opnieuw indexeren.
+    /** De gebruiker koos een Hoofdmap. Zelfde map → gewoon hervatten; anders herindexeren op die map. */
+    private fun onFolderChosen(crumb: Crumb) {
+        val id = crumb.id ?: return
         if (id == store.folderId) {
             resumeShow()
             return
@@ -202,7 +173,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             // delta bijgewerkt, anders een verse crawl.
             sync.cancel()
             store.folderId = id
-            store.folderName = name
+            store.folderName = crumb.name
             slideshow.reset()
             sync.reset()
             startShow()

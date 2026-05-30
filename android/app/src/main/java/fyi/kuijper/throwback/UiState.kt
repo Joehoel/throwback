@@ -60,13 +60,8 @@ sealed interface Nav {
     data object Booting : Nav
     data object Connect : Nav
     data class ShowingCode(val code: OneDriveAuth.DeviceCode) : Nav
-    data class PickingFolder(
-        val path: List<Crumb>,
-        val folders: List<DriveItem>,
-        val suggestions: List<FolderSuggestion>,
-        val loading: Boolean,
-        val canCancel: Boolean,
-    ) : Nav
+    /** Marker; de bladertoestand (pad/mappen/voorstellen) leeft in [engine.FolderPicker]. */
+    data object PickingFolder : Nav
     data object Preparing : Nav
     data object Showing : Nav
     data object SettingsOpen : Nav

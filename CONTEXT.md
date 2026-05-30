@@ -27,6 +27,10 @@ _Avoid_: Titel (te dubbelzinnig — gebruik Kop)
 **Kop**:
 De eerste regel van het onderschrift: gebeurtenis-naam + jaar (bijv. "Bruiloft Anne & Tom · 2019"). Altijd aanwezig. Het jaar komt uit de **jaar-map**, niet uit de EXIF-opnamedatum (die is onbetrouwbaar bij ingescande foto's). EXIF alleen als terugval.
 
+**Hoofdmap**:
+De map binnen de **Bibliotheek** die de gebruiker na het koppelen kiest als startpunt; de app indexeert en toont uitsluitend díe tak (folder-scoped delta). Wordt gekozen via de **map-kiezer** (`engine.FolderPicker`, die door de OneDrive-mappenboom laat bladeren) en bewaard in de `TokenStore`. Eén tegelijk; een andere kiezen herindexeert de oude niet (index per map).
+_Avoid_: Root, startmap
+
 ## Relationships
 
 - De **Bibliotheek** ordent **Gebeurtenissen** per jaar en maand
