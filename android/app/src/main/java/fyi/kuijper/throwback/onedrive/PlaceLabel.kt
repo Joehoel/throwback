@@ -20,12 +20,11 @@ object PlaceLabel {
         countryCode: String?,
         homeCountryCode: String = "NL",
     ): String? {
-        fun String?.norm() = this?.trim()?.ifBlank { null }
-        val road = thoroughfare.norm()?.takeUnless { it.lowercase() in JUNK_STREETS }
-        val street = road?.let { r -> subThoroughfare.norm()?.let { "$r $it" } ?: r }
-        val city = locality.norm() ?: subAdminArea.norm() ?: adminArea.norm()
-        val country = countryName.norm()
-            ?.takeUnless { countryCode.norm()?.equals(homeCountryCode, ignoreCase = true) == true }
+        val road = thoroughfare.trimToNull()?.takeUnless { it.lowercase() in JUNK_STREETS }
+        val street = road?.let { r -> subThoroughfare.trimToNull()?.let { "$r $it" } ?: r }
+        val city = locality.trimToNull() ?: subAdminArea.trimToNull() ?: adminArea.trimToNull()
+        val country = countryName.trimToNull()
+            ?.takeUnless { countryCode.trimToNull()?.equals(homeCountryCode, ignoreCase = true) == true }
         return listOfNotNull(street, city, country).joinToString(", ").ifBlank { null }
     }
 }

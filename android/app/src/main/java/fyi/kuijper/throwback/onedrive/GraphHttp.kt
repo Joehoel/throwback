@@ -41,7 +41,7 @@ interface GraphHttp {
         while (url != null) {
             val page = getJson(url)
             onPage(page)
-            url = page.optString("@odata.nextLink").ifBlank { null }
+            url = page.optStringOrNull("@odata.nextLink")
         }
     }
 }

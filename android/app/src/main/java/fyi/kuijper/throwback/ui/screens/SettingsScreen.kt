@@ -42,7 +42,6 @@ import fyi.kuijper.throwback.ui.theme.SpaceL
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceXl
 import fyi.kuijper.throwback.ui.theme.TvScreen
-import java.util.Locale
 
 @Composable
 fun SettingsScreen(
@@ -116,22 +115,9 @@ fun SettingsScreen(
     }
 }
 
-/** Status line under the title: how many photos are indexed and whether a sync is running. */
 @Composable
 private fun IndexStatus(state: UiState.Settings) {
-    if (state.indexed == 0 && !state.indexing) return
-    fun fmt(n: Int) = String.format(Locale("nl", "NL"), "%,d", n)
-    val count = fmt(state.indexed)
-    val text = when {
-        // Full crawl with a known total: show "processed / total".
-        state.indexing && state.processed > 0 && state.indexed > state.processed ->
-            "Indexeren… ${fmt(state.processed)} / $count foto's"
-        // First crawl (total not yet known): show only the running count.
-        state.indexing && state.processed > 0 -> "Indexeren… ${fmt(state.processed)} foto's"
-        state.indexing -> "Bibliotheek bijwerken…"
-        state.syncError != null -> "$count foto's · laatste verversing mislukt"
-        else -> "$count foto's geïndexeerd"
-    }
+    val text = indexStatusText(state) ?: return
     Text(
         text,
         style = MaterialTheme.typography.bodySmall,

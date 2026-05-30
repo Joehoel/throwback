@@ -21,7 +21,7 @@ class GraphCrawler(
             val folderId = queue.removeFirst()
             val rows = ArrayList<PhotoRow>()
             for (item in fetchChildren(folderId)) {
-                if (item.has("folder")) {
+                if (GraphSchema.isFolder(item)) {
                     queue.add(item.getString("id")) // subfolder: walk later
                     continue
                 }

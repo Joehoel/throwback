@@ -67,7 +67,7 @@ class PlaceResolver(
 
     // 5 decimals ~= 1 m, finer than consumer GPS, so the cache only dedups truly identical coordinates
     // (e.g. the same photo). The coarser per-event grouping is done by [GeoCluster].
-    private fun key(lat: Double, lon: Double) = "%.5f,%.5f".format(Locale.US, lat, lon)
+    private fun key(lat: Double, lon: Double) = formatCoord(lat, lon, 5)
 
     private fun labelOf(a: Address): String? = PlaceLabel.compose(
         thoroughfare = a.thoroughfare,

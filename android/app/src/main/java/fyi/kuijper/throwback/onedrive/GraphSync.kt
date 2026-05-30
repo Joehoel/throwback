@@ -43,7 +43,7 @@ class GraphSync(
     suspend fun initDeltaToken(folderId: String): String? {
         var deltaLink: String? = null
         http.paginate("/me/drive/items/$folderId/delta?token=latest") { page ->
-            page.optString("@odata.deltaLink").ifBlank { null }?.let { deltaLink = it }
+            page.optStringOrNull("@odata.deltaLink")?.let { deltaLink = it }
         }
         return deltaLink
     }
@@ -58,19 +58,15 @@ class GraphSync(
         val deleted = ArrayList<String>()
         var newDelta: String? = null
         http.paginate(deltaLink) { page ->
-            page.optJSONArray("value")?.let { arr ->
-                for (i in 0 until arr.length()) {
-                    val o = arr.getJSONObject(i)
-                    val id = o.optString("id").ifBlank { null } ?: continue
-                    val mime = o.optJSONObject("file")?.optString("mimeType").orEmpty()
-                    when {
-                        o.has("deleted") -> deleted.add(id)
-                        o.has("folder") -> {} // skip folders; their photos arrive as separate items
-                        o.has("photo") || mime.startsWith("image/") -> changedIds.add(id)
-                    }
+            for (o in page.objects("value")) {
+                val id = o.optStringOrNull("id") ?: continue
+                when {
+                    o.has("deleted") -> deleted.add(id)
+                    GraphSchema.isFolder(o) -> {} // skip folders; their photos arrive as separate items
+                    GraphSchema.isMediaItem(o) -> changedIds.add(id)
                 }
             }
-            page.optString("@odata.deltaLink").ifBlank { null }?.let { newDelta = it }
+            page.optStringOrNull("@odata.deltaLink")?.let { newDelta = it }
         }
         val rows = ArrayList<PhotoRow>()
         for (id in changedIds) {
@@ -92,9 +88,7 @@ class GraphSync(
     private suspend fun fetchAllChildren(folderId: String): List<JSONObject> {
         val out = ArrayList<JSONObject>()
         http.paginate("/me/drive/items/$folderId/children?%24select=$select&%24top=200") { page ->
-            page.optJSONArray("value")?.let { arr ->
-                for (i in 0 until arr.length()) out.add(arr.getJSONObject(i))
-            }
+            out.addAll(page.objects("value"))
         }
         return out
     }

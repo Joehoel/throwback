@@ -36,9 +36,7 @@ class GraphClient(private val http: GraphHttp) {
         // $-parameters URL-encoded (%24) to avoid Kotlin string-template interpolation.
         val out = ArrayList<DriveItem>()
         http.paginate("$first?%24select=id,name,folder&%24top=200") { page ->
-            val arr = page.getJSONArray("value")
-            for (i in 0 until arr.length()) {
-                val o = arr.getJSONObject(i)
+            for (o in page.objects("value")) {
                 val folder = o.optJSONObject("folder") ?: continue // folders only
                 out.add(
                     DriveItem(

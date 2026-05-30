@@ -13,10 +13,8 @@ object PhotoParser {
     fun toPhotoRow(folderPath: String, item: JSONObject): PhotoRow? {
         val id = item.optString("id")
         if (id.isEmpty()) return null
+        if (!GraphSchema.isMediaItem(item)) return null
         val photo = item.optJSONObject("photo")
-        val mime = item.optJSONObject("file")?.optString("mimeType").orEmpty()
-        val isImage = photo != null || mime.startsWith("image/")
-        if (!isImage) return null
         return PhotoRow(
             id = id,
             name = item.optString("name"),
@@ -25,9 +23,9 @@ object PhotoParser {
             description = if (item.has("description")) {
                 // OneDrive sometimes returns descriptions HTML-encoded (&amp; &quot; &#39; ...);
                 // decode all HTML4 entities.
-                item.optString("description").ifBlank { null }?.let(StringEscapeUtils::unescapeHtml4)
+                item.optStringOrNull("description")?.let(StringEscapeUtils::unescapeHtml4)
             } else null,
-            taken = photo?.optString("takenDateTime")?.ifBlank { null },
+            taken = photo?.optStringOrNull("takenDateTime"),
             path = folderPath,
             lat = item.optJSONObject("location")?.coord("latitude"),
             lon = item.optJSONObject("location")?.coord("longitude"),
