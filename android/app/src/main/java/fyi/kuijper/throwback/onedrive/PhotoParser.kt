@@ -10,7 +10,17 @@ import org.json.JSONObject
 object PhotoParser {
     private val yearRegex = Regex("(?:19|20)\\d{2}")
 
-    fun toPhotoRow(folderPath: String, item: JSONObject): PhotoRow? {
+    fun toPhotoRow(folderPath: String, item: JSONObject): PhotoRow? =
+        build(item, folderPath, eventFromPath(folderPath), yearFromPath(folderPath))
+
+    /** Parse a folder's children at once; event/year (from the shared [folderPath]) are derived once. */
+    fun toPhotoRows(folderPath: String, items: List<JSONObject>): List<PhotoRow> {
+        val event = eventFromPath(folderPath)
+        val year = yearFromPath(folderPath)
+        return items.mapNotNull { build(it, folderPath, event, year) }
+    }
+
+    private fun build(item: JSONObject, folderPath: String, event: String, year: Int?): PhotoRow? {
         val id = item.optString("id")
         if (id.isEmpty()) return null
         if (!GraphSchema.isMediaItem(item)) return null
@@ -18,8 +28,8 @@ object PhotoParser {
         return PhotoRow(
             id = id,
             name = item.optString("name"),
-            event = eventFromPath(folderPath),
-            year = yearFromPath(folderPath) ?: yearFromTaken(photo),
+            event = event,
+            year = year ?: yearFromTaken(photo),
             description = if (item.has("description")) {
                 // OneDrive sometimes returns descriptions HTML-encoded (&amp; &quot; &#39; ...);
                 // decode all HTML4 entities.

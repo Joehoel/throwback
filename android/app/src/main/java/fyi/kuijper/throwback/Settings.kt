@@ -33,8 +33,9 @@ class Settings(context: Context) {
     var slideSeconds: Int
         get() = _state.value.slideSeconds
         set(value) {
-            prefs.edit().putInt("slide_seconds", value.coerceIn(3, 30)).apply()
-            _state.value = read()
+            val clamped = value.coerceIn(3, 30)
+            prefs.edit().putInt("slide_seconds", clamped).apply()
+            _state.value = _state.value.copy(slideSeconds = clamped)
         }
 
     /** True = shuffle, false = chronological. */
@@ -42,14 +43,14 @@ class Settings(context: Context) {
         get() = _state.value.shuffle
         set(value) {
             prefs.edit().putBoolean("shuffle", value).apply()
-            _state.value = read()
+            _state.value = _state.value.copy(shuffle = value)
         }
 
     var captionEnabled: Boolean
         get() = _state.value.captionEnabled
         set(value) {
             prefs.edit().putBoolean("caption_enabled", value).apply()
-            _state.value = read()
+            _state.value = _state.value.copy(captionEnabled = value)
         }
 
     /** Whether the one-time "set as screensaver" hint has been shown. (No reactivity needed.) */

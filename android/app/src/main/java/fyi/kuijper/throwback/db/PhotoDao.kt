@@ -56,9 +56,6 @@ interface PhotoDao {
     @Query("SELECT * FROM photo WHERE id = :id")
     suspend fun get(id: String): PhotoRow?
 
-    @Query("SELECT id FROM photo WHERE rootId = :rootId")
-    suspend fun allIds(rootId: String): List<String>
-
     @Query("SELECT * FROM photo WHERE rootId = :rootId")
     suspend fun allPhotos(rootId: String): List<PhotoRow>
 

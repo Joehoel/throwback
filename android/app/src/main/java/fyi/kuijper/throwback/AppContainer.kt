@@ -36,5 +36,9 @@ class AppContainer(app: Application) {
     private val placeResolver = PlaceResolver(app)
 
     val slideshow = SlideshowEngine(app, db, media, scope) { settings.slideSeconds }
-    val sync = SyncEngine(db, graphSync, placeResolver, scope, onRemoved = slideshow::removeIds)
+    val sync = SyncEngine(
+        db, graphSync, placeResolver, scope,
+        onRemoved = slideshow::removeIds,
+        onAdded = slideshow::appendIds,
+    )
 }

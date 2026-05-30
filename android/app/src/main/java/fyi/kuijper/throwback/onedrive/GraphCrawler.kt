@@ -19,15 +19,12 @@ class GraphCrawler(
         queue.add(rootFolderId)
         while (queue.isNotEmpty()) {
             val folderId = queue.removeFirst()
-            val rows = ArrayList<PhotoRow>()
-            for (item in fetchChildren(folderId)) {
-                if (GraphSchema.isFolder(item)) {
-                    queue.add(item.getString("id")) // subfolder: walk later
-                    continue
-                }
-                val path = item.optJSONObject("parentReference")?.optString("path").orEmpty()
-                PhotoParser.toPhotoRow(path, item)?.let { rows.add(it) }
-            }
+            val (folders, items) = fetchChildren(folderId).partition { GraphSchema.isFolder(it) }
+            folders.forEach { queue.add(it.getString("id")) }
+            if (items.isEmpty()) continue
+            // Children of one folder share a parentReference path, so derive it once.
+            val folderPath = items.first().optJSONObject("parentReference")?.optString("path").orEmpty()
+            val rows = PhotoParser.toPhotoRows(folderPath, items)
             if (rows.isNotEmpty()) onBatch(rows)
         }
     }

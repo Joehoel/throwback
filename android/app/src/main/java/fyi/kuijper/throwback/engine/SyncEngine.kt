@@ -36,6 +36,7 @@ class SyncEngine(
     private val placeResolver: PlaceResolver,
     private val scope: CoroutineScope,
     private val onRemoved: (List<String>) -> Unit = {},
+    private val onAdded: (List<String>) -> Unit = {},
 ) {
     data class State(
         val syncing: Boolean = false,
@@ -61,6 +62,7 @@ class SyncEngine(
                     var processed = 0
                     sync.crawl(folderId) { rows ->
                         db.upsertAll(folderId, rows) // geocoding runs separately, after the crawl
+                        onAdded(rows.map { it.id })
                         processed += rows.size
                         _state.value = _state.value.copy(processed = processed, indexed = db.count(folderId))
                     }
@@ -100,6 +102,7 @@ class SyncEngine(
             }
             if (changes.upserts.isNotEmpty()) {
                 db.upsertAll(folderId, changes.upserts)
+                onAdded(changes.upserts.map { it.id })
                 geocode(changes.upserts)
             }
             db.setDeltaLink(folderId, changes.newDeltaLink)

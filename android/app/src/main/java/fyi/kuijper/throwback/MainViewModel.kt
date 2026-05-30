@@ -89,19 +89,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
-        // React to background sync: start the show once the first photos arrive, and append to the
-        // running show once a crawl finishes.
+        // Start the show once the first photos arrive. Newly indexed photos are appended to the
+        // running show directly by the sync engine (onAdded → slideshow.appendIds).
         viewModelScope.launch {
-            var wasSyncing = false
             sync.state.collect { s ->
                 if (navFlow.value is Nav.Preparing && s.indexed > 0) startShowFromIndex()
-                if (wasSyncing && !s.syncing && slideshow.hasPlaylist) {
-                    val root = store.folderId
-                    if (root != null) {
-                        slideshow.appendIds(db.allIds(root))
-                    }
-                }
-                wasSyncing = s.syncing
             }
         }
 

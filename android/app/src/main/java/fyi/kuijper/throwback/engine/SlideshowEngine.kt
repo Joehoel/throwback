@@ -10,12 +10,15 @@ import fyi.kuijper.throwback.player.PhotoOrder
 import fyi.kuijper.throwback.player.Playlist
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
 /**
@@ -47,7 +50,8 @@ class SlideshowEngine(
     private var paused = false
 
     // Stable thumbnail URL per photo, so prefetch and display share the same URL (= Coil cache key).
-    private val urlCache = HashMap<String, String>()
+    // Concurrent: the loop and the parallel prefetch both touch it, on a multi-threaded scope.
+    private val urlCache = ConcurrentHashMap<String, String>()
 
     val hasPlaylist: Boolean get() = playlist != null
 
@@ -147,8 +151,8 @@ class SlideshowEngine(
         val ids = playlist?.window(ahead = 3, behind = 1) ?: return
         scope.launch {
             val loader = SingletonImageLoader.get(appContext)
-            for (id in ids) {
-                val url = runCatching { urlFor(id) }.getOrNull() ?: continue
+            val urls = ids.map { id -> async { runCatching { urlFor(id) }.getOrNull() } }.awaitAll()
+            for (url in urls.filterNotNull()) {
                 loader.enqueue(ImageRequest.Builder(appContext).data(url).build())
             }
         }
