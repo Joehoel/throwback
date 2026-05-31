@@ -9,7 +9,7 @@ import fyi.kuijper.throwback.core.HomeCountryCode
  * Country is included only when it differs from [homeCountryCode]; junk street values ("Unnamed Road")
  * are dropped; null when nothing usable remains.
  */
-object PlaceLabel {
+internal object PlaceLabel {
     private val JUNK_STREETS = setOf("unnamed road")
 
     fun compose(

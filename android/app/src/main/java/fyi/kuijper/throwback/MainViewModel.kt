@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -42,6 +43,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     private var connectJob: Job? = null
+
+    // The single in-flight "wait for the first photos, then start the show" waiter (the boot handshake).
+    // A new folder choice / retry cancels it, so at most one runs and the show starts exactly once.
+    private var firstPhotosJob: Job? = null
 
     val state: StateFlow<UiState> =
         combine(navFlow, slideshow.state, sync.state, settings.state, picker.state) { nav, slide, syncS, set, pick ->
@@ -89,14 +94,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
-        // Start the show once the first photos arrive. Newly indexed photos are appended to the
-        // running show directly by the sync engine (onAdded → slideshow.appendIds).
-        viewModelScope.launch {
-            sync.state.collect { s ->
-                if (s.indexed > 0 && isAwaitingFirstPhotos()) startShowFromIndex()
-            }
-        }
-
         when {
             store.isConnected && store.hasFolder -> startShow()
             store.isConnected -> openRootFolder()
@@ -179,7 +176,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 // No index yet → wait for the first photos. From the picker we stay there (its choose
                 // button shows the loading state); otherwise show the quiet loading frame.
                 if (navFlow.value !is Nav.PickingFolder) navFlow.value = Nav.Booting
-                if (folderId != null) sync.ensure(folderId)
+                if (folderId != null) {
+                    sync.ensure(folderId)
+                    awaitFirstPhotosThenStart()
+                }
                 return@launch
             }
             slideshow.start(photos, settings.shuffle)
@@ -189,24 +189,30 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Are we on a screen that's waiting for the first photos to appear (picker-prepare or boot)? */
-    private fun isAwaitingFirstPhotos(): Boolean = when (val nav = navFlow.value) {
+    private fun isAwaitingFirstPhotos(): Boolean = when (navFlow.value) {
         is Nav.Booting -> true
         is Nav.PickingFolder -> picker.state.value.preparing
         else -> false
     }
 
-    /** Background sync reported the first photos while we were waiting → start the show. */
-    private fun startShowFromIndex() {
-        viewModelScope.launch {
+    /**
+     * Wait until the background sync reports its first photos, then start the show — the boot
+     * handshake as one place. Cancels any previous waiter first, so a folder switch or retry never
+     * leaves a stale waiter that could start on the wrong folder, and the show starts exactly once.
+     * New photos after that arrive via the sync engine appending them to the running show
+     * (onAdded → slideshow.appendIds), so this only has to fire for the *first* batch.
+     */
+    private fun awaitFirstPhotosThenStart() {
+        firstPhotosJob?.cancel()
+        firstPhotosJob = viewModelScope.launch {
+            sync.state.first { it.indexed > 0 }
             if (!isAwaitingFirstPhotos()) return@launch
-            if (slideshow.hasPlaylist) {
-                navFlow.value = Nav.Showing
-                return@launch
-            }
             val root = store.folderId ?: return@launch
-            val photos = db.allPhotos(root)
-            if (photos.isEmpty()) return@launch
-            slideshow.start(photos, settings.shuffle)
+            if (!slideshow.hasPlaylist) {
+                val photos = db.allPhotos(root)
+                if (photos.isEmpty()) return@launch
+                slideshow.start(photos, settings.shuffle)
+            }
             navFlow.value = Nav.Showing
         }
     }
@@ -250,6 +256,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun retry() {
         connectJob?.cancel()
+        firstPhotosJob?.cancel()
         when {
             store.isConnected && store.hasFolder -> startShow()
             store.isConnected -> openRootFolder()
@@ -260,6 +267,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Disconnect: wipes token + folder and returns to the connect screen (only from Settings). */
     fun disconnect() {
         connectJob?.cancel()
+        firstPhotosJob?.cancel()
         slideshow.reset()
         sync.reset()
         viewModelScope.launch {

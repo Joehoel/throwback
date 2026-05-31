@@ -8,7 +8,14 @@ import androidx.annotation.RequiresApi
 import fyi.kuijper.throwback.core.AppLocale
 import fyi.kuijper.throwback.core.HomeCountryCode
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.Locale
@@ -17,35 +24,80 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
 /**
- * Turns photo GPS into a readable caption label at *index* time (not per display). Reverse-geocodes via
- * the built-in [Geocoder] with a cache keyed on (~1 m rounded) coordinates, so repeated lookups of the
- * same location are free. Clustering photos to one lookup per event happens a layer up (see [GeoCluster]).
+ * Turns photo GPS into readable place labels at *index* time (not per display). Owns the whole
+ * geocoding policy: it skips photos without GPS or already labelled, clusters the rest by
+ * Gebeurtenis + coarse cell ([GeoCluster]) so each location is looked up once, runs the lookups in
+ * parallel (bounded by [MAX_CONCURRENT_LOOKUPS]), caches per (~1 m) coordinate, and composes the
+ * label ([PlaceLabel]). The single-coordinate reverse-geocode ([geocodeOne]) is injectable, so the
+ * clustering/cache policy is unit-testable without Android's [Geocoder].
  *
- * On Android 13+ this uses the non-blocking listener API so the caller can run several lookups at once;
- * older devices fall back to the synchronous API on an IO thread. Label composition lives in [PlaceLabel].
+ * [resolve] returns id -> label for every photo it could place; a failed or empty lookup simply
+ * leaves that photo out, so a later pass retries it.
  */
-class PlaceResolver(
-    context: Context,
-    private val locale: Locale = AppLocale,
-    private val homeCountryCode: String = HomeCountryCode,
+class PlaceResolver internal constructor(
+    private val geocodeOne: suspend (lat: Double, lon: Double) -> String?,
 ) {
-    private val appContext = context.applicationContext
-    // "" = looked up but nothing usable (negative cache), so we stop retrying.
+    constructor(
+        context: Context,
+        locale: Locale = AppLocale,
+        homeCountryCode: String = HomeCountryCode,
+    ) : this(AndroidGeocoder(context.applicationContext, locale, homeCountryCode)::label)
+
+    // "" = looked up but nothing usable (negative cache), so we stop retrying that coordinate.
     private val cache = ConcurrentHashMap<String, String>()
 
-    suspend fun resolve(lat: Double, lon: Double): String? {
-        if (!Geocoder.isPresent()) return null
-        val key = key(lat, lon)
+    /** Reverse-geocode a batch; returns id -> place label for the photos it could place. */
+    suspend fun resolve(photos: List<PhotoRow>): Map<String, String> {
+        val located = photos.filter { it.lat != null && it.lon != null && it.place == null }
+        if (located.isEmpty()) return emptyMap()
+        val clusters = located.groupBy { GeoCluster.keyOf(it.event, it.lat!!, it.lon!!) }
+        return coroutineScope {
+            val gate = Semaphore(MAX_CONCURRENT_LOOKUPS)
+            clusters.values.map { members ->
+                async {
+                    if (!currentCoroutineContext().isActive) return@async emptyList<Pair<String, String>>()
+                    gate.withPermit {
+                        val rep = members.first()
+                        val label = cachedLabel(rep.lat!!, rep.lon!!) ?: return@withPermit emptyList()
+                        members.map { it.id to label }
+                    }
+                }
+            }.awaitAll().flatten().toMap()
+        }
+    }
+
+    private suspend fun cachedLabel(lat: Double, lon: Double): String? {
+        // 5 decimals ~= 1 m, finer than consumer GPS, so the cache only dedups truly identical
+        // coordinates; the coarser per-event grouping is done by [GeoCluster].
+        val key = formatCoord(lat, lon, 5)
         cache[key]?.let { return it.ifBlank { null } }
-        // Transient errors (rate-limit / "Service not Available") are not cached so a later pass retries;
-        // a successful lookup (including "no address") is cached.
-        val label = runCatching { addressLabel(lat, lon) }.getOrElse { return null }
+        // Transient errors (rate-limit / "Service not Available") throw and are not cached, so a later
+        // pass retries; a successful lookup (including "no usable address" -> null) is cached.
+        val label = runCatching { geocodeOne(lat, lon) }.getOrElse { return null }
         cache[key] = label ?: ""
         return label
     }
 
-    private suspend fun addressLabel(lat: Double, lon: Double): String? =
-        firstAddress(lat, lon)?.let(::labelOf)
+    private companion object {
+        const val MAX_CONCURRENT_LOOKUPS = 6
+    }
+}
+
+/**
+ * The Android leaf: one reverse-geocode via the built-in [Geocoder], composed into a label by
+ * [PlaceLabel]. On Android 13+ this uses the non-blocking listener API (so several can run at once);
+ * older devices fall back to the synchronous API on an IO thread. Returns null when nothing usable
+ * comes back; throws on a transient geocoder error so [PlaceResolver] can avoid caching it.
+ */
+private class AndroidGeocoder(
+    private val appContext: Context,
+    private val locale: Locale,
+    private val homeCountryCode: String,
+) {
+    suspend fun label(lat: Double, lon: Double): String? {
+        if (!Geocoder.isPresent()) return null
+        return firstAddress(lat, lon)?.let(::labelOf)
+    }
 
     private suspend fun firstAddress(lat: Double, lon: Double): Address? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -66,10 +118,6 @@ class PlaceResolver(
                     cont.resumeWithException(IOException(errorMessage ?: "geocode error"))
             })
         }
-
-    // 5 decimals ~= 1 m, finer than consumer GPS, so the cache only dedups truly identical coordinates
-    // (e.g. the same photo). The coarser per-event grouping is done by [GeoCluster].
-    private fun key(lat: Double, lon: Double) = formatCoord(lat, lon, 5)
 
     private fun labelOf(a: Address): String? = PlaceLabel.compose(
         thoroughfare = a.thoroughfare,

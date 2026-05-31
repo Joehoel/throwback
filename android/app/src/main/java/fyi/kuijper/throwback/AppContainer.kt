@@ -2,6 +2,7 @@ package fyi.kuijper.throwback
 
 import android.app.Application
 import fyi.kuijper.throwback.db.AppDatabase
+import fyi.kuijper.throwback.engine.IndexUpdater
 import fyi.kuijper.throwback.engine.SlideshowEngine
 import fyi.kuijper.throwback.engine.SyncEngine
 import fyi.kuijper.throwback.onedrive.GraphClient
@@ -36,9 +37,10 @@ class AppContainer(app: Application) {
     private val placeResolver = PlaceResolver(app)
 
     val slideshow = SlideshowEngine(app, db, media, scope) { settings.slideSeconds }
-    val sync = SyncEngine(
-        db, graphSync, placeResolver, scope,
-        onRemoved = slideshow::removeIds,
+    private val indexUpdater = IndexUpdater(
+        db, placeResolver,
         onAdded = slideshow::appendIds,
+        onRemoved = slideshow::removeIds,
     )
+    val sync = SyncEngine(db, graphSync, indexUpdater, scope)
 }

@@ -3,7 +3,7 @@ package fyi.kuijper.throwback.onedrive
 import java.util.Locale
 
 /** Locale-independent "lat,lon" rounded to [decimals] places. */
-fun formatCoord(lat: Double, lon: Double, decimals: Int): String =
+internal fun formatCoord(lat: Double, lon: Double, decimals: Int): String =
     "%.${decimals}f,%.${decimals}f".format(Locale.US, lat, lon)
 
 /**
@@ -12,7 +12,7 @@ fun formatCoord(lat: Double, lon: Double, decimals: Int): String =
  * of O(photos). The event is part of the key, so a coarse cell never merges two different events; pure
  * function for testability.
  */
-object GeoCluster {
+internal object GeoCluster {
     /** Decimals for cell rounding; ~111 m, well within the spread of a single event. */
     const val PRECISION = 3
 
