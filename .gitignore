@@ -18,3 +18,8 @@ __pycache__/
 
 # Logs / tijdelijk
 *.log
+
+# Secrets — lokale env met o.a. SENTRY_AUTH_TOKEN (sentry-cli laadt .env automatisch)
+.env
+.env.*
+!.env.example

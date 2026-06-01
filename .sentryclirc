@@ -1,0 +1,19 @@
+# sentry-cli project config. sentry-cli searches for this file upwards from the current
+# directory, so these defaults apply whether you run it from the repo root or from android/.
+# This is the same org/project the Sentry Gradle plugin uses (see android/app/build.gradle.kts).
+#
+# SECRET HANDLING: only non-secret defaults belong in this committed file. Never add a token
+# here. Provide the auth token out-of-band instead — via the SENTRY_AUTH_TOKEN env var (how CI
+# and the Gradle plugin already get it), or run `sentry-cli login` once to write it to your
+# personal ~/.sentryclirc, which lives outside this repo.
+
+[defaults]
+org = de-nieuwe-psalmberijming
+project = throwback
+
+[auth]
+# token intentionally omitted — supplied via SENTRY_AUTH_TOKEN or ~/.sentryclirc. Do not commit one.
+
+[update]
+# CI and dev machines manage sentry-cli versions explicitly; skip the auto-update nag.
+disable_check = true
