@@ -8,6 +8,18 @@ plugins {
     alias(libs.plugins.sentry.android.gradle)
 }
 
+// Versie: bij een release komt 'ie uit de v-tag (RELEASE_TAG, bv. "v1.2.0"); lokaal/CI een dev-fallback.
+// versionCode wordt monotoon afgeleid van semver: MAJOR*10000 + MINOR*100 + PATCH (v1.2.0 -> 10200).
+val releaseTag: String? = System.getenv("RELEASE_TAG") ?: (findProperty("releaseTag") as String?)
+val releaseSemver: String? = releaseTag?.removePrefix("v")?.takeIf { Regex("""\d+\.\d+\.\d+""").matches(it) }
+if (releaseTag != null && releaseSemver == null) {
+    error("RELEASE_TAG '$releaseTag' is geen vMAJOR.MINOR.PATCH")
+}
+val appVersionName: String = releaseSemver ?: "0.0.0-dev"
+val appVersionCode: Int = releaseSemver?.split(".")?.let { (maj, min, patch) ->
+    maj.toInt() * 10000 + min.toInt() * 100 + patch.toInt()
+} ?: 1
+
 android {
     namespace = "fyi.kuijper.throwback"
     compileSdk {
@@ -20,9 +32,22 @@ android {
         applicationId = "fyi.kuijper.throwback"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+    }
 
+    signingConfigs {
+        // De echte release-key komt uit env (CI-secrets): de base64-keystore wordt naar een bestand
+        // gedecodeerd en SIGNING_KEYSTORE_FILE wijst ernaar. Staat die env niet, dan valt de release
+        // hieronder terug op de debug-key, zodat een lokale `assembleRelease` zonder secrets blijft werken.
+        create("release") {
+            System.getenv("SIGNING_KEYSTORE_FILE")?.let { path ->
+                storeFile = file(path)
+                storePassword = System.getenv("SIGNING_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword = System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
@@ -32,9 +57,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // Sideload signing: the debug keystore is enough to install on our own TV box (and upgrades
-            // the existing install in place). Swap in a real upload key here for a Play Store release.
-            signingConfig = signingConfigs.getByName("debug")
+            // Signeer met de echte release-key als die in de omgeving staat (CI); anders met de debug-key
+            // — genoeg om op ons eigen TV-kastje te sideloaden en in-place te upgraden.
+            signingConfig = if (System.getenv("SIGNING_KEYSTORE_FILE") != null)
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
         }
     }
     compileOptions {
