@@ -103,6 +103,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             store.isConnected -> openRootFolder()
             else -> {} // navFlow is already on Connect
         }
+        if (store.isConnected) identifyUser()
     }
 
     fun connect() {
@@ -113,10 +114,29 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val dc = session.startDeviceCode()
                 navFlow.value = Nav.ShowingCode(dc)
                 session.completeLogin(dc)
+                identifyUser(forceRefresh = true) // fresh login may be a different account than the cache
                 if (store.hasFolder) startShow() else openRootFolder()
             } catch (e: Exception) {
                 Telemetry.captureHandled(e, "auth.login")
                 navFlow.value = Nav.Failed(Errors.message(e))
+            }
+        }
+    }
+
+    /**
+     * Tag Sentry events with the connected OneDrive account as a stable, non-PII owner id (ADR 0007).
+     * Uses the cached id (no network) unless [forceRefresh] — a fresh login, which could be a different
+     * account. Best-effort: identification must never block login or the show, so failures only log.
+     */
+    private fun identifyUser(forceRefresh: Boolean = false) {
+        if (!forceRefresh) store.ownerId?.let { Telemetry.setUser(it); return }
+        viewModelScope.launch {
+            try {
+                val id = graph.driveOwnerId() ?: return@launch
+                store.ownerId = id
+                Telemetry.setUser(id)
+            } catch (e: Exception) {
+                Telemetry.captureHandled(e, "auth.identify", SentryLevel.INFO)
             }
         }
     }
@@ -285,7 +305,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         sync.reset()
         viewModelScope.launch {
             db.clearAll()
-            session.clear()
+            session.clear() // also wipes the cached ownerId via TokenStore.clear()
+            Telemetry.clearUser()
             navFlow.value = Nav.Connect
         }
     }

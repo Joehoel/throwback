@@ -27,6 +27,17 @@ class GraphClient(private val http: GraphHttp) {
         )
     }
 
+    /**
+     * The Graph id of the signed-in drive's owner — a stable, non-PII account identifier (no name or
+     * email), carried in the drive's `owner` IdentitySet and readable with just Files.Read. `null` if
+     * Graph omits it. Used only to tag Sentry events with which account they came from.
+     */
+    suspend fun driveOwnerId(): String? =
+        http.getJsonOrNull("/me/drive?%24select=id,owner")
+            ?.optJSONObject("owner")
+            ?.optJSONObject("user")
+            ?.optStringOrNull("id")
+
     suspend fun listFolders(folderId: String?): List<DriveItem> {
         val first = if (folderId == null) {
             "/me/drive/root/children"

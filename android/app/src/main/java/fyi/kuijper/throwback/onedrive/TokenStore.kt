@@ -22,6 +22,11 @@ class TokenStore(context: Context) {
         get() = prefs.getString("folder_name", null)
         set(value) { prefs.edit().putString("folder_name", value).apply() }
 
+    /** The drive owner's Graph id, cached after the first lookup so later boots identify without a call. */
+    var ownerId: String?
+        get() = prefs.getString("owner_id", null)
+        set(value) { prefs.edit().putString("owner_id", value).apply() }
+
     val isConnected: Boolean get() = refreshToken != null
     val hasFolder: Boolean get() = folderId != null
 
