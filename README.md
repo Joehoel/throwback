@@ -37,6 +37,6 @@ export SENTRY_AUTH_TOKEN=…        # of `sentryAuthToken` in ~/.gradle/gradle.p
 
 ## Documentatie
 
-- [CONTEXT.md](./CONTEXT.md) — de domeintaal (Bibliotheek, Gebeurtenis, Onderschrift, …)
-- [PRD.md](./PRD.md) — wat de app moet doen
+- [CONTEXT.md](./docs/CONTEXT.md) — de domeintaal (Bibliotheek, Gebeurtenis, Onderschrift, …)
+- [PRD.md](./docs/PRD.md) — wat de app moet doen
 - [docs/adr/](./docs/adr/) — de dragende ontwerpbeslissingen

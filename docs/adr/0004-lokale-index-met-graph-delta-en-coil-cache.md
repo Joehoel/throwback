@@ -21,7 +21,7 @@ Gekozen architectuur (volgt Google's aanbevolen "netwerk → database → UI"-pa
 
 ## Update (2026-05-29) — delta geeft géén `description`
 
-Empirisch bevestigd (`spike/probe_delta_description.py`): het Graph **delta**-endpoint geeft het `description`-veld **niet** terug op persoonlijke OneDrive — ook niet met `$select`. Het `children`/`GET`-endpoint geeft het wél.
+Empirisch bevestigd (`scripts/probe_delta_description.py`): het Graph **delta**-endpoint geeft het `description`-veld **niet** terug op persoonlijke OneDrive — ook niet met `$select`. Het `children`/`GET`-endpoint geeft het wél.
 
 Gevolgen voor het ontwerp:
 - **Initiële index gaat via een recursieve `children`-crawl** in plaats van delta. `children` levert per foto de `description`, en tijdens het aflopen kennen we per map al de gebeurtenis + jaar (uit het pad). Streamt map-voor-map, dus afspelen kan vroeg starten.

@@ -22,7 +22,7 @@ OORSPRONKELIJKE BESCHRIJVING DAARNA TERUG. Er blijft niks gewijzigd achter.
 
 Draaien (macOS, met uv):
     BU_CLIENT_ID=<application-client-id> \
-    uv run spike/verify_description_write.py --path "Afbeeldingen/Camera-album/2026/05/IMG_123.jpg"
+    uv run scripts/verify_description_write.py --path "Afbeeldingen/Camera-album/2026/05/IMG_123.jpg"
 
 Zonder --path kiest hij zelf een foto: bij voorkeur eentje op de nieuwe `!s…`
 backend (dat is nu juist het interessante geval).

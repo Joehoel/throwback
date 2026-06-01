@@ -11,7 +11,7 @@ android/captures/
 *.iml
 .cxx/
 
-# Python spikes
+# Python
 __pycache__/
 *.pyc
 .venv/

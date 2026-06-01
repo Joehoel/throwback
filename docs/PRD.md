@@ -2,7 +2,7 @@
 
 Een Android TV-app die de familiefotobibliotheek uit OneDrive als schermvullende slideshow toont, met de gebeurtenis en het jaar in beeld. Bedoeld voor de zondagse borrel op de Google TV.
 
-> Domeintaal staat in [CONTEXT.md](./CONTEXT.md). De dragende beslissingen in [docs/adr/](./docs/adr/).
+> Domeintaal staat in [CONTEXT.md](./CONTEXT.md). De dragende beslissingen in [docs/adr/](./adr/).
 
 ## Probleem
 
@@ -62,7 +62,7 @@ Bevestigd dat het `description`-veld via Graph terugkomt voordat we erop bouwen.
 - ✅ Device-code login tegen een persoonlijk account.
 - ✅ Testfoto via Graph: beschrijving "Hallo Wereld" kwam exact terug in `description`.
 
-**Resultaat:** geslaagd. De plumbing werkt end-to-end (zie `spike/verify_description.py`). Bijvangst: de bibliotheek bevat gemengde formaten (HEIC, JPG, PNG, …) — we tonen Graph-thumbnails (altijd JPEG), zodat álle formaten uniform werken zonder decoder op het kastje.
+**Resultaat:** geslaagd. De plumbing werkt end-to-end (zie `scripts/verify_description.py`). Bijvangst: de bibliotheek bevat gemengde formaten (HEIC, JPG, PNG, …) — we tonen Graph-thumbnails (altijd JPEG), zodat álle formaten uniform werken zonder decoder op het kastje.
 
 ### Fase 1 — Koppelen & map kiezen ✅ AFGEROND (2026-05-29)
 

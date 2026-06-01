@@ -6,7 +6,7 @@ Belangrijke beperking: `driveItem.description` is alleen read-write op **OneDriv
 
 ## Status
 
-**Geverifieerd (2026-05-29).** Spike `spike/verify_description.py`: een in de OneDrive-UI getypte beschrijving ("Hallo Wereld") kwam exact terug in `driveItem.description` via Graph. De plumbing (registratie, device-login, Graph, beschrijving lezen) werkt end-to-end.
+**Geverifieerd (2026-05-29).** Spike `scripts/verify_description.py`: een in de OneDrive-UI getypte beschrijving ("Hallo Wereld") kwam exact terug in `driveItem.description` via Graph. De plumbing (registratie, device-login, Graph, beschrijving lezen) werkt end-to-end.
 
 ## Consequences
 
