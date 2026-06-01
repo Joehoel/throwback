@@ -1,62 +1,118 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.10"
+# dependencies = ["typer>=0.12", "rich>=13", "questionary>=2"]
+# ///
 """Installeer de Throwback-APK op een Android-/Google-TV via adb-over-netwerk.
 
-Gebruik (nadat je op de TV Ontwikkelaarsmodus + USB-/Netwerk-foutopsporing hebt aangezet):
+Twee helften: (1) bepaal welke APK — uit een GitHub Release (default), een lokaal pad, of vers
+gebouwd; (2) kies een toestel en installeer. Vindt toestellen via reeds-verbonden adb én een
+LAN-scan op de adb-poort, dus meestal hoef je geen IP te typen.
 
-    python3 scripts/install_to_tv.py
+Agent-vriendelijk: elke invoer heeft een flag. Er wordt alléén interactief gevraagd als een mens
+aan een TTY zit én nog geen doel heeft opgegeven. Met flags / zonder TTY / met --json blijft het
+volledig non-interactief.
 
-Het script scant je lokale netwerk op toestellen met adb-debugging (poort 5555), toont
-ze met IP + hostname, laat je er één kiezen, en draait dan `adb connect` + `adb install`.
+    uv run scripts/install_to_tv.py                 # laatste release -> vind de TV -> installeer
+    uv run scripts/install_to_tv.py --build -y      # bouw debug-APK, pak het enige toestel
+    uv run scripts/install_to_tv.py --device 192.168.1.50:5555
+    uv run scripts/install_to_tv.py --list --json   # toestellen enumereren (agent-discovery)
 
-Alleen standaardbibliotheek — geen pip-installatie nodig.
-
-Handige opties:
-    --apk PAD       Andere APK installeren (default: de gebouwde debug-APK).
-    --build         Eerst `gradlew assembleDebug` draaien.
-    --port N        Andere adb-poort scannen/gebruiken (default: 5555).
-    --subnet CIDR   Ander subnet scannen, bijv. 192.168.1.0/24 (default: auto).
-    --timeout SEC   Time-out per host bij het scannen (default: 0.3).
+Exit codes: 0 ok · 2 ontbrekende tool · 3 geen toestel · 4 dubbelzinnig doel (non-interactief,
+            >1 toestel, niets gekozen) · 5 APK-fout · 6 installatie mislukt
 """
-
 from __future__ import annotations
 
-import argparse
 import ipaddress
-import os
+import re
 import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from typing import List, Optional
+
+import questionary
+import typer
+from rich.console import Console
+from rich.table import Table
+
+# Chatter naar stderr; stdout blijft schoon voor machineleesbare regels / --json.
+err = Console(stderr=True)
+out = Console()
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_APK = REPO_ROOT / "android/app/build/outputs/apk/debug/app-debug.apk"
+DEFAULT_DEBUG_APK = REPO_ROOT / "android/app/build/outputs/apk/debug/app-debug.apk"
 GRADLEW = REPO_ROOT / "android/gradlew"
+REPO_DEFAULT = "Joehoel/throwback"
+
+app = typer.Typer(add_completion=False, help=__doc__)
 
 
-# --- adb lokaliseren -------------------------------------------------------
+def die(msg: str, code: int) -> "typer.NoReturn":
+    err.print(f"[red]fout:[/] {msg}")
+    raise typer.Exit(code)
+
 
 def find_adb() -> str:
-    adb = shutil.which("adb")
-    if adb:
+    if adb := shutil.which("adb"):
         return adb
-    # Veelvoorkomende SDK-locatie op macOS/Linux als adb niet in PATH staat.
     for cand in (
         Path.home() / "Library/Android/sdk/platform-tools/adb",
         Path.home() / "Android/Sdk/platform-tools/adb",
     ):
         if cand.exists():
             return str(cand)
-    sys.exit(
-        "Kon 'adb' niet vinden. Installeer Android platform-tools of zet adb in je PATH."
+    die("kon 'adb' niet vinden. Installeer Android platform-tools of zet adb in je PATH.", 2)
+
+
+def run(cmd: list[str], *, capture: bool = False) -> subprocess.CompletedProcess:
+    """Draai een commando (streamt naar stderr, of capture). Raist nooit op non-zero."""
+    return subprocess.run(
+        cmd, text=True,
+        stdout=subprocess.PIPE if capture else err.file,
+        stderr=subprocess.PIPE if capture else err.file,
     )
 
 
-# --- netwerk scannen -------------------------------------------------------
+# --- toestellen vinden: reeds-verbonden adb + LAN-scan ---------------------
+
+def adb_ready(adb: str) -> list[str]:
+    """Serials die in 'device'-state staan (al verbonden / geautoriseerd)."""
+    cp = run([adb, "devices"], capture=True)
+    ready, skipped = [], []
+    for line in (cp.stdout or "").splitlines()[1:]:
+        parts = line.split()
+        if len(parts) >= 2:
+            (ready if parts[1] == "device" else skipped).append((parts[0], parts[1]))
+    for serial, state in skipped:
+        err.print(f"[yellow]sla {serial} over (state: {state})[/]")
+    return [s for s, _ in ready]
+
+
+def _local_ipv4() -> set[str]:
+    ips: set[str] = set()
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ips.add(s.getsockname()[0])
+        s.close()
+    except OSError:
+        pass
+    for cmd in (["ifconfig"], ["ip", "-4", "addr"]):
+        try:
+            o = subprocess.run(cmd, text=True, capture_output=True).stdout
+        except FileNotFoundError:
+            continue
+        ips.update(re.findall(r"inet (?:addr:)?(\d+\.\d+\.\d+\.\d+)", o))
+        if o:
+            break
+    return ips
+
 
 def _subnet_rank(net: ipaddress.IPv4Network) -> int:
-    """Sorteervoorkeur: gewone thuis-LANs eerst, VPN/Tailscale (100.64/10) achteraan."""
     first = net.network_address
     if first in ipaddress.ip_network("192.168.0.0/16"):
         return 0
@@ -69,196 +125,195 @@ def _subnet_rank(net: ipaddress.IPv4Network) -> int:
     return 5
 
 
-def _all_local_ipv4() -> set[str]:
-    """Verzamel alle lokale IPv4-adressen via ifconfig (macOS) / ip (Linux)."""
-    import re
-
-    ips: set[str] = set()
-    # Het IP van de default route (kan een VPN-interface zijn, maar nuttig als fallback).
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ips.add(s.getsockname()[0])
-        s.close()
-    except OSError:
-        pass
-    for cmd in (["ifconfig"], ["ip", "-4", "addr"]):
-        try:
-            out = subprocess.run(cmd, text=True, capture_output=True).stdout
-        except FileNotFoundError:
-            continue
-        ips.update(re.findall(r"inet (?:addr:)?(\d+\.\d+\.\d+\.\d+)", out))
-        if out:
-            break
-    return ips
-
-
 def candidate_subnets() -> list[ipaddress.IPv4Network]:
-    """Gevonden /24-subnetten van lokale interfaces, gesorteerd op LAN-waarschijnlijkheid."""
     nets: set[ipaddress.IPv4Network] = set()
-    for ip in _all_local_ipv4():
+    for ip in _local_ipv4():
         addr = ipaddress.ip_address(ip)
-        if addr.is_loopback or addr.is_link_local:
-            continue
-        nets.add(ipaddress.ip_network(f"{ip}/24", strict=False))
+        if not (addr.is_loopback or addr.is_link_local):
+            nets.add(ipaddress.ip_network(f"{ip}/24", strict=False))
     return sorted(nets, key=lambda n: (_subnet_rank(n), str(n)))
 
 
-def port_open(ip: str, port: int, timeout: float) -> bool:
+def _port_open(ip: str, port: int, timeout: float) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(timeout)
         return s.connect_ex((ip, port)) == 0
 
 
-def hostname_for(ip: str) -> str:
+def _hostname(ip: str) -> str:
     try:
         return socket.gethostbyaddr(ip)[0]
     except (socket.herror, socket.gaierror, OSError):
         return "?"
 
 
-def scan(subnet: ipaddress.IPv4Network, port: int, timeout: float) -> list[tuple[str, str]]:
-    hosts = [str(ip) for ip in subnet.hosts()]
-    print(f"Scan {subnet} op poort {port} … ({len(hosts)} adressen)")
-    found: list[str] = []
-    with ThreadPoolExecutor(max_workers=128) as pool:
-        for ip, is_open in zip(hosts, pool.map(lambda h: port_open(h, port, timeout), hosts)):
-            if is_open:
-                found.append(ip)
-    # Hostnames pas voor de treffers opzoeken (reverse-DNS is traag).
-    with ThreadPoolExecutor(max_workers=32) as pool:
-        names = list(pool.map(hostname_for, found))
-    return list(zip(found, names))
-
-
-# --- interactieve keuze ----------------------------------------------------
-
-def choose(devices: list[tuple[str, str]], port: int) -> str | None:
-    """Toon de gevonden toestellen en geef het gekozen IP:poort terug (of None om te stoppen)."""
-    while True:
-        if devices:
-            print("\nGevonden toestellen met adb-debugging:")
-            for i, (ip, name) in enumerate(devices, 1):
-                print(f"  {i}. {ip:<15}  {name}")
-        else:
-            print("\nGeen toestellen met open adb-poort gevonden.")
-        print("  m. Handmatig IP[:poort] invoeren")
-        print("  r. Opnieuw scannen")
-        print("  q. Stoppen")
-
-        keuze = input("Kies een toestel: ").strip().lower()
-        if keuze == "q":
-            return None
-        if keuze == "r":
-            return "RESCAN"
-        if keuze == "m":
-            handmatig = input("IP of IP:poort: ").strip()
-            if not handmatig:
-                continue
-            return handmatig if ":" in handmatig else f"{handmatig}:{port}"
-        if keuze.isdigit() and 1 <= int(keuze) <= len(devices):
-            return f"{devices[int(keuze) - 1][0]}:{port}"
-        print("Ongeldige keuze.")
-
-
-# --- adb-acties ------------------------------------------------------------
-
-def run(cmd: list[str]) -> subprocess.CompletedProcess:
-    print(f"\n$ {' '.join(cmd)}")
-    return subprocess.run(cmd, text=True, capture_output=True)
-
-
-def connect_and_install(adb: str, target: str, apk: Path) -> bool:
-    res = run([adb, "connect", target])
-    out = (res.stdout + res.stderr).strip()
-    print(out)
-    if "connected" not in out.lower():
-        print("Verbinden mislukt. Staat Netwerk-foutopsporing aan op de TV?")
-        return False
-    if "unauthorized" in out.lower() or "failed to authenticate" in out.lower():
-        print(
-            "Toestel is nog niet geautoriseerd. Bevestig op de TV de dialoog "
-            "'Toestaan dat dit toestel debugt?' en kies daarna dit toestel opnieuw."
-        )
-        return False
-
-    print(f"\nInstalleren van {apk.name} …")
-    res = run([adb, "-s", target, "install", "-r", str(apk)])
-    print((res.stdout + res.stderr).strip())
-    if res.returncode != 0 or "Success" not in res.stdout:
-        print("Installatie mislukt. Zie de uitvoer hierboven.")
-        return False
-
-    print("\n✅ Geïnstalleerd. Open 'Throwback' in de TV-launcher en koppel OneDrive.")
-    print("   Daarna: app → Instellingen → Screensaver instellen (of via de TV-instellingen).")
-    return True
-
-
-# --- main ------------------------------------------------------------------
-
-def main() -> int:
-    p = argparse.ArgumentParser(description="Installeer Throwback op een Android-TV via adb.")
-    p.add_argument("--apk", type=Path, default=DEFAULT_APK, help="Pad naar de te installeren APK.")
-    p.add_argument("--build", action="store_true", help="Eerst de debug-APK bouwen.")
-    p.add_argument("--port", type=int, default=5555, help="adb-poort (default 5555).")
-    p.add_argument("--subnet", help="Subnet als CIDR, bijv. 192.168.1.0/24 (default: auto).")
-    p.add_argument("--timeout", type=float, default=0.3, help="Scan-time-out per host in seconden.")
-    args = p.parse_args()
-
-    adb = find_adb()
-
-    if args.build:
-        print("Bouwen van de debug-APK …")
-        if subprocess.run([str(GRADLEW), "-p", str(REPO_ROOT / "android"), ":app:assembleDebug"]).returncode != 0:
-            return 1
-
-    if not args.apk.exists():
-        print(f"APK niet gevonden: {args.apk}")
-        print("Bouw 'm eerst met --build, of geef --apk een geldig pad.")
-        return 1
-
-    if args.subnet:
-        try:
-            subnet = ipaddress.ip_network(args.subnet, strict=False)
-        except ValueError as e:
-            print(f"Ongeldig subnet: {e}")
-            return 1
+def lan_scan(port: int, timeout: float, subnet: Optional[str]) -> list[tuple[str, str]]:
+    """Scan het LAN op een open adb-poort; geef [(ip:port, hostname)] terug."""
+    if subnet:
+        nets = [ipaddress.ip_network(subnet, strict=False)]
     else:
-        subnets = candidate_subnets()
-        if not subnets:
-            print("Kon geen lokaal subnet bepalen. Geef er een op met --subnet 192.168.1.0/24")
-            return 1
-        if len(subnets) == 1:
-            subnet = subnets[0]
-        else:
-            print("Meerdere netwerken gevonden — kies welke je TV gebruikt (meestal 192.168.x):")
-            for i, n in enumerate(subnets, 1):
-                hint = "  ← waarschijnlijk VPN/Tailscale" if _subnet_rank(n) == 9 else ""
-                print(f"  {i}. {n}{hint}")
-            sel = input(f"Subnet [1-{len(subnets)}, default 1]: ").strip()
-            idx = int(sel) - 1 if sel.isdigit() and 1 <= int(sel) <= len(subnets) else 0
-            subnet = subnets[idx]
-        print(f"Gekozen subnet: {subnet}")
+        nets = candidate_subnets()
+        if not nets:
+            err.print("[yellow]kon geen lokaal subnet bepalen; sla scan over[/]")
+            return []
+        nets = [nets[0]]  # meest waarschijnlijke LAN
+    found: list[str] = []
+    for net in nets:
+        hosts = [str(ip) for ip in net.hosts()]
+        err.print(f"[dim]scan {net} op poort {port} ({len(hosts)} adressen) ...[/]")
+        with ThreadPoolExecutor(max_workers=128) as pool:
+            for ip, ok in zip(hosts, pool.map(lambda h: _port_open(h, port, timeout), hosts)):
+                if ok:
+                    found.append(ip)
+    with ThreadPoolExecutor(max_workers=32) as pool:
+        names = list(pool.map(_hostname, found))
+    return [(f"{ip}:{port}", name) for ip, name in zip(found, names)]
 
-    while True:
-        devices = scan(subnet, args.port, args.timeout)
-        target = choose(devices, args.port)
-        if target is None:
-            print("Gestopt.")
-            return 0
-        if target == "RESCAN":
+
+def ensure_connected(adb: str, target: str) -> bool:
+    """Verbind een netwerk-target (host:port) als dat nog niet verbonden is."""
+    if ":" not in target:  # lijkt een usb-serial: al verbonden
+        return True
+    res = run([adb, "connect", target], capture=True)
+    blob = f"{res.stdout}{res.stderr}".lower()
+    if "unauthorized" in blob or "failed to authenticate" in blob:
+        err.print(f"[yellow]{target}: nog niet geautoriseerd — bevestig de debug-dialoog op de TV[/]")
+        return False
+    return "connected" in blob
+
+
+@app.command()
+def main(
+    tag: Optional[str] = typer.Option(None, "--tag", "-t", help="Release-tag (default: laatste release)."),
+    apk: Optional[Path] = typer.Option(None, "--apk", help="Installeer deze lokale APK i.p.v. een release te halen."),
+    build: bool = typer.Option(False, "--build", help="Bouw eerst de debug-APK en installeer die."),
+    repo: Optional[str] = typer.Option(None, "--repo", help="GitHub-repo owner/name (default: gh's huidige repo, anders Joehoel/throwback)."),
+    device: Optional[List[str]] = typer.Option(None, "--device", "-d", help="Doel serial/host:port (herhaalbaar). Slaat de keuzelijst over."),
+    connect: Optional[List[str]] = typer.Option(None, "--connect", help="adb connect dit host[:port] eerst (herhaalbaar; :5555 aangenomen)."),
+    all_devices: bool = typer.Option(False, "--all", help="Installeer op elk verbonden toestel (non-interactief)."),
+    no_scan: bool = typer.Option(False, "--no-scan", help="Sla de LAN-scan over (alleen reeds-verbonden adb-toestellen)."),
+    port: int = typer.Option(5555, "--port", help="adb-poort om te scannen/gebruiken."),
+    subnet: Optional[str] = typer.Option(None, "--subnet", help="Subnet als CIDR voor de scan, bijv. 192.168.1.0/24 (default: auto)."),
+    timeout: float = typer.Option(0.3, "--timeout", help="Scan-time-out per host (seconden)."),
+    list_only: bool = typer.Option(False, "--list", help="Toon gevonden toestellen en stop."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Vraag nooit: pak het enige toestel, anders faal."),
+    as_json: bool = typer.Option(False, "--json", help="Resultaat als JSON op stdout (impliceert geen prompts)."),
+):
+    """Download de release-APK (of bouw/gebruik een lokale) en installeer op de gekozen TV('s)."""
+    adb = find_adb()
+    non_interactive = as_json or yes or not sys.stdin.isatty()
+
+    # 1. Expliciete --connect targets eerst verbinden.
+    for addr in connect or []:
+        addr = addr if ":" in addr else f"{addr}:{port}"
+        err.print(f"[dim]verbinden met {addr} ...[/]")
+        if not ensure_connected(adb, addr):
+            die(f"adb connect {addr} mislukt", 3)
+
+    # 2. Kandidaten verzamelen: reeds-verbonden + (optioneel) LAN-scan.
+    ready = adb_ready(adb)
+    targeted = bool(device or connect or all_devices)
+    do_scan = (list_only or not targeted) and not no_scan
+    scanned = lan_scan(port, timeout, subnet) if do_scan else []
+    # ip:port dat al verbonden is niet dubbel tonen.
+    scanned = [(t, n) for t, n in scanned if t not in ready]
+
+    if list_only:
+        if as_json:
+            out.print_json(data={
+                "connected": ready,
+                "discovered": [{"target": t, "hostname": n} for t, n in scanned],
+            })
+        else:
+            table = Table("doel", "bron", "hostname")
+            for s in ready:
+                table.add_row(s, "verbonden", "")
+            for t, n in scanned:
+                table.add_row(t, "lan-scan", n)
+            out.print(table)
+        raise typer.Exit(0)
+
+    # 3. Doel(en) kiezen.
+    all_serials = ready + [t for t, _ in scanned]
+    label = {**{s: s for s in ready}, **{t: f"{t}  ({n})" for t, n in scanned}}
+
+    if device:
+        targets = list(device)
+    elif all_devices:
+        targets = list(ready)
+        if not targets:
+            die("--all maar geen verbonden toestellen", 3)
+    elif len(all_serials) == 1:
+        targets = all_serials
+    elif not all_serials:
+        die("geen toestellen gevonden. Zet Netwerk-foutopsporing aan op de TV, of gebruik --connect <tv-ip>.", 3)
+    elif non_interactive:
+        err.print("[red]meerdere toestellen; kies met --device <doel>, of --all:[/]")
+        for s in all_serials:
+            err.print(f"  {label[s]}")
+        raise typer.Exit(4)
+    else:
+        picked = questionary.checkbox(
+            "Kies toestel(len) om op te installeren:",
+            choices=[questionary.Choice(label[s], value=s) for s in all_serials],
+        ).ask()
+        if not picked:
+            die("geen toestel gekozen", 4)
+        targets = picked
+
+    # 4. APK bepalen.
+    tmp: Optional[tempfile.TemporaryDirectory] = None
+    if build:
+        err.print("[dim]bouwen van de debug-APK ...[/]")
+        if run([str(GRADLEW), "-p", str(REPO_ROOT / "android"), ":app:assembleDebug"]).returncode != 0:
+            die("gradle-build mislukt", 5)
+        apk_path = DEFAULT_DEBUG_APK
+    elif apk:
+        if not apk.is_file():
+            die(f"lokale APK niet gevonden: {apk}", 5)
+        apk_path = apk
+    else:
+        if not shutil.which("gh"):
+            die("'gh' niet gevonden (nodig om een release te downloaden). Of gebruik --apk/--build.", 2)
+        if not repo:
+            cp = run(["gh", "repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"], capture=True)
+            repo = (cp.stdout or "").strip() or REPO_DEFAULT
+        tmp = tempfile.TemporaryDirectory()
+        err.print(f"[dim]download {tag or 'laatste'} release-APK van {repo} ...[/]")
+        cmd = ["gh", "release", "download", *( [tag] if tag else [] ),
+               "--repo", repo, "--pattern", "*.apk", "--dir", tmp.name, "--clobber"]
+        if run(cmd).returncode != 0:
+            die(f"kon geen APK downloaden van {repo} ({tag or 'laatste'}). Bestaat er een release met een .apk-asset?", 5)
+        apks = sorted(Path(tmp.name).glob("*.apk"))
+        if not apks:
+            die("release had geen .apk-asset", 5)
+        apk_path = apks[0]
+    err.print(f"[dim]APK: {apk_path.name}[/]")
+
+    # 5. Installeren.
+    results, any_failed = [], False
+    for target in targets:
+        if not ensure_connected(adb, target):
+            results.append({"target": target, "status": "connect-failed"})
+            any_failed = True
             continue
-        if connect_and_install(adb, target, args.apk):
-            return 0
-        # Bij mislukking opnieuw het menu tonen (geen rescan) zodat je 'm kunt herproberen.
-        again = input("\nNog een keer proberen? [j/N] ").strip().lower()
-        if again != "j":
-            return 1
+        err.print(f"[dim]installeren op {target} ...[/]")
+        rc = run([adb, "-s", target, "install", "-r", str(apk_path)]).returncode
+        status = "installed" if rc == 0 else "failed"
+        any_failed |= rc != 0
+        results.append({"target": target, "status": status})
+        if not as_json:
+            err.print(f"[green]✓ {target}[/]" if rc == 0 else f"[red]✗ {target}[/]")
+            print(f"{target}\t{status}")  # machineleesbare regel op stdout
+
+    if tmp:
+        tmp.cleanup()
+    if as_json:
+        out.print_json(data={"apk": apk_path.name, "results": results})
+    if any_failed:
+        die("een of meer installaties mislukt", 6)
+    err.print("[green]klaar. Open 'Throwback' in de TV-launcher.[/]")
 
 
 if __name__ == "__main__":
-    try:
-        sys.exit(main())
-    except KeyboardInterrupt:
-        print("\nAfgebroken.")
-        sys.exit(130)
+    app()
