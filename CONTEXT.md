@@ -37,3 +37,10 @@ _Avoid_: Root, startmap
 - Een **Gebeurtenis** bevat meerdere **Foto's**
 - Een **Foto** heeft optioneel één **Beschrijving**
 - Het **Onderschrift** van een **Foto** = **Kop** (gebeurtenis + jaar) + optioneel de **Beschrijving**
+
+## Observability
+
+De app meldt fouten en de duur van de zware operaties (`index.crawl`, `index.delta`, login, Graph-calls)
+aan **Sentry**, geïnitialiseerd in `ThrowbackApp`. Alle Sentry-aanroepen lopen via de `Telemetry`-façade.
+Privacy-bewust: géén Session Replay (privé-familiefoto's), geen PII, en SAS-tokens worden uit
+breadcrumb-URL's gestript. Zie ADR-0007.

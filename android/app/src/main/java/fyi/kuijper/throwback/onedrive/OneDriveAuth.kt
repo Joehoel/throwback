@@ -1,5 +1,6 @@
 package fyi.kuijper.throwback.onedrive
 
+import io.sentry.okhttp.SentryOkHttpInterceptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -17,7 +18,11 @@ object OneDriveAuth {
     private const val AUTHORITY = "https://login.microsoftonline.com/consumers/oauth2/v2.0"
     private const val SCOPE = "Files.Read offline_access"
 
-    private val http = OkHttpClient()
+    // Sentry interceptor → http.client spans + breadcrumbs for the device-code/token/refresh calls.
+    // It captures neither the form body (device code, refresh token) nor headers, so no secret leaks.
+    private val http = OkHttpClient.Builder()
+        .addInterceptor(SentryOkHttpInterceptor())
+        .build()
 
     data class DeviceCode(
         val deviceCode: String,

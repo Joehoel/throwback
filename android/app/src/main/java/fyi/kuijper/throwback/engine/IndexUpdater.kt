@@ -51,4 +51,10 @@ class IndexUpdater(
 
     /** Total photos indexed under [folderId] (the count the UI shows). */
     suspend fun count(folderId: String): Int = db.count(folderId)
+
+    /** Photos under [folderId] with GPS (the geocoding denominator). */
+    suspend fun located(folderId: String): Int = db.countWithGps(folderId)
+
+    /** Photos under [folderId] that already have a place label. */
+    suspend fun geocoded(folderId: String): Int = db.countGeocoded(folderId)
 }

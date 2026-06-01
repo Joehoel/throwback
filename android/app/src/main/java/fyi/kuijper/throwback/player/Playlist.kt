@@ -29,7 +29,18 @@ sealed interface Playlist {
 
     companion object {
         fun ordered(ids: List<String>): Playlist = LinearPlaylist(ids)
-        fun shuffled(ids: List<String>, random: Random): Playlist = ShufflePlaylist(ids, random)
+
+        /**
+         * [folderOf] maps a photo id to its folder key (e.g. its OneDrive path). When given, the bag
+         * applies a *spacing guard*: it avoids drawing another photo from a folder shown in the last
+         * few slides, so a big folder doesn't visually clump. Default (`{ null }`) = no guard, a plain
+         * uniform bag. Ids with a null/unknown folder are never constrained.
+         */
+        fun shuffled(
+            ids: List<String>,
+            random: Random,
+            folderOf: (String) -> String? = { null },
+        ): Playlist = ShufflePlaylist(ids, random, folderOf)
     }
 }
 
@@ -97,14 +108,24 @@ private class LinearPlaylist(initial: List<String>) : Playlist {
  *                 through it (clamped at the start — there's nothing before the session began).
  *  - [upcoming] : already-drawn ids buffered ahead of the live edge, so [window] can warm the *actual*
  *                 next photos and [next] hands them out in that exact order. Draws here are real draws.
+ *
+ * [folderOf] enables the spacing guard (see [Playlist.shuffled]): each draw prefers an id whose folder
+ * wasn't among the last [SPACING] drawn, so photos from one big folder don't clump together. It's a soft
+ * guard — if the remaining pool is all-recent it accepts anyway, so it never stalls or breaks the
+ * never-repeat-within-a-round invariant.
  */
-private class ShufflePlaylist(initial: List<String>, private val random: Random) : Playlist {
+private class ShufflePlaylist(
+    initial: List<String>,
+    private val random: Random,
+    private val folderOf: (String) -> String? = { null },
+) : Playlist {
     private val allIds = LinkedHashSet(initial)
     private val pool = ArrayList(allIds) // current round's remaining ids
     private val history = ArrayList<String>()
     private val upcoming = ArrayDeque<String>()
     private var histPos = 0
     private var lastDrawn: String? = null // last id drawn, to avoid an immediate repeat across rounds
+    private val recentFolders = ArrayDeque<String>() // folder keys of the last [SPACING] draws
 
     init {
         drawOne()?.let { history.add(it); histPos = 0 }
@@ -118,6 +139,15 @@ private class ShufflePlaylist(initial: List<String>, private val random: Random)
         if (pool.isEmpty()) pool.addAll(allIds) // new round: reshuffle the whole collection
         if (pool.isEmpty()) return null
         var idx = random.nextInt(pool.size)
+        // Spacing guard: re-roll a few times to avoid a folder shown in the last [SPACING] draws, so a
+        // big folder doesn't clump. Bounded + soft — if everything left is recent we keep the last roll.
+        if (pool.size > 1) {
+            var tries = 0
+            while (tries < SPACING_RETRIES && folderOf(pool[idx]).let { it != null && it in recentFolders }) {
+                idx = random.nextInt(pool.size)
+                tries++
+            }
+        }
         // Only ever true right after a refill (mid-round the previous draw is no longer in the pool):
         // nudge off the just-shown id so a new round doesn't open with a duplicate.
         if (pool.size > 1 && pool[idx] == lastDrawn) idx = (idx + 1) % pool.size
@@ -126,6 +156,10 @@ private class ShufflePlaylist(initial: List<String>, private val random: Random)
         pool[idx] = pool[last]
         pool.removeAt(last) // swap-remove: O(1), order in the pool is irrelevant
         lastDrawn = id
+        folderOf(id)?.let {
+            recentFolders.addLast(it)
+            while (recentFolders.size > SPACING) recentFolders.removeFirst()
+        }
         return id
     }
 
@@ -205,5 +239,9 @@ private class ShufflePlaylist(initial: List<String>, private val random: Random)
         // Cap the back-history so a screensaver running for days doesn't grow it without bound;
         // previous() can't reach beyond this many photos back, which is plenty for a remote.
         const val MAX_HISTORY = 1000
+        // Spacing guard: don't show two photos from the same folder within this many slides...
+        const val SPACING = 8
+        // ...but only re-roll this many times to honour it, so a folder-heavy pool can't stall a draw.
+        const val SPACING_RETRIES = 12
     }
 }

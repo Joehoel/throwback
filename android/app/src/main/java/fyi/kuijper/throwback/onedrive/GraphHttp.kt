@@ -1,5 +1,6 @@
 package fyi.kuijper.throwback.onedrive
 
+import io.sentry.okhttp.SentryOkHttpInterceptor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -51,7 +52,11 @@ class OkHttpGraphHttp(
     private val accessToken: suspend () -> String,
     private val base: String = "https://graph.microsoft.com/v1.0",
 ) : GraphHttp {
-    private val http = OkHttpClient()
+    // Sentry interceptor → an http.client span per Graph call (nested under the active index/auth
+    // transaction) plus breadcrumbs; it never reads the Authorization header or request body.
+    private val http = OkHttpClient.Builder()
+        .addInterceptor(SentryOkHttpInterceptor())
+        .build()
 
     override suspend fun getJson(pathOrUrl: String): JSONObject =
         request(pathOrUrl) ?: error("Graph: niet gevonden (404) — $pathOrUrl")

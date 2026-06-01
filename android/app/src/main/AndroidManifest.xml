@@ -26,6 +26,12 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.Throwback">
+
+        <!-- We init Sentry by hand in ThrowbackApp (with the DSN + privacy config), so disable the
+             SDK's auto-init ContentProvider — otherwise it runs first, finds no manifest DSN, and
+             crashes the process before onCreate. -->
+        <meta-data android:name="io.sentry.auto-init" android:value="false" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

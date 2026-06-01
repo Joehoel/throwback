@@ -64,6 +64,12 @@ private class FakePhotoDao : PhotoDao {
 
     override suspend fun count(rootId: String) = rows.values.count { it.rootId == rootId }
 
+    override suspend fun countWithGps(rootId: String) =
+        rows.values.count { it.rootId == rootId && it.lat != null && it.lon != null }
+
+    override suspend fun countGeocoded(rootId: String) =
+        rows.values.count { it.rootId == rootId && it.place != null }
+
     override suspend fun upsertAll(rootId: String, rows: List<PhotoRow>) {
         for (r in rows) {
             val existing = this.rows[r.id]

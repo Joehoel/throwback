@@ -37,6 +37,17 @@ class GraphSync(
     }
 
     /**
+     * Counts the media items under [folderId] by walking the tree with *listing only* — no EXIF
+     * enrichment or per-item GETs — so it returns far quicker than [crawl] and can drive a live
+     * "X / total" indexing denominator while the slower enriching crawl fills X in.
+     */
+    suspend fun countMedia(folderId: String): Int {
+        var count = 0
+        GraphCrawler { id -> fetchAllChildren(id) }.crawl(folderId) { rows -> count += rows.size }
+        return count
+    }
+
+    /**
      * Establishes a delta token for "now" without enumerating the whole folder (`token=latest`), so
      * a later [refresh] only fetches changes since this moment.
      */

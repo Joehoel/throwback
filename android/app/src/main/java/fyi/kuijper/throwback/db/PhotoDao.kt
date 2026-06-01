@@ -19,6 +19,14 @@ interface PhotoDao {
     @Query("SELECT COUNT(*) FROM photo WHERE rootId = :rootId")
     suspend fun count(rootId: String): Int
 
+    /** Photos under [rootId] that carry GPS — the denominator for the geocoding progress row. */
+    @Query("SELECT COUNT(*) FROM photo WHERE rootId = :rootId AND lat IS NOT NULL AND lon IS NOT NULL")
+    suspend fun countWithGps(rootId: String): Int
+
+    /** Photos under [rootId] that already have a reverse-geocoded place label. */
+    @Query("SELECT COUNT(*) FROM photo WHERE rootId = :rootId AND place IS NOT NULL")
+    suspend fun countGeocoded(rootId: String): Int
+
     /**
      * Upsert per photo under [rootId]. A crawl never carries a [PhotoRow.place] (the geocode pass sets
      * that separately), so for an existing row we leave `place` untouched — otherwise a re-crawl would

@@ -3,11 +3,13 @@ package fyi.kuijper.throwback.engine
 import android.content.Context
 import coil3.SingletonImageLoader
 import coil3.request.ImageRequest
+import fyi.kuijper.throwback.Telemetry
 import fyi.kuijper.throwback.db.PhotoDao
 import fyi.kuijper.throwback.onedrive.GraphMedia
 import fyi.kuijper.throwback.onedrive.PhotoRow
 import fyi.kuijper.throwback.player.PhotoOrder
 import fyi.kuijper.throwback.player.Playlist
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -57,7 +59,11 @@ class SlideshowEngine(
 
     fun start(photos: List<PhotoRow>, shuffle: Boolean) {
         playlist = if (shuffle) {
-            Playlist.shuffled(photos.map { it.id }, Random.Default)
+            // Folder key per photo so the bag can space photos from the same folder apart (a big
+            // folder otherwise clumps, since the draw is uniform over photos, not folders).
+            val folderByPhoto = HashMap<String, String>(photos.size)
+            for (p in photos) folderByPhoto[p.id] = p.path
+            Playlist.shuffled(photos.map { it.id }, Random.Default) { folderByPhoto[it] }
         } else {
             Playlist.ordered(PhotoOrder.chronological(photos))
         }
@@ -125,10 +131,15 @@ class SlideshowEngine(
     private suspend fun showCurrent() {
         val id = playlist?.current ?: return
         val photo = db.get(id)
-        // Expired link or network blip: don't hard-stop — show the hint and keep going.
+        // Expired link or network blip: don't hard-stop — show the hint and keep going. A breadcrumb
+        // (not an event) records it: per-slide capture would be noise, but it gives later errors context.
+        // Cancellation (the slide advanced before the fetch finished) is normal flow, not worth a crumb.
         val url = try {
             urlFor(id)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            Telemetry.breadcrumb("thumbnail fetch failed: ${e.message}", "slideshow")
             null
         }
         _state.value = State(

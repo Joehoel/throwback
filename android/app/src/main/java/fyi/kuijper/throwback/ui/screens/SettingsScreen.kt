@@ -117,12 +117,18 @@ fun SettingsScreen(
 
 @Composable
 private fun IndexStatus(state: UiState.Settings) {
-    val text = indexStatusText(state) ?: return
-    Text(
-        text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
+    val index = indexStatusText(state)
+    val geocode = geocodeStatusText(state)
+    if (index == null && geocode == null) return
+    Column {
+        listOfNotNull(index, geocode).forEach { line ->
+            Text(
+                line,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
 }
 
 @Composable

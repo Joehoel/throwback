@@ -135,4 +135,47 @@ class PlaylistTest {
         p.append(listOf("x", "y", "z"))
         assertTrue(p.next() in setOf("x", "y", "z"))
     }
+
+    // --- shuffle bag: folder spacing guard ---
+
+    @Test
+    fun `spacing guard vermindert het klitten van een grote map`() {
+        // One dominant folder (20 photos) amid many tiny ones — exactly the case that clumps. The guard
+        // can't eliminate clumps over a whole round (deferred big photos pile up at the tail once the
+        // small folders run out), but over the visible early window it should clearly reduce them.
+        val big = (1..20).map { "big$it" }
+        val small = (1..40).map { "small$it" }
+        val ids = big + small
+        val folderOf = { id: String -> if (id.startsWith("big")) "BigFolder" else "small/$id" }
+
+        fun adjacentBigPairs(playlist: Playlist): Int {
+            val seq = listOf(playlist.current!!) + (1..40).map { playlist.next()!! } // early window
+            return (1 until seq.size).count { seq[it].startsWith("big") && seq[it - 1].startsWith("big") }
+        }
+
+        val guarded = adjacentBigPairs(Playlist.shuffled(ids, Random(42), folderOf))
+        val plain = adjacentBigPairs(Playlist.shuffled(ids, Random(42))) // no folderOf = no guard
+        assertTrue("guard should reduce clumping (guarded=$guarded, plain=$plain)", guarded < plain)
+        assertEquals("no big-folder clumps in the early window", 0, guarded)
+    }
+
+    @Test
+    fun `spacing guard breekt de ronde-invariant niet`() {
+        // Even with a guard, a round must still show every photo exactly once (soft guard never drops).
+        val ids = (1..20).map { "p$it" }
+        val folderOf = { id: String -> "f${id.removePrefix("p").toInt() % 3}" } // 3 folders
+        val p = Playlist.shuffled(ids, Random(7), folderOf)
+        val round = listOf(p.current!!) + (1 until ids.size).map { p.next()!! }
+        assertEquals(ids.toSet(), round.toSet())
+        assertEquals(ids.size, round.distinct().size)
+    }
+
+    @Test
+    fun `spacing guard stalt niet als alles uit een map komt`() {
+        // Pool is a single folder: the guard can never be satisfied, but draws must still proceed.
+        val ids = (1..10).map { "p$it" }
+        val p = Playlist.shuffled(ids, Random(3)) { "onlyFolder" }
+        val seq = listOf(p.current!!) + (1..30).map { p.next()!! }
+        assertEquals(31, seq.size) // never returns null / stalls
+    }
 }

@@ -41,8 +41,11 @@ sealed interface UiState {
         val slideSeconds: Int,
         val shuffle: Boolean,
         val captionEnabled: Boolean,
-        val indexed: Int = 0,
-        val processed: Int = 0,
+        val indexed: Int = 0,        // photos in the index (the count shown when idle)
+        val processed: Int = 0,      // photos handled this run — the indexing progress numerator
+        val total: Int = 0,          // photos in the folder — the progress denominator
+        val located: Int = 0,        // photos with GPS (the geocoding denominator)
+        val geocoded: Int = 0,       // photos given a place label
         val indexing: Boolean = false,
         val syncError: String? = null,
     ) : UiState

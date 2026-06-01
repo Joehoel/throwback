@@ -7,6 +7,7 @@ import fyi.kuijper.throwback.engine.FolderPicker
 import fyi.kuijper.throwback.engine.SlideshowEngine
 import fyi.kuijper.throwback.engine.SyncEngine
 import fyi.kuijper.throwback.onedrive.OneDriveAuth
+import io.sentry.SentryLevel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -87,6 +88,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             captionEnabled = set.captionEnabled,
             indexed = syncS.indexed,
             processed = syncS.processed,
+            total = syncS.total,
+            located = syncS.located,
+            geocoded = syncS.geocoded,
             indexing = syncS.syncing,
             syncError = syncS.lastError,
         )
@@ -104,12 +108,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun connect() {
         connectJob?.cancel()
         connectJob = viewModelScope.launch {
+            Telemetry.breadcrumb("connect: start device-code login", "user")
             try {
                 val dc = session.startDeviceCode()
                 navFlow.value = Nav.ShowingCode(dc)
                 session.completeLogin(dc)
                 if (store.hasFolder) startShow() else openRootFolder()
             } catch (e: Exception) {
+                Telemetry.captureHandled(e, "auth.login")
                 navFlow.value = Nav.Failed(Errors.message(e))
             }
         }
@@ -122,6 +128,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Open the folder picker without clearing the connection — "Other folder". */
     fun changeFolder() {
+        Telemetry.breadcrumb("user opened the folder picker", "user")
         slideshow.stop()
         openRootFolder()
     }
@@ -246,15 +253,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Central error handling: an expired connection also tears down the session so 'Retry' re-logs in. */
     private fun handleError(e: Throwable) {
         if (e is OneDriveAuth.ReauthRequired) {
+            // Routine (refresh token expired) → INFO, not a warning; useful to see how often it happens.
+            Telemetry.captureHandled(e, "auth.reauth", SentryLevel.INFO)
             session.invalidate() // forces NeedsConnect on 'Retry'
             connectJob?.cancel()
             slideshow.stop()
             sync.cancel()
+        } else {
+            Telemetry.captureHandled(e, "load")
         }
         navFlow.value = Nav.Failed(Errors.message(e))
     }
 
     fun retry() {
+        Telemetry.breadcrumb("user tapped retry", "user")
         connectJob?.cancel()
         firstPhotosJob?.cancel()
         when {
@@ -266,6 +278,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Disconnect: wipes token + folder and returns to the connect screen (only from Settings). */
     fun disconnect() {
+        Telemetry.breadcrumb("user disconnected OneDrive", "user")
         connectJob?.cancel()
         firstPhotosJob?.cancel()
         slideshow.reset()
