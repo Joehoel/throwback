@@ -1,0 +1,25 @@
+# Dependabot houdt twee dingen bij: de GitHub Actions in de workflows, en de Gradle/Kotlin-
+# dependencies (de version catalog + build-bestanden onder /android). Updates worden gegroepeerd
+# tot zo min mogelijk PR's: minor+patch samen, alleen majors apart (die kunnen breken).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: gradle
+    directory: /android   # bevat settings.gradle.kts, app/build.gradle.kts en gradle/libs.versions.toml
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: "deps"
+    groups:
+      gradle-minor-patch:
+        update-types: ["minor", "patch"]
