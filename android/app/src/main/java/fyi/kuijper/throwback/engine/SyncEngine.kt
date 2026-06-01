@@ -204,6 +204,6 @@ class SyncEngine(
     private companion object {
         const val REFRESH_INTERVAL_MS = 10 * 60 * 1000L
         // Bump to force one full re-crawl per folder on next start.
-        const val RECONCILE_TAG = "v5-exif-trema"
+        const val RECONCILE_TAG = "v6-exif-bytes-utf8"
     }
 }

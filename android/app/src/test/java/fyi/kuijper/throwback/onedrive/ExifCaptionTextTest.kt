@@ -42,8 +42,8 @@ class ExifCaptionTextTest {
         assertNull(cleanCaption("   "))
     }
 
-    // ExifInterface hands back the embedded caption's UTF-8 bytes decoded as Latin-1, so a trema
-    // (Joël, Israël, Loïs) arrives as mojibake (JoÃ«l). Repair it back to the real characters.
+    // Secondary net for a caption that arrives already mojibake'd (UTF-8 bytes read as Latin-1):
+    // a trema (Joël, Israël, Loïs) shows as JoÃ«l. Repair it back to the real characters.
     @Test fun `clean repairs UTF-8 read as Latin-1 (trema mojibake)`() {
         fun mojibake(s: String) = String(s.toByteArray(Charsets.UTF_8), Charsets.ISO_8859_1)
         assertEquals("Joël", cleanCaption(mojibake("Joël")))
@@ -55,5 +55,24 @@ class ExifCaptionTextTest {
         assertEquals("Joël", cleanCaption("Joël"))       // already-correct trema must survive
         assertEquals("Wokken op vaderdag", cleanCaption("Wokken op vaderdag"))
         assertEquals("Anne & Tom", cleanCaption("Anne & Tom"))
+    }
+
+    // ExifInterface.getAttribute(IMAGE_DESCRIPTION) replaces every signed byte < 32 with '?' — which
+    // hits all UTF-8 high bytes — so we read the raw bytes (getAttributeBytes) and decode UTF-8 ourselves.
+    @Test fun `decodes UTF-8 ImageDescription bytes (trema survives)`() {
+        assertEquals("Joël", captionFromExifBytes("Joël".toByteArray(Charsets.UTF_8)))
+        assertEquals("Israël", captionFromExifBytes("Israël".toByteArray(Charsets.UTF_8)))
+        assertEquals("Loïs", captionFromExifBytes("Loïs".toByteArray(Charsets.UTF_8)))
+    }
+
+    // 0xE9 alone is invalid UTF-8: decoding as UTF-8 would yield U+FFFD, so fall back to Latin-1.
+    @Test fun `falls back to Latin-1 when bytes are not valid UTF-8`() {
+        assertEquals("Café", captionFromExifBytes("Café".toByteArray(Charsets.ISO_8859_1)))
+    }
+
+    @Test fun `null or blank bytes yield null`() {
+        assertNull(captionFromExifBytes(null))
+        assertNull(captionFromExifBytes(ByteArray(0)))
+        assertNull(captionFromExifBytes("   ".toByteArray(Charsets.UTF_8)))
     }
 }

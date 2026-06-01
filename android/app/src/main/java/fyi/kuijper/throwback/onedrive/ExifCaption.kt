@@ -23,12 +23,31 @@ object ExifCaption {
 
     fun parse(input: InputStream): String? {
         val exif = runCatching { ExifInterface(input) }.getOrNull() ?: return null
-        // Preference order: the clean ASCII field (where Windows also writes Title/Subject), then XMP
-        // dc:description/dc:title. (androidx ExifInterface has no XP_* constants.)
-        cleanCaption(exif.getAttribute(ExifInterface.TAG_IMAGE_DESCRIPTION))?.let { return it }
-        return captionFromXmp(exif.getAttribute(ExifInterface.TAG_XMP))
+        // Read the *raw bytes*, not getAttribute's String: ExifInterface decodes string tags byte-by-byte
+        // and replaces every non-ASCII byte with '?', wrecking any UTF-8 caption. Preference order: the
+        // ImageDescription field (where Windows also writes Title/Subject), then XMP dc:description/dc:title.
+        captionFromExifBytes(exif.getAttributeBytes(ExifInterface.TAG_IMAGE_DESCRIPTION))?.let { return it }
+        return captionFromXmp(exif.getAttributeBytes(ExifInterface.TAG_XMP)?.let(::decodeUtf8OrLatin1))
     }
 }
+
+/**
+ * Decode a raw EXIF string-attribute (e.g. ImageDescription), then clean it. We take the *bytes*
+ * (getAttributeBytes), not getAttribute's String, because ExifInterface decodes IFD_FORMAT_STRING
+ * byte-by-byte and turns every non-ASCII byte into a literal '?' — destroying any UTF-8 caption
+ * (Windows writes the Details-tab text here as UTF-8). Decode UTF-8 ourselves.
+ */
+internal fun captionFromExifBytes(bytes: ByteArray?): String? =
+    bytes?.let { cleanCaption(decodeUtf8OrLatin1(it)) }
+
+/** UTF-8 if the bytes are valid UTF-8 (the common case Windows writes), else Latin-1 so nothing is lost. */
+private fun decodeUtf8OrLatin1(bytes: ByteArray): String = runCatching {
+    Charsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(bytes))
+        .toString()
+}.getOrElse { String(bytes, Charsets.ISO_8859_1) }
 
 /** Strip control/NUL chars (incl. the UTF-16 null terminator), normalize whitespace; null if empty. */
 internal fun cleanCaption(value: String?): String? = value
@@ -39,10 +58,11 @@ internal fun cleanCaption(value: String?): String? = value
     ?.ifBlank { null }
 
 /**
- * Undo "UTF-8 bytes decoded as Latin-1" mojibake — ExifInterface reads the embedded caption's bytes as
- * Latin-1, so a trema like "Joël" arrives as "JoÃ«l". We re-interpret the chars as their raw bytes and
- * decode them strictly as UTF-8; only a string that *is* exactly such a misread succeeds, so correct
- * text (incl. an already-right "Joël", whose bytes aren't valid UTF-8) and real Unicode pass through.
+ * Secondary net: undo "UTF-8 bytes decoded as Latin-1" mojibake (a trema "Joël" arriving as "JoÃ«l").
+ * The EXIF path already decodes its raw bytes correctly ([decodeUtf8OrLatin1]); this only catches a
+ * caption that reaches us *already* stringified that way from elsewhere. We re-interpret the chars as
+ * their raw bytes and decode strictly as UTF-8; only a string that *is* exactly such a misread succeeds,
+ * so correct text (incl. an already-right "Joël", whose bytes aren't valid UTF-8) and real Unicode pass through.
  */
 private fun repairLatin1Utf8(s: String): String {
     if (s.none { it.code in 0xC2..0xF4 }) return s // no UTF-8 lead-byte → nothing to repair
