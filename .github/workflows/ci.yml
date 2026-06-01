@@ -26,6 +26,13 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          # Only main writes the cache; PR/feature branches read it. Stops every branch
+          # from saving its own near-duplicate entry and evicting main's from the 10 GB budget.
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+          # Before saving, drop anything restored but unused this run (stale deps, old Gradle
+          # dists, evicted build-cache entries) so the Gradle home cache stays bounded over time.
+          cache-cleanup: on-success
 
       # Sideloads the Sentry source-context/mapping upload (needs a secret token we don't
       # set in CI); -PsentryUpload=false makes those steps no-op so the build needs no secrets.
