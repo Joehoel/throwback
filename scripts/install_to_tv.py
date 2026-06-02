@@ -182,6 +182,32 @@ def ensure_connected(adb: str, target: str) -> bool:
     return "connected" in blob
 
 
+def device_model(adb: str, target: str) -> str:
+    """Merk + model via getprop ('KPN DIW7022', 'Google TV Streamer'), of '' als onbereikbaar.
+
+    Veel bruikbaarder dan de reverse-DNS hostname (bijv. 'device-209.home'). Vereist een
+    geautoriseerde verbinding; voor netwerk-targets wordt eerst best-effort verbonden.
+    """
+    if ":" in target:
+        run([adb, "connect", target], capture=True)
+    cp = run([adb, "-s", target, "shell",
+              "getprop ro.product.brand; getprop ro.product.model"], capture=True)
+    parts = [p.strip() for p in (cp.stdout or "").splitlines() if p.strip()]
+    if len(parts) < 2:
+        return ""
+    brand, model = parts[0], parts[1]
+    # vermijd dubbel merk: brand 'KPN' + model 'KPN DIW7022' -> 'KPN DIW7022'.
+    return model if model.lower().startswith(brand.lower()) else f"{brand} {model}"
+
+
+def device_models(adb: str, targets: list[str]) -> dict[str, str]:
+    """Parallel de modelnaam van elk target ophalen (best-effort, lege string bij falen)."""
+    if not targets:
+        return {}
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        return dict(zip(targets, pool.map(lambda t: device_model(adb, t), targets)))
+
+
 @app.command()
 def main(
     tag: Optional[str] = typer.Option(None, "--tag", "-t", help="Release-tag (default: laatste release)."),
@@ -219,23 +245,24 @@ def main(
     scanned = [(t, n) for t, n in scanned if t not in ready]
 
     if list_only:
+        models = device_models(adb, ready + [t for t, _ in scanned])
         if as_json:
             out.print_json(data={
-                "connected": ready,
-                "discovered": [{"target": t, "hostname": n} for t, n in scanned],
+                "connected": [{"target": s, "model": models.get(s, "")} for s in ready],
+                "discovered": [{"target": t, "model": models.get(t, ""), "hostname": n}
+                               for t, n in scanned],
             })
         else:
-            table = Table("doel", "bron", "hostname")
+            table = Table("doel", "bron", "toestel", "hostname")
             for s in ready:
-                table.add_row(s, "verbonden", "")
+                table.add_row(s, "verbonden", models.get(s, ""), "")
             for t, n in scanned:
-                table.add_row(t, "lan-scan", n)
+                table.add_row(t, "lan-scan", models.get(t, ""), n)
             out.print(table)
         raise typer.Exit(0)
 
     # 3. Doel(en) kiezen.
     all_serials = ready + [t for t, _ in scanned]
-    label = {**{s: s for s in ready}, **{t: f"{t}  ({n})" for t, n in scanned}}
 
     if device:
         targets = list(device)
@@ -247,15 +274,21 @@ def main(
         targets = all_serials
     elif not all_serials:
         die("geen toestellen gevonden. Zet Netwerk-foutopsporing aan op de TV, of gebruik --connect <tv-ip>.", 3)
-    elif non_interactive:
-        err.print("[red]meerdere toestellen; kies met --device <doel>, of --all:[/]")
-        for s in all_serials:
-            err.print(f"  {label[s]}")
-        raise typer.Exit(4)
     else:
+        # Meerdere toestellen: verrijk met de modelnaam zodat de keuze herkenbaar is.
+        models = device_models(adb, all_serials)
+        host = {t: n for t, n in scanned}
+        def label(s: str) -> str:
+            extra = models.get(s) or host.get(s, "")
+            return f"{s}  ({extra})" if extra else s
+        if non_interactive:
+            err.print("[red]meerdere toestellen; kies met --device <doel>, of --all:[/]")
+            for s in all_serials:
+                err.print(f"  {label(s)}")
+            raise typer.Exit(4)
         picked = questionary.checkbox(
             "Kies toestel(len) om op te installeren:",
-            choices=[questionary.Choice(label[s], value=s) for s in all_serials],
+            choices=[questionary.Choice(label(s), value=s) for s in all_serials],
         ).ask()
         if not picked:
             die("geen toestel gekozen", 4)
