@@ -10,6 +10,7 @@ import io.sentry.kotlin.SentryContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -103,18 +104,36 @@ class SyncEngine(
                     if (fullCrawl) {
                         val span = tx.startChild("crawl.fetch", "Crawl OneDrive children")
                         var processed = 0
-                        sync.crawl(folderId) { rows ->
-                            index.store(folderId, rows) // geocoding runs separately, after the crawl
-                            processed += rows.size
-                            val indexed = index.count(folderId)
-                            _state.update {
-                                it.copy(
-                                    processed = processed,
-                                    indexed = indexed,
-                                    total = maxOf(it.total, indexed),
-                                    located = index.located(folderId),
-                                )
+                        // Reverse-geocode *alongside* the crawl, not after it. A full ~20k-photo crawl on
+                        // a TV is slow and often interrupted, so a post-crawl pass means locations never
+                        // appear (regressed in fcca034; first fixed in 0a50121). store() stays write-only so
+                        // playback still starts fast (ADR-0004), and upsertAll preserves `place`, so this
+                        // concurrent writer is never wiped by the crawl's row upserts.
+                        val geocoding = launch(SentryContext()) {
+                            while (isActive) {
+                                index.geocodePending(folderId)
+                                _state.update {
+                                    it.copy(located = index.located(folderId), geocoded = index.geocoded(folderId))
+                                }
+                                delay(GEOCODE_POLL_MS)
                             }
+                        }
+                        try {
+                            sync.crawl(folderId) { rows ->
+                                index.store(folderId, rows) // write-only; the geocode loop above runs in parallel
+                                processed += rows.size
+                                val indexed = index.count(folderId)
+                                _state.update {
+                                    it.copy(
+                                        processed = processed,
+                                        indexed = indexed,
+                                        total = maxOf(it.total, indexed),
+                                        located = index.located(folderId),
+                                    )
+                                }
+                            }
+                        } finally {
+                            geocoding.cancelAndJoin()
                         }
                         span.finish()
                         db.setMeta(reconcileKey(folderId), RECONCILE_TAG)
@@ -123,6 +142,8 @@ class SyncEngine(
                         }
                     }
 
+                    // Final pass: geocode whatever the concurrent loop didn't reach (and, on the no-crawl
+                    // path, any still-pending photos).
                     val geo = tx.startChild("geocode", "Reverse-geocode new photos")
                     index.geocodePending(folderId)
                     geo.finish()
@@ -203,6 +224,7 @@ class SyncEngine(
 
     private companion object {
         const val REFRESH_INTERVAL_MS = 10 * 60 * 1000L
+        const val GEOCODE_POLL_MS = 2_000L
         // Bump to force one full re-crawl per folder on next start.
         const val RECONCILE_TAG = "v6-exif-bytes-utf8"
     }
