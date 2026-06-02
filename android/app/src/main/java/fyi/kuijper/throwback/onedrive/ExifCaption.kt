@@ -13,9 +13,12 @@ import java.nio.charset.CodingErrorAction
  * is in the file — Windows writes it (Details tab: Title/Subject/Comments) to `ImageDescription` and
  * XMP `dc:description`/`dc:title`.
  *
- * The caption sits near the front of the JPEG (within the first ~16 KB), so the caller only needs a
- * small slice of the file. The Android [ExifInterface] read lives here; the text extraction below it
- * ([cleanCaption]/[captionFromXmp]) is pure and Android-free, so it stays unit-testable on its own.
+ * The caller passes a slice from the front of the file ([DescriptionResolver] sizes it via
+ * [JpegSegments]). That slice must cover the *entire* EXIF APP1 segment: camera JPEGs embed a
+ * thumbnail there, pushing it up to its 64 KB single-marker limit, and [ExifInterface] returns
+ * nothing from a truncated segment. The XMP APP1 follows EXIF, so it sits even further in. The
+ * Android [ExifInterface] read lives here; the text extraction below it ([cleanCaption]/
+ * [captionFromXmp]) is pure and Android-free, so it stays unit-testable on its own.
  */
 object ExifCaption {
 

@@ -4,16 +4,22 @@ import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GraphSyncTest {
 
     /** Fake transport: canned JSON per URL. `paginate` (interface default) comes along for free. */
     private class FakeGraphHttp(private val pages: Map<String, JSONObject>) : GraphHttp {
+        /** Records every content-GET window so a test can assert the head slice is big enough. */
+        val byteCounts = mutableListOf<Int>()
         override suspend fun getJson(pathOrUrl: String): JSONObject =
             pages[pathOrUrl] ?: error("onbekende URL: $pathOrUrl")
         override suspend fun getJsonOrNull(pathOrUrl: String): JSONObject? = pages[pathOrUrl]
-        override suspend fun getBytes(pathOrUrl: String, byteCount: Int): ByteArray? = null
+        override suspend fun getBytes(pathOrUrl: String, byteCount: Int): ByteArray? {
+            byteCounts += byteCount
+            return null
+        }
     }
 
     private fun json(s: String) = JSONObject(s.trimIndent())
@@ -81,5 +87,30 @@ class GraphSyncTest {
             mapOf("/me/drive/items/root/delta?token=latest" to json("""{"value":[]}"""))
         )
         assertNull(GraphSync(http).initDeltaToken("root"))
+    }
+
+    @Test
+    fun `de EXIF-headslice dekt een volledig EXIF-segment (64 KB)`() = runBlocking {
+        // Regressie: een camera-JPEG bewaart een thumbnail in EXIF, dus dat APP1-segment loopt op tot
+        // de 64 KB-limiet van één marker; ExifInterface leest niets uit een *afgekapt* segment. Een te
+        // kleine head-slice (ooit 32 KB) liet zo elk ingebed bijschrift verdwijnen. De content-GET moet
+        // minstens een heel EXIF-segment kunnen bevatten.
+        val http = FakeGraphHttp(
+            mapOf(
+                "https://g/delta1" to json("""{"value":[{"id":"p1","photo":{}}],"@odata.deltaLink":"https://g/t"}"""),
+                // description weggelaten → de EXIF-fallback haalt de head-slice op.
+                "/me/drive/items/p1?%24select=$select" to json(
+                    """{"id":"p1","name":"IMGP1636.jpg","file":{"mimeType":"image/jpeg"},
+                        "parentReference":{"path":"/drive/root:/F/2009/Vakantie"}}"""
+                ),
+            )
+        )
+
+        GraphSync(http).refresh("https://g/delta1")
+
+        val window = http.byteCounts.singleOrNull()
+            ?: error("verwachtte precies één content-GET, kreeg ${http.byteCounts}")
+        assertTrue("head-slice ($window B) moet ≥ 64 KB zijn om een vol EXIF-segment te dekken",
+            window >= 64 * 1024)
     }
 }

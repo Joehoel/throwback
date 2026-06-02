@@ -20,7 +20,7 @@ import org.json.JSONObject
 class GraphSync(
     private val http: GraphHttp,
     private val descriptions: DescriptionResolver =
-        DescriptionResolver({ id -> http.getBytes("/me/drive/items/$id/content", HEAD_BYTES) }),
+        DescriptionResolver({ id, byteCount -> http.getBytes("/me/drive/items/$id/content", byteCount) }),
 ) {
     private val select = "id,name,description,folder,file,photo,location,parentReference"
 
@@ -105,7 +105,6 @@ class GraphSync(
     }
 
     private companion object {
-        const val HEAD_BYTES = 32 * 1024
         const val MAX_CONCURRENT_HEADS = 6
     }
 }
