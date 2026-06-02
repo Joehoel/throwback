@@ -121,7 +121,6 @@ private class AndroidGeocoder(
 
     private fun labelOf(a: Address): String? = PlaceLabel.compose(
         thoroughfare = a.thoroughfare,
-        subThoroughfare = a.subThoroughfare,
         locality = a.locality,
         subAdminArea = a.subAdminArea,
         adminArea = a.adminArea,

@@ -8,23 +8,19 @@ class PlaceLabelTest {
 
     private fun label(
         thoroughfare: String? = null,
-        subThoroughfare: String? = null,
         locality: String? = null,
         subAdminArea: String? = null,
         adminArea: String? = null,
         countryName: String? = null,
         countryCode: String? = null,
-    ) = PlaceLabel.compose(thoroughfare, subThoroughfare, locality, subAdminArea, adminArea, countryName, countryCode)
+    ) = PlaceLabel.compose(thoroughfare, locality, subAdminArea, adminArea, countryName, countryCode)
 
-    @Test fun `street with house number and city`() {
+    @Test fun `street is shown without the house number`() {
+        // subThoroughfare (house number) is intentionally not part of the label.
         assertEquals(
-            "Dorpsstraat 5, Urk",
-            label(thoroughfare = "Dorpsstraat", subThoroughfare = "5", locality = "Urk", countryName = "Netherlands", countryCode = "NL"),
+            "Dorpsstraat, Urk",
+            label(thoroughfare = "Dorpsstraat", locality = "Urk", countryName = "Netherlands", countryCode = "NL"),
         )
-    }
-
-    @Test fun `street without house number`() {
-        assertEquals("Dorpsstraat, Urk", label(thoroughfare = "Dorpsstraat", locality = "Urk", countryCode = "NL"))
     }
 
     @Test fun `unnamed road is dropped (photo in a lake)`() {
