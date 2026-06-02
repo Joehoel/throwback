@@ -28,17 +28,19 @@ interface PhotoDao {
     suspend fun countGeocoded(rootId: String): Int
 
     /**
-     * Upsert per photo under [rootId]. A crawl never carries a [PhotoRow.place] (the geocode pass sets
-     * that separately), so for an existing row we leave `place` untouched — otherwise a re-crawl would
-     * wipe the just-geocoded label. New rows are inserted including `place`.
+     * Upsert per photo under [rootId]. For an existing row we never *clear* its location data on a
+     * re-crawl: `place` is left untouched (not in the SET list) and `lat`/`lon` are kept when the crawl
+     * carries none. OneDrive's `location` facet can go empty for an item (older items lost it in the
+     * !s-storage migration), and overwriting captured coordinates with null would silently destroy them.
+     * A re-geotagged item still updates, since a non-null value wins. New rows are inserted as-is.
      */
     @Transaction
     suspend fun upsertAll(rootId: String, rows: List<PhotoRow>) {
         if (rows.isEmpty()) return
         val stamped = rows.map { it.copy(rootId = rootId) }
-        insertIgnore(stamped) // new rows incl. place; existing rows untouched
+        insertIgnore(stamped) // new rows incl. place + coords; existing rows updated below
         for (r in stamped) {
-            updateKeepingPlace(
+            updateKeepingLocation(
                 id = r.id, name = r.name, event = r.event, year = r.year,
                 description = r.description, taken = r.taken, path = r.path,
                 lat = r.lat, lon = r.lon, rootId = r.rootId,
@@ -50,10 +52,15 @@ interface PhotoDao {
     suspend fun insertIgnore(rows: List<PhotoRow>)
 
     @Query(
+        // COALESCE keeps a previously-captured coordinate when this crawl carries none, so a re-crawl
+        // (or a facet that went empty) can't wipe a GPS fix we already had. `place` is likewise kept by
+        // being absent from the SET list.
         """UPDATE photo SET name = :name, event = :event, year = :year, description = :description,
-           taken = :taken, path = :path, lat = :lat, lon = :lon, rootId = :rootId WHERE id = :id""",
+           taken = :taken, path = :path,
+           lat = COALESCE(:lat, lat), lon = COALESCE(:lon, lon),
+           rootId = :rootId WHERE id = :id""",
     )
-    suspend fun updateKeepingPlace(
+    suspend fun updateKeepingLocation(
         id: String, name: String, event: String, year: Int?, description: String?,
         taken: String?, path: String, lat: Double?, lon: Double?, rootId: String?,
     )

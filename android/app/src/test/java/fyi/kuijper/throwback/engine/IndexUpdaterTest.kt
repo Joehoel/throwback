@@ -95,7 +95,7 @@ private class FakePhotoDao : PhotoDao {
 
     // Unused by IndexUpdater.
     override suspend fun insertIgnore(rows: List<PhotoRow>) = error("unused")
-    override suspend fun updateKeepingPlace(
+    override suspend fun updateKeepingLocation(
         id: String, name: String, event: String, year: Int?, description: String?,
         taken: String?, path: String, lat: Double?, lon: Double?, rootId: String?,
     ) = error("unused")
