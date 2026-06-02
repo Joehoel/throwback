@@ -6,6 +6,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -63,48 +64,58 @@ class OkHttpGraphHttp(
 
     override suspend fun getJsonOrNull(pathOrUrl: String): JSONObject? = request(pathOrUrl)
 
-    override suspend fun getBytes(pathOrUrl: String, byteCount: Int): ByteArray? = withContext(Dispatchers.IO) {
-        val req = Request.Builder()
-            .url(urlOf(pathOrUrl))
-            .header("Authorization", "Bearer ${accessToken()}")
-            .header("Range", "bytes=0-${byteCount - 1}")
-            .build()
-        http.newCall(req).execute().use { resp ->
-            if (!resp.isSuccessful) null else resp.body?.byteStream()?.readUpTo(byteCount)
-        }
-    }
+    // Best-effort: a transient throttle must not silently drop the embedded caption (it would stick as
+    // a null description until the next full re-crawl), so it shares the same 429/503 backoff as the
+    // JSON path and just folds a final give-up (or any other failure) into null.
+    override suspend fun getBytes(pathOrUrl: String, byteCount: Int): ByteArray? = runCatching {
+        withThrottleRetry({ token ->
+            Request.Builder()
+                .url(urlOf(pathOrUrl))
+                .header("Authorization", "Bearer $token")
+                .header("Range", "bytes=0-${byteCount - 1}")
+                .build()
+        }) { resp -> if (resp.isSuccessful) resp.body?.byteStream()?.readUpTo(byteCount) else null }
+    }.getOrNull()
 
     /**
-     * GET with central error handling: `null` on 404, [OneDriveAuth.ReauthRequired] on 401,
-     * 429/503 retried per `Retry-After`, other errors thrown.
+     * GET with central error handling: `null` on 404, [OneDriveAuth.ReauthRequired] on 401, other
+     * errors thrown. (429/503 backoff is handled by [withThrottleRetry].)
      */
-    private suspend fun request(pathOrUrl: String): JSONObject? = withContext(Dispatchers.IO) {
-        val url = urlOf(pathOrUrl)
+    private suspend fun request(pathOrUrl: String): JSONObject? =
+        withThrottleRetry({ token -> Request.Builder().url(urlOf(pathOrUrl)).header("Authorization", "Bearer $token").build() }) { resp ->
+            when (resp.code) {
+                404 -> null
+                401 -> throw OneDriveAuth.ReauthRequired("Graph weigerde het token (401)")
+                else -> JSONObject(resp.body?.string().orEmpty()).also {
+                    if (!resp.isSuccessful) error(it.optJSONObject("error")?.optString("message") ?: "Graph-fout ${resp.code}")
+                }
+            }
+        }
+
+    /**
+     * Runs [buildRequest] (with a fresh bearer token) and hands the response to [handle], transparently
+     * retrying 429/503 per `Retry-After` (capped at [MAX_THROTTLE_RETRIES]). [handle] therefore never
+     * sees a 429/503; it returns the final value or throws.
+     */
+    private suspend fun <T> withThrottleRetry(
+        buildRequest: (token: String) -> Request,
+        handle: (Response) -> T,
+    ): T = withContext(Dispatchers.IO) {
         var attempt = 0
         while (true) {
-            val token = accessToken()
-            val req = Request.Builder().url(url).header("Authorization", "Bearer $token").build()
+            val req = buildRequest(accessToken())
             val retryAfterSeconds = http.newCall(req).execute().use { resp ->
-                when {
-                    resp.code == 404 -> return@withContext null
-                    resp.code == 401 -> throw OneDriveAuth.ReauthRequired("Graph weigerde het token (401)")
-                    resp.code == 429 || resp.code == 503 -> {
-                        if (attempt++ > 8) error("Te vaak afgeknepen door Graph")
-                        resp.header("Retry-After")?.toLongOrNull() ?: 5L
-                    }
-                    else -> {
-                        val json = JSONObject(resp.body?.string().orEmpty())
-                        if (!resp.isSuccessful) {
-                            error(json.optJSONObject("error")?.optString("message") ?: "Graph-fout ${resp.code}")
-                        }
-                        return@withContext json
-                    }
+                if (resp.code == 429 || resp.code == 503) {
+                    if (attempt++ > MAX_THROTTLE_RETRIES) error("Te vaak afgeknepen door Graph")
+                    resp.header("Retry-After")?.toLongOrNull() ?: 5L
+                } else {
+                    return@withContext handle(resp)
                 }
             }
             delay(retryAfterSeconds * 1000)
         }
         @Suppress("UNREACHABLE_CODE")
-        null
+        error("unreachable")
     }
 
     private fun urlOf(pathOrUrl: String) =
@@ -121,5 +132,9 @@ class OkHttpGraphHttp(
             total += read
         }
         return buf.toByteArray()
+    }
+
+    private companion object {
+        const val MAX_THROTTLE_RETRIES = 8
     }
 }
