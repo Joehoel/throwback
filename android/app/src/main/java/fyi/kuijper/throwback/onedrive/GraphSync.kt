@@ -1,5 +1,6 @@
 package fyi.kuijper.throwback.onedrive
 
+import fyi.kuijper.throwback.Telemetry
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -21,6 +22,11 @@ class GraphSync(
     private val http: GraphHttp,
     private val descriptions: DescriptionResolver =
         DescriptionResolver({ id, byteCount -> http.getBytes("/me/drive/items/$id/content", byteCount) }),
+    // Flagged when a photo ends up with no Beschrijving at all; default reports it to Sentry. Injectable
+    // so tests can observe it without the SDK.
+    private val onMissingDescription: (PhotoRow) -> Unit = { r ->
+        Telemetry.reportMissingDescription(r.id, r.name, r.event, r.year)
+    },
 ) {
     private val select = "id,name,description,folder,file,photo,location,parentReference"
 
@@ -92,7 +98,13 @@ class GraphSync(
     private suspend fun enrichDescriptions(rows: List<PhotoRow>): List<PhotoRow> = coroutineScope {
         val gate = Semaphore(MAX_CONCURRENT_HEADS)
         rows.map { r ->
-            async { gate.withPermit { r.copy(description = descriptions.resolve(r.description, r.id)) } }
+            async {
+                gate.withPermit {
+                    val description = descriptions.resolve(r.description, r.id)
+                    if (description.isNullOrBlank()) onMissingDescription(r)
+                    r.copy(description = description)
+                }
+            }
         }.awaitAll()
     }
 

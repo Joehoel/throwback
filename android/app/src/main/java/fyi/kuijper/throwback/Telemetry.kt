@@ -27,6 +27,24 @@ object Telemetry {
         }
     }
 
+    /**
+     * A photo finished indexing without any Beschrijving — neither the typed `description` field nor an
+     * embedded EXIF/XMP caption. Captured as a handled warning (grouped into one Sentry issue) so gaps
+     * in the captioning — or a regression in the extraction — surface instead of staying silently null.
+     * Per-image: the occurrence count and the attached id/name show *which* photos are affected.
+     */
+    fun reportMissingDescription(photoId: String, name: String, event: String, year: Int?) {
+        Sentry.withScope { scope ->
+            scope.level = SentryLevel.WARNING
+            scope.setTag("op", "index.description.missing")
+            scope.setTag("photo.event", event)
+            year?.let { scope.setTag("photo.year", it.toString()) }
+            scope.setExtra("photo.id", photoId)
+            scope.setExtra("photo.name", name)
+            Sentry.captureException(MissingDescription("Geen beschrijving gevonden voor $name ($event)"))
+        }
+    }
+
     /** A navigation / lifecycle marker that gives a later failure its surrounding context. */
     fun breadcrumb(message: String, category: String = "app") {
         Sentry.addBreadcrumb(message, category)
@@ -46,3 +64,6 @@ object Telemetry {
         Sentry.setUser(null)
     }
 }
+
+/** Marker for a handled "no Beschrijving found" event so every occurrence groups as one Sentry issue. */
+private class MissingDescription(message: String) : Exception(message)

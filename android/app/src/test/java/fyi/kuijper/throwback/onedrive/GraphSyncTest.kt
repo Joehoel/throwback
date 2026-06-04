@@ -90,6 +90,31 @@ class GraphSyncTest {
     }
 
     @Test
+    fun `meldt alleen foto's die zonder enige beschrijving eindigen`() = runBlocking {
+        val http = FakeGraphHttp(
+            mapOf(
+                "https://g/d1" to json(
+                    """{"value":[{"id":"p1","photo":{}},{"id":"p2","photo":{}}],"@odata.deltaLink":"https://g/t"}"""
+                ),
+                // p1 heeft een getypte beschrijving; p2 niet, en getBytes geeft null → onopgelost.
+                "/me/drive/items/p1?%24select=$select" to json(
+                    """{"id":"p1","name":"a.jpg","description":"Dans","file":{"mimeType":"image/jpeg"},
+                        "parentReference":{"path":"/drive/root:/F/2019/Bruiloft"}}"""
+                ),
+                "/me/drive/items/p2?%24select=$select" to json(
+                    """{"id":"p2","name":"b.jpg","file":{"mimeType":"image/jpeg"},
+                        "parentReference":{"path":"/drive/root:/F/2009/Vakantie"}}"""
+                ),
+            )
+        )
+
+        val missing = mutableListOf<String>()
+        GraphSync(http, onMissingDescription = { missing += it.id }).refresh("https://g/d1")
+
+        assertEquals(listOf("p2"), missing)
+    }
+
+    @Test
     fun `de EXIF-headslice dekt een volledig EXIF-segment (64 KB)`() = runBlocking {
         // Regressie: een camera-JPEG bewaart een thumbnail in EXIF, dus dat APP1-segment loopt op tot
         // de 64 KB-limiet van één marker; ExifInterface leest niets uit een *afgekapt* segment. Een te
