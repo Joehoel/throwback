@@ -53,6 +53,7 @@ fun Surface4kCanvas(
     paused: Boolean,
     modifier: Modifier = Modifier,
     slideMillis: Int = 15_000,
+    userInitiated: Boolean = false,
 ) {
     val context = LocalContext.current
     val view = remember { PhotoSurfaceView(context) }
@@ -69,7 +70,7 @@ fun Surface4kCanvas(
         val token = gate.issue()
         val slide = cache.get(url)
             ?: withContext(Dispatchers.Default) { loadSlide(context, url) }?.also { cache.put(url, it) }
-        if (slide != null && gate.isLatest(token)) view.present(slide)
+        if (slide != null && gate.isLatest(token)) view.present(slide, immediate = userInitiated)
     }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {

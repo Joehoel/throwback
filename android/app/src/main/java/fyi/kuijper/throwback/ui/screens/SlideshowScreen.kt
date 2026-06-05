@@ -107,6 +107,8 @@ fun SlideshowScreen(
                 captionEnabled = state.captionEnabled,
                 offlineHint = state.offlineHint,
                 paused = state.paused && !controlsVisible,
+                slideMillis = state.slideSeconds * 1000,
+                userInitiated = state.userInitiated,
             )
         } else {
             SlideshowCanvas(
@@ -115,6 +117,8 @@ fun SlideshowScreen(
                 captionEnabled = state.captionEnabled,
                 offlineHint = state.offlineHint,
                 paused = state.paused && !controlsVisible,
+                slideMillis = state.slideSeconds * 1000,
+                userInitiated = state.userInitiated,
             )
         }
 

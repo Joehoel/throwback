@@ -38,6 +38,10 @@ sealed interface UiState {
         val offlineHint: Boolean,
         /** Experimental native-resolution SurfaceView renderer instead of the Compose one. */
         val surfaceRenderer: Boolean,
+        /** Seconds each photo stays up — so the Ken Burns move matches the on-screen time. */
+        val slideSeconds: Int,
+        /** This frame came from a manual next/previous → snappy crossfade instead of the slow dissolve. */
+        val userInitiated: Boolean,
     ) : UiState
     data class Settings(
         val slideSeconds: Int,

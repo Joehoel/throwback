@@ -56,6 +56,7 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
     // Per-slide animation clocks in ms, advanced by frame delta (so pause just stops advancing them).
     private var slideClock = 0L          // drives the current slide's Ken Burns progress
     private var fadeClock = 0L           // drives the crossfade-in of the current slide
+    private var fadeMs = CROSSFADE_MS    // this slide's crossfade length (short for manual next/previous)
     private var prevFrozenProgress = 1f  // the outgoing slide is held at the progress it had at swap
     private var lastFrameUptime = 0L
 
@@ -74,14 +75,19 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
         setZOrderMediaOverlay(false)
     }
 
-    /** Hand a freshly loaded slide to the renderer; starts its crossfade in and Ken Burns from zero. */
-    fun present(slide: Slide) {
+    /**
+     * Hand a freshly loaded slide to the renderer; starts its crossfade in and Ken Burns from zero.
+     * [immediate] = a manual next/previous, which crossfades fast so stepping through feels responsive
+     * (the slow dissolve is for the automatic slide change).
+     */
+    fun present(slide: Slide, immediate: Boolean = false) {
         synchronized(this) {
             prevFrozenProgress = progressOf(slideClock)
             prev = cur
             cur = slide
             slideClock = 0L
             fadeClock = 0L
+            fadeMs = if (immediate) MANUAL_CROSSFADE_MS else CROSSFADE_MS
         }
     }
 
@@ -154,7 +160,7 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
         try {
             canvas.drawColor(Color.BLACK)
             val current = cur ?: return
-            val fade = min(1f, fadeClock.toFloat() / CROSSFADE_MS)
+            val fade = min(1f, fadeClock.toFloat() / fadeMs)
             // Outgoing slide stays visible underneath until the new one has fully faded in (no black flash).
             if (fade < 1f) prev?.let { drawSlide(canvas, it, prevFrozenProgress, alpha = 1f) }
             drawSlide(canvas, current, progressOf(slideClock), alpha = fade)
@@ -232,7 +238,8 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
     private companion object {
         const val TAG = "PhotoSurface4K"
         const val FRAME_MS = 16L
-        const val CROSSFADE_MS = 1500f
+        const val CROSSFADE_MS = 1500f         // automatic slide change: a slow, gentle dissolve
+        const val MANUAL_CROSSFADE_MS = 200f   // manual next/previous: quick, so stepping feels snappy
         const val PORTRAIT_BUMP = 0.18f
     }
 }

@@ -73,6 +73,7 @@ class ThrowbackDreamService : DreamService(), LifecycleOwner, ViewModelStoreOwne
                                 captionEnabled = s.captionEnabled,
                                 offlineHint = s.offlineHint,
                                 paused = false,
+                                slideMillis = s.slideSeconds * 1000,
                             )
                         } else {
                             SlideshowCanvas(
@@ -81,6 +82,7 @@ class ThrowbackDreamService : DreamService(), LifecycleOwner, ViewModelStoreOwne
                                 captionEnabled = s.captionEnabled,
                                 offlineHint = s.offlineHint,
                                 paused = false,
+                                slideMillis = s.slideSeconds * 1000,
                             )
                         }
                         // Not yet showing (connecting / preparing the index): just black.

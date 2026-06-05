@@ -82,6 +82,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             syncing = syncS.syncing,
             offlineHint = slide.offlineHint,
             surfaceRenderer = set.surfaceRenderer,
+            slideSeconds = set.slideSeconds,
+            userInitiated = slide.userInitiated,
         )
         is Nav.SettingsOpen -> UiState.Settings(
             slideSeconds = set.slideSeconds,

@@ -56,6 +56,10 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.random.Random
 
+/** Crossfade lengths: a slow dissolve for the automatic slide change, a quick one for manual stepping. */
+private const val AUTO_CROSSFADE_MS = 1500
+private const val MANUAL_CROSSFADE_MS = 200
+
 /**
  * Pure photo display, no input handling. Shared by the in-app show and the screensaver (DreamService).
  */
@@ -68,10 +72,13 @@ fun SlideshowCanvas(
     paused: Boolean,
     modifier: Modifier = Modifier,
     slideMillis: Int = 15_000,
+    userInitiated: Boolean = false,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-        // The previous photo stays visible during the crossfade, so there is no black flash.
-        Crossfade(targetState = imageUrl, animationSpec = tween(1500), label = "foto") { url ->
+        // The previous photo stays visible during the crossfade, so there is no black flash. A manual
+        // next/previous crossfades fast (snappy stepping); the automatic slide change stays a slow dissolve.
+        val fadeMs = if (userInitiated) MANUAL_CROSSFADE_MS else AUTO_CROSSFADE_MS
+        Crossfade(targetState = imageUrl, animationSpec = tween(fadeMs), label = "foto") { url ->
             if (url != null) {
                 val context = LocalContext.current
 

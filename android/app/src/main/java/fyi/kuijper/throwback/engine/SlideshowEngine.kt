@@ -43,6 +43,9 @@ class SlideshowEngine(
         val imageUrl: String? = null,
         val paused: Boolean = false,
         val offlineHint: Boolean = false,
+        /** This frame came from a manual next/previous (not the auto-advance), so the renderer can
+         *  switch with a snappy crossfade instead of the slow auto-advance dissolve. */
+        val userInitiated: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -100,12 +103,12 @@ class SlideshowEngine(
 
     fun next() {
         playlist?.next()
-        runLoop()
+        runLoop(userInitiated = true)
     }
 
     fun previous() {
         playlist?.previous()
-        runLoop()
+        runLoop(userInitiated = true)
     }
 
     fun togglePause() {
@@ -120,20 +123,22 @@ class SlideshowEngine(
         _state.value = State()
     }
 
-    private fun runLoop() {
+    private fun runLoop(userInitiated: Boolean = false) {
         loopJob?.cancel()
         loopJob = scope.launch {
-            showCurrent()
+            // Only the very first frame after a manual next/previous is user-initiated; the timer-driven
+            // advances that follow are not.
+            showCurrent(userInitiated)
             while (isActive) {
                 delay(slideSeconds() * 1000L)
                 if (paused) continue
                 playlist?.next()
-                showCurrent()
+                showCurrent(userInitiated = false)
             }
         }
     }
 
-    private suspend fun showCurrent() {
+    private suspend fun showCurrent(userInitiated: Boolean = false) {
         val id = playlist?.current ?: return
         val photo = db.get(id)
         // Expired link or network blip: don't hard-stop — show the hint and keep going.
@@ -151,6 +156,7 @@ class SlideshowEngine(
             imageUrl = url,
             paused = paused,
             offlineHint = url == null,
+            userInitiated = userInitiated,
         )
         prefetch()
     }
