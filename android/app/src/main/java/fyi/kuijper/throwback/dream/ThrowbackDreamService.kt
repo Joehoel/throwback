@@ -24,6 +24,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import fyi.kuijper.throwback.MainViewModel
 import fyi.kuijper.throwback.UiState
 import fyi.kuijper.throwback.ui.screens.SlideshowCanvas
+import fyi.kuijper.throwback.ui.surface.Surface4kCanvas
 import fyi.kuijper.throwback.ui.theme.ThrowbackTheme
 
 /**
@@ -65,13 +66,23 @@ class ThrowbackDreamService : DreamService(), LifecycleOwner, ViewModelStoreOwne
                     )
                     val state by vm.state.collectAsState()
                     when (val s = state) {
-                        is UiState.Show -> SlideshowCanvas(
-                            imageUrl = s.imageUrl,
-                            photo = s.photo,
-                            captionEnabled = s.captionEnabled,
-                            offlineHint = s.offlineHint,
-                            paused = false,
-                        )
+                        is UiState.Show -> if (s.surfaceRenderer) {
+                            Surface4kCanvas(
+                                imageUrl = s.imageUrl,
+                                photo = s.photo,
+                                captionEnabled = s.captionEnabled,
+                                offlineHint = s.offlineHint,
+                                paused = false,
+                            )
+                        } else {
+                            SlideshowCanvas(
+                                imageUrl = s.imageUrl,
+                                photo = s.photo,
+                                captionEnabled = s.captionEnabled,
+                                offlineHint = s.offlineHint,
+                                paused = false,
+                            )
+                        }
                         // Not yet showing (connecting / preparing the index): just black.
                         else -> Box(Modifier.fillMaxSize().background(Color.Black))
                     }

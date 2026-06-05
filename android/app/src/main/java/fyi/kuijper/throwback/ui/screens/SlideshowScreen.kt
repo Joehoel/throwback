@@ -100,7 +100,7 @@ fun SlideshowScreen(
                 }
             },
     ) {
-        if (fyi.kuijper.throwback.ui.surface.Experiments.USE_SURFACE_RENDERER) {
+        if (state.surfaceRenderer) {
             fyi.kuijper.throwback.ui.surface.Surface4kCanvas(
                 imageUrl = state.imageUrl,
                 photo = state.photo,

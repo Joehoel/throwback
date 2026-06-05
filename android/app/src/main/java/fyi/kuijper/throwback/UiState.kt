@@ -36,11 +36,14 @@ sealed interface UiState {
         val captionEnabled: Boolean,
         val syncing: Boolean,
         val offlineHint: Boolean,
+        /** Experimental native-resolution SurfaceView renderer instead of the Compose one. */
+        val surfaceRenderer: Boolean,
     ) : UiState
     data class Settings(
         val slideSeconds: Int,
         val shuffle: Boolean,
         val captionEnabled: Boolean,
+        val surfaceRenderer: Boolean,
         val indexed: Int = 0,        // photos in the index (the count shown when idle)
         val processed: Int = 0,      // photos handled this run — the indexing progress numerator
         val total: Int = 0,          // photos in the folder — the progress denominator
