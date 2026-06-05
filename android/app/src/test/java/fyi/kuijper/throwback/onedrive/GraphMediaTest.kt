@@ -19,8 +19,23 @@ class GraphMediaTest {
 
     @Test
     fun `geeft de thumbnail-URL terug`() = runBlocking {
-        val media = GraphMedia(FakeGraphHttp { JSONObject("""{"url":"https://cdn/x.jpg"}""") })
+        // Custom sizes come back as a property named after the size, not a bare top-level `url`.
+        val media = GraphMedia(FakeGraphHttp { JSONObject("""{"c1920x1920":{"url":"https://cdn/x.jpg"}}""") })
         assertEquals("https://cdn/x.jpg", media.thumbnailUrl("p1"))
+    }
+
+    @Test
+    fun `vraagt een TV-formaat thumbnail via select (geen path-segment, geen kleine 'large')`() = runBlocking {
+        // Locks in the quality decision (ADR-0004 "~1920px"): a regression back to the predefined
+        // `large` (≤800px) upscales hard on a 1080p/4K panel. And it pins the addressing: a custom
+        // size MUST go through `$select` — as a path segment Graph rejects the whole OData path.
+        var requested: String? = null
+        val media = GraphMedia(FakeGraphHttp { path ->
+            requested = path
+            JSONObject("""{"c1920x1920":{"url":"https://cdn/x.jpg"}}""")
+        })
+        media.thumbnailUrl("p1")
+        assertEquals("/me/drive/items/p1/thumbnails/0?\$select=c1920x1920", requested)
     }
 
     @Test

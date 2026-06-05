@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
@@ -42,6 +43,9 @@ class SlideshowEngine(
         val imageUrl: String? = null,
         val paused: Boolean = false,
         val offlineHint: Boolean = false,
+        /** This frame came from a manual next/previous (not the auto-advance), so the renderer can
+         *  switch with a snappy crossfade instead of the slow auto-advance dissolve. */
+        val userInitiated: Boolean = false,
     )
 
     private val _state = MutableStateFlow(State())
@@ -50,6 +54,10 @@ class SlideshowEngine(
     private var playlist: Playlist? = null
     private var loopJob: Job? = null
     private var paused = false
+
+    // One Sentry event per outage, not one per slide: set when a non-network thumbnail failure is
+    // reported, cleared by the next reachable fetch (see onThumbnailFailure).
+    private var thumbnailFailureReported = false
 
     // Stable thumbnail URL per photo, so prefetch and display share the same URL (= Coil cache key).
     // Concurrent: the loop and the parallel prefetch both touch it, on a multi-threaded scope.
@@ -95,12 +103,12 @@ class SlideshowEngine(
 
     fun next() {
         playlist?.next()
-        runLoop()
+        runLoop(userInitiated = true)
     }
 
     fun previous() {
         playlist?.previous()
-        runLoop()
+        runLoop(userInitiated = true)
     }
 
     fun togglePause() {
@@ -115,31 +123,32 @@ class SlideshowEngine(
         _state.value = State()
     }
 
-    private fun runLoop() {
+    private fun runLoop(userInitiated: Boolean = false) {
         loopJob?.cancel()
         loopJob = scope.launch {
-            showCurrent()
+            // Only the very first frame after a manual next/previous is user-initiated; the timer-driven
+            // advances that follow are not.
+            showCurrent(userInitiated)
             while (isActive) {
                 delay(slideSeconds() * 1000L)
                 if (paused) continue
                 playlist?.next()
-                showCurrent()
+                showCurrent(userInitiated = false)
             }
         }
     }
 
-    private suspend fun showCurrent() {
+    private suspend fun showCurrent(userInitiated: Boolean = false) {
         val id = playlist?.current ?: return
         val photo = db.get(id)
-        // Expired link or network blip: don't hard-stop — show the hint and keep going. A breadcrumb
-        // (not an event) records it: per-slide capture would be noise, but it gives later errors context.
+        // Expired link or network blip: don't hard-stop — show the hint and keep going.
         // Cancellation (the slide advanced before the fetch finished) is normal flow, not worth a crumb.
         val url = try {
-            urlFor(id)
+            urlFor(id).also { thumbnailFailureReported = false }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            Telemetry.breadcrumb("thumbnail fetch failed: ${e.message}", "slideshow")
+            onThumbnailFailure(e)
             null
         }
         _state.value = State(
@@ -147,8 +156,27 @@ class SlideshowEngine(
             imageUrl = url,
             paused = paused,
             offlineHint = url == null,
+            userInitiated = userInitiated,
         )
         prefetch()
+    }
+
+    /**
+     * A handled thumbnail failure: always a breadcrumb (context for later events), and — unless it is a
+     * plain loss of connectivity — a Sentry event. A dropped network is the expected, self-healing case
+     * the offline hint already covers; reporting it would fire an event every slide while the TV is off
+     * Wi-Fi. Anything else means Graph *answered* with an error (a malformed request, a server fault, an
+     * unparseable body) — a real problem worth seeing, like the custom-thumbnail path bug that otherwise
+     * broke every photo in silence. Captured once per outage (re-armed by the next reachable fetch) so a
+     * systemic failure is one issue, not one per slide.
+     */
+    private fun onThumbnailFailure(e: Exception) {
+        Telemetry.breadcrumb("thumbnail fetch failed: ${e.message}", "slideshow")
+        if (e is IOException) return
+        if (!thumbnailFailureReported) {
+            thumbnailFailureReported = true
+            Telemetry.captureHandled(e, "slideshow.thumbnail")
+        }
     }
 
     private suspend fun urlFor(id: String): String? =

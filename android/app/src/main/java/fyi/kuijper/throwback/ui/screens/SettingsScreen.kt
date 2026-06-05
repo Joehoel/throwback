@@ -49,6 +49,7 @@ fun SettingsScreen(
     onSeconds: (Int) -> Unit,
     onShuffle: (Boolean) -> Unit,
     onCaption: (Boolean) -> Unit,
+    onSurfaceRenderer: (Boolean) -> Unit,
     onClose: () -> Unit,
     onOpenScreensaverSettings: () -> Unit,
     onDisconnect: () -> Unit,
@@ -89,6 +90,16 @@ fun SettingsScreen(
                 subtitle = if (state.captionEnabled) "Datum en gebeurtenis tonen" else "Verborgen",
                 checked = state.captionEnabled,
                 onToggle = { onCaption(!state.captionEnabled) },
+            )
+            Spacer(Modifier.height(SpaceM))
+            SwitchRow(
+                title = "Scherpere weergave (experimenteel)",
+                subtitle = if (state.surfaceRenderer)
+                    "Aan — scherper op 4K-schermen"
+                else
+                    "Uit — standaardweergave",
+                checked = state.surfaceRenderer,
+                onToggle = { onSurfaceRenderer(!state.surfaceRenderer) },
             )
             // Only shown when the device exposes a screensaver setting (not every emulator/TV does).
             if (screensaverConfigurable) {

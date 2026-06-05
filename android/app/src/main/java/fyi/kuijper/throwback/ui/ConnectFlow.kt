@@ -49,6 +49,7 @@ fun ConnectFlow(
             onSeconds = vm::setSlideSeconds,
             onShuffle = vm::setShuffle,
             onCaption = vm::setCaptionEnabled,
+            onSurfaceRenderer = vm::setSurfaceRenderer,
             onClose = vm::closeSettings,
             onOpenScreensaverSettings = onOpenScreensaverSettings,
             onDisconnect = vm::disconnect,

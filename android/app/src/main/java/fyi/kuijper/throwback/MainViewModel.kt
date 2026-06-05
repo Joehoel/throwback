@@ -81,11 +81,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             captionEnabled = set.captionEnabled,
             syncing = syncS.syncing,
             offlineHint = slide.offlineHint,
+            surfaceRenderer = set.surfaceRenderer,
+            slideSeconds = set.slideSeconds,
+            userInitiated = slide.userInitiated,
         )
         is Nav.SettingsOpen -> UiState.Settings(
             slideSeconds = set.slideSeconds,
             shuffle = set.shuffle,
             captionEnabled = set.captionEnabled,
+            surfaceRenderer = set.surfaceRenderer,
             indexed = syncS.indexed,
             processed = syncS.processed,
             total = syncS.total,
@@ -267,6 +271,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setSlideSeconds(seconds: Int) { settings.slideSeconds = seconds }
     fun setShuffle(shuffle: Boolean) { settings.shuffle = shuffle }
     fun setCaptionEnabled(enabled: Boolean) { settings.captionEnabled = enabled }
+    fun setSurfaceRenderer(enabled: Boolean) { settings.surfaceRenderer = enabled }
 
     fun closeSettings() = resumeShow()
 

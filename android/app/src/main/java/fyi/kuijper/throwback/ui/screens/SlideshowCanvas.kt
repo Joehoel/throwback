@@ -48,6 +48,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import fyi.kuijper.throwback.core.AppLocale
 import fyi.kuijper.throwback.onedrive.PhotoRow
+import fyi.kuijper.throwback.ui.randomKenBurns
 import fyi.kuijper.throwback.ui.components.BlurTransformation
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceS
@@ -68,10 +69,12 @@ fun SlideshowCanvas(
     paused: Boolean,
     modifier: Modifier = Modifier,
     slideMillis: Int = 15_000,
+    crossfadeMillis: Int = 1500,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-        // The previous photo stays visible during the crossfade, so there is no black flash.
-        Crossfade(targetState = imageUrl, animationSpec = tween(1500), label = "foto") { url ->
+        // The previous photo stays visible during the crossfade, so there is no black flash. The caller
+        // picks the length: fast for a manual step (snappy), slow for the automatic slide change.
+        Crossfade(targetState = imageUrl, animationSpec = tween(crossfadeMillis), label = "foto") { url ->
             if (url != null) {
                 val context = LocalContext.current
 
@@ -150,42 +153,8 @@ fun SlideshowCanvas(
     }
 }
 
-/**
- * One Ken Burns move for a slide: a scale from [scaleStart] to [scaleEnd] plus a per-axis pan
- * fraction (−1..1) of the available overscan. Scale 1.0 = exact fit; >1 leaves room to pan without
- * black borders.
- */
-private data class KenBurns(
-    val scaleStart: Float,
-    val scaleEnd: Float,
-    val panXStart: Float,
-    val panXEnd: Float,
-    val panYStart: Float,
-    val panYEnd: Float,
-)
-
-/**
- * Pick one random slow move: zoom in/out or pan. Kept very subtle (~10–16% over a full slide).
- * Horizontal pan only happens when [allowHorizontalPan] is set (off for portrait, where it looks odd).
- */
-private fun randomKenBurns(r: Random, allowHorizontalPan: Boolean): KenBurns {
-    val z = 0.10f + r.nextFloat() * 0.06f
-    return when (r.nextInt(if (allowHorizontalPan) 4 else 3)) {
-        0 -> KenBurns(1.0f, 1.0f + z, 0f, 0f, 0f, 0f)
-        1 -> KenBurns(1.0f + z, 1.0f, 0f, 0f, 0f, 0f)
-        2 -> {
-            val dir = if (r.nextBoolean()) 1f else -1f
-            KenBurns(1.0f + z, 1.0f + z, 0f, 0f, -dir * 0.5f, dir * 0.5f)
-        }
-        else -> { // horizontal pan — landscape only
-            val dir = if (r.nextBoolean()) 1f else -1f
-            KenBurns(1.0f + z, 1.0f + z, -dir * 0.6f, dir * 0.6f, 0f, 0f)
-        }
-    }
-}
-
 @Composable
-private fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
+internal fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -228,7 +197,7 @@ private fun takenDateLabel(taken: String?, year: Int?): String? {
 }
 
 @Composable
-private fun OfflineHint(modifier: Modifier = Modifier) {
+internal fun OfflineHint(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .padding(32.dp)

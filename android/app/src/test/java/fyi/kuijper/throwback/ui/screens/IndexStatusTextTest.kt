@@ -17,7 +17,7 @@ class IndexStatusTextTest {
         indexing: Boolean = false,
         syncError: String? = null,
     ) = UiState.Settings(
-        slideSeconds = 8, shuffle = true, captionEnabled = true,
+        slideSeconds = 8, shuffle = true, captionEnabled = true, surfaceRenderer = false,
         indexed = indexed, processed = processed, total = total, located = located, geocoded = geocoded,
         indexing = indexing, syncError = syncError,
     )

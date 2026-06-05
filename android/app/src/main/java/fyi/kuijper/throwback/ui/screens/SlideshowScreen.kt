@@ -100,13 +100,7 @@ fun SlideshowScreen(
                 }
             },
     ) {
-        SlideshowCanvas(
-            imageUrl = state.imageUrl,
-            photo = state.photo,
-            captionEnabled = state.captionEnabled,
-            offlineHint = state.offlineHint,
-            paused = state.paused && !controlsVisible,
-        )
+        ShowCanvas(state, paused = state.paused && !controlsVisible)
 
         AnimatedVisibility(
             visible = controlsVisible,

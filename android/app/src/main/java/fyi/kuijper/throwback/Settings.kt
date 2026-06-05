@@ -10,6 +10,7 @@ data class SettingsSnapshot(
     val slideSeconds: Int,
     val shuffle: Boolean,
     val captionEnabled: Boolean,
+    val surfaceRenderer: Boolean,
 )
 
 /**
@@ -27,6 +28,7 @@ class Settings(context: Context) {
         slideSeconds = prefs.getInt("slide_seconds", 8),
         shuffle = prefs.getBoolean("shuffle", true),
         captionEnabled = prefs.getBoolean("caption_enabled", true),
+        surfaceRenderer = prefs.getBoolean("surface_renderer", false),
     )
 
     /** Seconds per photo (clamped 3–30). */
@@ -51,6 +53,18 @@ class Settings(context: Context) {
         set(value) {
             prefs.edit().putBoolean("caption_enabled", value).apply()
             _state.value = _state.value.copy(captionEnabled = value)
+        }
+
+    /**
+     * Experimental: render the show through the native-resolution [SurfaceView] path
+     * ([ui.surface.Surface4kCanvas]) instead of the Compose renderer. Off by default; lets the 4K path
+     * be tried on real hardware without a rebuild. See branch explore/surfaceview-4k.
+     */
+    var surfaceRenderer: Boolean
+        get() = _state.value.surfaceRenderer
+        set(value) {
+            prefs.edit().putBoolean("surface_renderer", value).apply()
+            _state.value = _state.value.copy(surfaceRenderer = value)
         }
 
     /** Whether the one-time "set as screensaver" hint has been shown. (No reactivity needed.) */
