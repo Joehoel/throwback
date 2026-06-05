@@ -56,13 +56,20 @@ fun Surface4kCanvas(
 ) {
     val context = LocalContext.current
     val view = remember { PhotoSurfaceView(context) }
+    // Decoding is async, so a slower earlier load could finish after a newer one: the gate drops any
+    // present that is no longer the most-recently-requested photo (keeps next/previous deterministic).
+    // The cache keeps the last few decoded slides so stepping back and forth is instant, not re-decoded.
+    val gate = remember { LatestSlideGate() }
+    val cache = remember { SlideCache<PhotoSurfaceView.Slide>(SLIDE_CACHE_SIZE) }
 
     LaunchedEffect(paused) { view.setPaused(paused) }
     LaunchedEffect(slideMillis) { view.setSlideMillis(slideMillis) }
     LaunchedEffect(imageUrl) {
         val url = imageUrl ?: return@LaunchedEffect
-        val slide = withContext(Dispatchers.Default) { loadSlide(context, url) }
-        if (slide != null) view.present(slide)
+        val token = gate.issue()
+        val slide = cache.get(url)
+            ?: withContext(Dispatchers.Default) { loadSlide(context, url) }?.also { cache.put(url, it) }
+        if (slide != null && gate.isLatest(token)) view.present(slide)
     }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
@@ -84,6 +91,9 @@ fun Surface4kCanvas(
         }
     }
 }
+
+/** How many decoded slides to keep ready — covers a few steps of back/forward without re-decoding. */
+private const val SLIDE_CACHE_SIZE = 6
 
 /** Decode [url] to a software bitmap, build the portrait blur, and seed the Ken Burns move from the URL. */
 private suspend fun loadSlide(context: Context, url: String): PhotoSurfaceView.Slide? {
