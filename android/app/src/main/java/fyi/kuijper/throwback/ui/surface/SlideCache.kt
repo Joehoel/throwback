@@ -17,7 +17,7 @@ class SlideCache<V>(private val maxSize: Int) {
     init { require(maxSize >= 1) { "maxSize must be >= 1" } }
 
     // accessOrder = true → get() marks an entry most-recently-used, so the eldest is the true LRU victim.
-    private val map = object : LinkedHashMap<String, V>(0, 0.75f, true) {}
+    private val map = LinkedHashMap<String, V>(0, 0.75f, true)
 
     @Synchronized
     fun get(key: String): V? = map[key]

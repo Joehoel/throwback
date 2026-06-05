@@ -27,6 +27,7 @@ import coil3.size.Size
 import coil3.toBitmap
 import fyi.kuijper.throwback.onedrive.PhotoRow
 import fyi.kuijper.throwback.ui.components.BlurTransformation
+import fyi.kuijper.throwback.ui.randomKenBurns
 import fyi.kuijper.throwback.ui.screens.Caption
 import fyi.kuijper.throwback.ui.screens.OfflineHint
 import kotlinx.coroutines.Dispatchers
@@ -53,7 +54,7 @@ fun Surface4kCanvas(
     paused: Boolean,
     modifier: Modifier = Modifier,
     slideMillis: Int = 15_000,
-    userInitiated: Boolean = false,
+    crossfadeMillis: Int = 1500,
 ) {
     val context = LocalContext.current
     val view = remember { PhotoSurfaceView(context) }
@@ -70,7 +71,7 @@ fun Surface4kCanvas(
         val token = gate.issue()
         val slide = cache.get(url)
             ?: withContext(Dispatchers.Default) { loadSlide(context, url) }?.also { cache.put(url, it) }
-        if (slide != null && gate.isLatest(token)) view.present(slide, immediate = userInitiated)
+        if (slide != null && gate.isLatest(token)) view.present(slide, crossfadeMillis.toFloat())
     }
 
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
@@ -96,6 +97,9 @@ fun Surface4kCanvas(
 /** How many decoded slides to keep ready — covers a few steps of back/forward without re-decoding. */
 private const val SLIDE_CACHE_SIZE = 6
 
+/** Stateless, so one shared instance serves every portrait blur instead of allocating one per photo. */
+private val portraitBlur = BlurTransformation()
+
 /** Decode [url] to a software bitmap, build the portrait blur, and seed the Ken Burns move from the URL. */
 private suspend fun loadSlide(context: Context, url: String): PhotoSurfaceView.Slide? {
     val loader = SingletonImageLoader.get(context)
@@ -106,7 +110,7 @@ private suspend fun loadSlide(context: Context, url: String): PhotoSurfaceView.S
     val sharp = (loader.execute(request) as? SuccessResult)?.image?.toBitmap() ?: return null
     val landscape = sharp.width >= sharp.height
     val blurred = if (landscape) null else
-        runCatching { BlurTransformation().transform(sharp, Size.ORIGINAL) }.getOrNull()
-    val kb = KenBurns.random(Random(url.hashCode()), allowHorizontalPan = landscape)
+        runCatching { portraitBlur.transform(sharp, Size.ORIGINAL) }.getOrNull()
+    val kb = randomKenBurns(Random(url.hashCode()), allowHorizontalPan = landscape)
     return PhotoSurfaceView.Slide(sharp, blurred, landscape, kb)
 }

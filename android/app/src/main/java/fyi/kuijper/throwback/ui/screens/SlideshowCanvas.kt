@@ -48,6 +48,7 @@ import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import fyi.kuijper.throwback.core.AppLocale
 import fyi.kuijper.throwback.onedrive.PhotoRow
+import fyi.kuijper.throwback.ui.randomKenBurns
 import fyi.kuijper.throwback.ui.components.BlurTransformation
 import fyi.kuijper.throwback.ui.theme.SpaceM
 import fyi.kuijper.throwback.ui.theme.SpaceS
@@ -55,10 +56,6 @@ import fyi.kuijper.throwback.ui.theme.SpaceXs
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.random.Random
-
-/** Crossfade lengths: a slow dissolve for the automatic slide change, a quick one for manual stepping. */
-private const val AUTO_CROSSFADE_MS = 1500
-private const val MANUAL_CROSSFADE_MS = 200
 
 /**
  * Pure photo display, no input handling. Shared by the in-app show and the screensaver (DreamService).
@@ -72,13 +69,12 @@ fun SlideshowCanvas(
     paused: Boolean,
     modifier: Modifier = Modifier,
     slideMillis: Int = 15_000,
-    userInitiated: Boolean = false,
+    crossfadeMillis: Int = 1500,
 ) {
     Box(modifier = modifier.fillMaxSize().background(Color.Black)) {
-        // The previous photo stays visible during the crossfade, so there is no black flash. A manual
-        // next/previous crossfades fast (snappy stepping); the automatic slide change stays a slow dissolve.
-        val fadeMs = if (userInitiated) MANUAL_CROSSFADE_MS else AUTO_CROSSFADE_MS
-        Crossfade(targetState = imageUrl, animationSpec = tween(fadeMs), label = "foto") { url ->
+        // The previous photo stays visible during the crossfade, so there is no black flash. The caller
+        // picks the length: fast for a manual step (snappy), slow for the automatic slide change.
+        Crossfade(targetState = imageUrl, animationSpec = tween(crossfadeMillis), label = "foto") { url ->
             if (url != null) {
                 val context = LocalContext.current
 
@@ -153,40 +149,6 @@ fun SlideshowCanvas(
                 color = Color.White,
                 modifier = Modifier.align(Alignment.TopStart).padding(32.dp),
             )
-        }
-    }
-}
-
-/**
- * One Ken Burns move for a slide: a scale from [scaleStart] to [scaleEnd] plus a per-axis pan
- * fraction (−1..1) of the available overscan. Scale 1.0 = exact fit; >1 leaves room to pan without
- * black borders.
- */
-private data class KenBurns(
-    val scaleStart: Float,
-    val scaleEnd: Float,
-    val panXStart: Float,
-    val panXEnd: Float,
-    val panYStart: Float,
-    val panYEnd: Float,
-)
-
-/**
- * Pick one random slow move: zoom in/out or pan. Kept very subtle (~10–16% over a full slide).
- * Horizontal pan only happens when [allowHorizontalPan] is set (off for portrait, where it looks odd).
- */
-private fun randomKenBurns(r: Random, allowHorizontalPan: Boolean): KenBurns {
-    val z = 0.10f + r.nextFloat() * 0.06f
-    return when (r.nextInt(if (allowHorizontalPan) 4 else 3)) {
-        0 -> KenBurns(1.0f, 1.0f + z, 0f, 0f, 0f, 0f)
-        1 -> KenBurns(1.0f + z, 1.0f, 0f, 0f, 0f, 0f)
-        2 -> {
-            val dir = if (r.nextBoolean()) 1f else -1f
-            KenBurns(1.0f + z, 1.0f + z, 0f, 0f, -dir * 0.5f, dir * 0.5f)
-        }
-        else -> { // horizontal pan — landscape only
-            val dir = if (r.nextBoolean()) 1f else -1f
-            KenBurns(1.0f + z, 1.0f + z, -dir * 0.6f, dir * 0.6f, 0f, 0f)
         }
     }
 }

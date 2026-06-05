@@ -13,9 +13,9 @@ import android.util.AttributeSet
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
+import fyi.kuijper.throwback.ui.KenBurns
 import kotlin.math.max
 import kotlin.math.min
-import kotlin.random.Random
 
 /**
  * EXPLORATION (branch explore/surfaceview-4k). Renders the slideshow into a [SurfaceView] instead of a
@@ -56,7 +56,7 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
     // Per-slide animation clocks in ms, advanced by frame delta (so pause just stops advancing them).
     private var slideClock = 0L          // drives the current slide's Ken Burns progress
     private var fadeClock = 0L           // drives the crossfade-in of the current slide
-    private var fadeMs = CROSSFADE_MS    // this slide's crossfade length (short for manual next/previous)
+    private var fadeMs = 1500f            // this slide's crossfade length, set per present() (manual = short)
     private var prevFrozenProgress = 1f  // the outgoing slide is held at the progress it had at swap
     private var lastFrameUptime = 0L
 
@@ -77,17 +77,17 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
 
     /**
      * Hand a freshly loaded slide to the renderer; starts its crossfade in and Ken Burns from zero.
-     * [immediate] = a manual next/previous, which crossfades fast so stepping through feels responsive
-     * (the slow dissolve is for the automatic slide change).
+     * [fadeMillis] is how long the crossfade-in takes — short for a manual next/previous (so stepping
+     * feels responsive), long for the automatic slide change (a slow dissolve). The caller decides which.
      */
-    fun present(slide: Slide, immediate: Boolean = false) {
+    fun present(slide: Slide, fadeMillis: Float) {
         synchronized(this) {
             prevFrozenProgress = progressOf(slideClock)
             prev = cur
             cur = slide
             slideClock = 0L
             fadeClock = 0L
-            fadeMs = if (immediate) MANUAL_CROSSFADE_MS else CROSSFADE_MS
+            fadeMs = fadeMillis
         }
     }
 
@@ -238,42 +238,7 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
     private companion object {
         const val TAG = "PhotoSurface4K"
         const val FRAME_MS = 16L
-        const val CROSSFADE_MS = 1500f         // automatic slide change: a slow, gentle dissolve
-        const val MANUAL_CROSSFADE_MS = 200f   // manual next/previous: quick, so stepping feels snappy
         const val PORTRAIT_BUMP = 0.18f
-    }
-}
-
-/**
- * One slow Ken Burns move for a slide: scale [scaleStart]→[scaleEnd] plus a per-axis pan fraction
- * (−1..1) of the overscan the zoom creates. Ported from SlideshowCanvas so the SurfaceView path keeps
- * the same feel. Scale 1.0 = exact fit; >1 leaves room to pan without exposing black edges.
- */
-class KenBurns(
-    val scaleStart: Float,
-    val scaleEnd: Float,
-    val panXStart: Float,
-    val panXEnd: Float,
-    val panYStart: Float,
-    val panYEnd: Float,
-) {
-    companion object {
-        /** Pick one subtle random move (~10–16% over the slide); horizontal pan only when allowed. */
-        fun random(r: Random, allowHorizontalPan: Boolean): KenBurns {
-            val z = 0.10f + r.nextFloat() * 0.06f
-            return when (r.nextInt(if (allowHorizontalPan) 4 else 3)) {
-                0 -> KenBurns(1.0f, 1.0f + z, 0f, 0f, 0f, 0f)
-                1 -> KenBurns(1.0f + z, 1.0f, 0f, 0f, 0f, 0f)
-                2 -> {
-                    val dir = if (r.nextBoolean()) 1f else -1f
-                    KenBurns(1.0f + z, 1.0f + z, 0f, 0f, -dir * 0.5f, dir * 0.5f)
-                }
-                else -> {
-                    val dir = if (r.nextBoolean()) 1f else -1f
-                    KenBurns(1.0f + z, 1.0f + z, -dir * 0.6f, dir * 0.6f, 0f, 0f)
-                }
-            }
-        }
     }
 }
 

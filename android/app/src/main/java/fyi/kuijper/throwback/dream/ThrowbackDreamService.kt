@@ -23,12 +23,11 @@ import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import fyi.kuijper.throwback.MainViewModel
 import fyi.kuijper.throwback.UiState
-import fyi.kuijper.throwback.ui.screens.SlideshowCanvas
-import fyi.kuijper.throwback.ui.surface.Surface4kCanvas
+import fyi.kuijper.throwback.ui.screens.ShowCanvas
 import fyi.kuijper.throwback.ui.theme.ThrowbackTheme
 
 /**
- * System screensaver: reuses the same slideshow rendering ([SlideshowCanvas]) and ViewModel logic as
+ * System screensaver: reuses the same slideshow rendering ([ShowCanvas]) and ViewModel logic as
  * the app. Compose outside an Activity requires us to supply the lifecycle/viewmodel/savedstate owners
  * ourselves.
  */
@@ -66,25 +65,7 @@ class ThrowbackDreamService : DreamService(), LifecycleOwner, ViewModelStoreOwne
                     )
                     val state by vm.state.collectAsState()
                     when (val s = state) {
-                        is UiState.Show -> if (s.surfaceRenderer) {
-                            Surface4kCanvas(
-                                imageUrl = s.imageUrl,
-                                photo = s.photo,
-                                captionEnabled = s.captionEnabled,
-                                offlineHint = s.offlineHint,
-                                paused = false,
-                                slideMillis = s.slideSeconds * 1000,
-                            )
-                        } else {
-                            SlideshowCanvas(
-                                imageUrl = s.imageUrl,
-                                photo = s.photo,
-                                captionEnabled = s.captionEnabled,
-                                offlineHint = s.offlineHint,
-                                paused = false,
-                                slideMillis = s.slideSeconds * 1000,
-                            )
-                        }
+                        is UiState.Show -> ShowCanvas(s, paused = false)
                         // Not yet showing (connecting / preparing the index): just black.
                         else -> Box(Modifier.fillMaxSize().background(Color.Black))
                     }
