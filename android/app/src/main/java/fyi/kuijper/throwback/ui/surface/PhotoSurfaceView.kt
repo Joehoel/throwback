@@ -139,10 +139,12 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
         val now = SystemClock.uptimeMillis()
         val dt = now - lastFrameUptime
         lastFrameUptime = now
-        if (!paused) {
-            slideClock += dt
-            fadeClock += dt
-        }
+        // The crossfade must always finish, even while paused: navigating (next/prev) while the show is
+        // paused calls present() and resets fadeClock to 0, so gating the fade on !paused would leave the
+        // new photo stuck at alpha 0 under the old one — i.e. navigation does nothing. Only the Ken Burns
+        // pan/zoom (slideClock) honours pause; the Compose renderer likewise keeps animating regardless.
+        fadeClock += dt
+        if (!paused) slideClock += dt
 
         val canvas = try {
             holder.lockHardwareCanvas()
