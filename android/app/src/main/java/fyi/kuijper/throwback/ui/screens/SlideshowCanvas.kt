@@ -185,7 +185,7 @@ private fun randomKenBurns(r: Random, allowHorizontalPan: Boolean): KenBurns {
 }
 
 @Composable
-private fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
+internal fun Caption(p: PhotoRow, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -228,7 +228,7 @@ private fun takenDateLabel(taken: String?, year: Int?): String? {
 }
 
 @Composable
-private fun OfflineHint(modifier: Modifier = Modifier) {
+internal fun OfflineHint(modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .padding(32.dp)

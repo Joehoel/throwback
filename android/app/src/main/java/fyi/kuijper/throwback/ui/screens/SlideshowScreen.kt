@@ -100,13 +100,23 @@ fun SlideshowScreen(
                 }
             },
     ) {
-        SlideshowCanvas(
-            imageUrl = state.imageUrl,
-            photo = state.photo,
-            captionEnabled = state.captionEnabled,
-            offlineHint = state.offlineHint,
-            paused = state.paused && !controlsVisible,
-        )
+        if (fyi.kuijper.throwback.ui.surface.Experiments.USE_SURFACE_RENDERER) {
+            fyi.kuijper.throwback.ui.surface.Surface4kCanvas(
+                imageUrl = state.imageUrl,
+                photo = state.photo,
+                captionEnabled = state.captionEnabled,
+                offlineHint = state.offlineHint,
+                paused = state.paused && !controlsVisible,
+            )
+        } else {
+            SlideshowCanvas(
+                imageUrl = state.imageUrl,
+                photo = state.photo,
+                captionEnabled = state.captionEnabled,
+                offlineHint = state.offlineHint,
+                paused = state.paused && !controlsVisible,
+            )
+        }
 
         AnimatedVisibility(
             visible = controlsVisible,
