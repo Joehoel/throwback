@@ -95,7 +95,7 @@ fun SettingsScreen(
             SwitchRow(
                 title = "4K-renderer (experimenteel)",
                 subtitle = if (state.surfaceRenderer)
-                    "Aan — native resolutie via SurfaceView"
+                    "Aan — scherper op 4K-schermen"
                 else
                     "Uit — standaard renderer",
                 checked = state.surfaceRenderer,
