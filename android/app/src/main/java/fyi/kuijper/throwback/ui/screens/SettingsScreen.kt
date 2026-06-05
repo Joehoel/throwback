@@ -93,11 +93,11 @@ fun SettingsScreen(
             )
             Spacer(Modifier.height(SpaceM))
             SwitchRow(
-                title = "4K-renderer (experimenteel)",
+                title = "Scherpere weergave (experimenteel)",
                 subtitle = if (state.surfaceRenderer)
                     "Aan — scherper op 4K-schermen"
                 else
-                    "Uit — standaard renderer",
+                    "Uit — standaardweergave",
                 checked = state.surfaceRenderer,
                 onToggle = { onSurfaceRenderer(!state.surfaceRenderer) },
             )
