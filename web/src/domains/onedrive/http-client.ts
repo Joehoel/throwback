@@ -1,5 +1,12 @@
-import { Context, Effect, Layer, Option, Schedule, type Schema } from "effect";
-import { FetchHttpClient, Headers, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+import { Context, Effect, Layer, Option, Schedule } from "effect";
+import type { Schema } from "effect";
+import {
+  FetchHttpClient,
+  Headers,
+  HttpClient,
+  HttpClientRequest,
+  HttpClientResponse,
+} from "effect/unstable/http";
 import type { HttpClientError } from "effect/unstable/http";
 import { GraphRequestError } from "#/domain/errors.ts";
 import type { TokenUnavailable } from "#/domain/errors.ts";
@@ -28,7 +35,7 @@ const retryAfter = (response: HttpClientError.HttpClientError["response"]): Opti
   Option.fromNullishOr(response).pipe(
     Option.flatMap((r) => Headers.get(r.headers, "retry-after")),
     Option.map(Number),
-    Option.filter(Number.isFinite),
+    Option.filter((seconds) => Number.isFinite(seconds)),
   );
 
 /** Map a transport/status failure onto the domain error. */
@@ -62,7 +69,10 @@ const make = HttpClient.HttpClient.pipe(
       HttpClient.filterStatusOk,
       // Retries 408/429/500/502/503/504 + transport/timeout, with jittered exponential backoff
       // (jitter avoids retry thundering-herd on a throttled tenant — ADR-0011 / PRD).
-      HttpClient.retryTransient({ schedule: Schedule.exponential("500 millis").pipe(Schedule.jittered), times: 4 }),
+      HttpClient.retryTransient({
+        schedule: Schedule.exponential("500 millis").pipe(Schedule.jittered),
+        times: 4,
+      }),
       // A leftover status/transport failure or a timeout becomes the domain error. TokenUnavailable from
       // the auth step passes through untouched — it's raised in preprocess, outside this postprocess catch.
       HttpClient.catchTags({
@@ -90,7 +100,8 @@ export const OneDriveHttpDefault = OneDriveHttpLive.pipe(Layer.provide(FetchHttp
 
 /** Decode a response JSON body with a schema. */
 export const decodeJson =
-  <S extends Schema.Top>(schema: S) => (response: HttpClientResponse.HttpClientResponse) =>
+  <S extends Schema.Top>(schema: S) =>
+  (response: HttpClientResponse.HttpClientResponse) =>
     HttpClientResponse.schemaBodyJson(schema)(response).pipe(
       Effect.catchTag("HttpClientError", (error) => Effect.fail(graphErrorFromHttp(error))),
       Effect.catchTag("SchemaError", (error) => Effect.die(error)),

@@ -1,4 +1,5 @@
-import { type Effect, Layer, ManagedRuntime } from "effect";
+import { Layer, ManagedRuntime } from "effect";
+import type { Effect } from "effect";
 import { Observability } from "./observability.ts";
 
 /**

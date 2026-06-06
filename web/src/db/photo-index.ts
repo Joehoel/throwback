@@ -1,7 +1,8 @@
 import { Effect, Schema } from "effect";
 import { SqlClient } from "effect/unstable/sql";
 import { DriveItemId } from "#/domain/ids.ts";
-import { Description, Location, type Photo, ReviewStatus } from "#/domain/photo.ts";
+import { Description, Location, ReviewStatus } from "#/domain/photo.ts";
+import type { Photo } from "#/domain/photo.ts";
 
 /**
  * Photo index persistence (ADR-0009). Repo = a module of Effects that require the
@@ -20,7 +21,11 @@ export const PhotoFromRow = Schema.Struct({
   mimeType: Schema.String,
   reviewStatus: ReviewStatus,
 }).pipe(
-  Schema.encodeKeys({ folderId: "folder_id", mimeType: "mime_type", reviewStatus: "review_status" }),
+  Schema.encodeKeys({
+    folderId: "folder_id",
+    mimeType: "mime_type",
+    reviewStatus: "review_status",
+  }),
 );
 
 export type ReviewFilter = "missing_description" | "missing_location" | "any";
@@ -46,13 +51,15 @@ export const upsert = (photo: Photo) =>
 export const reviewNext = (filter: ReviewFilter) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
-    const rows =
-      filter === "missing_description"
-        ? yield* sql`SELECT * FROM photo_index WHERE description IS NULL AND review_status = 'needs_review' ORDER BY id LIMIT 1`
-        : filter === "missing_location"
-          ? yield* sql`SELECT * FROM photo_index WHERE location IS NULL AND review_status = 'needs_review' ORDER BY id LIMIT 1`
-          : yield* sql`SELECT * FROM photo_index WHERE review_status = 'needs_review' ORDER BY id LIMIT 1`;
-    if (rows.length === 0) return null;
+    // Pick the review-queue predicate by filter (statements are lazy; only the chosen one runs).
+    const rows = yield* {
+      missing_description: sql`SELECT * FROM photo_index WHERE description IS NULL AND review_status = 'needs_review' ORDER BY id LIMIT 1`,
+      missing_location: sql`SELECT * FROM photo_index WHERE location IS NULL AND review_status = 'needs_review' ORDER BY id LIMIT 1`,
+      any: sql`SELECT * FROM photo_index WHERE review_status = 'needs_review' ORDER BY id LIMIT 1`,
+    }[filter];
+    if (rows.length === 0) {
+      return null;
+    }
     return yield* Schema.decodeUnknownEffect(PhotoFromRow)(rows[0]);
   });
 

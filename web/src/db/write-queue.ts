@@ -1,7 +1,8 @@
 import { Effect, Schema } from "effect";
 import { SqlClient } from "effect/unstable/sql";
 import { DriveItemId, WorkflowInstanceId } from "#/domain/ids.ts";
-import { type WriteJob, WritePayload, WriteStatus } from "#/domain/write.ts";
+import { WritePayload, WriteStatus } from "#/domain/write.ts";
+import type { WriteJob } from "#/domain/write.ts";
 
 /**
  * Write-queue persistence (ADR-0011/0009). The D1 index is the source for pending
@@ -44,7 +45,9 @@ export const get = (photoId: DriveItemId) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const rows = yield* sql`SELECT * FROM write_jobs WHERE photo_id = ${photoId} LIMIT 1`;
-    if (rows.length === 0) return null;
+    if (rows.length === 0) {
+      return null;
+    }
     return yield* Schema.decodeUnknownEffect(WriteJobFromRow)(rows[0]);
   });
 

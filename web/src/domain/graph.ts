@@ -33,7 +33,10 @@ export type GraphDriveItem = typeof GraphDriveItem.Type;
 const DescriptionFromGraph = Schema.String.pipe(
   Schema.decodeTo(
     Schema.NullOr(Description),
-    SchemaTransformation.transform({ decode: (s) => (s ? s : null), encode: (d) => d ?? "" }),
+    SchemaTransformation.transform({
+      decode: (s) => (s === "" ? null : s),
+      encode: (d) => d ?? "",
+    }),
   ),
 );
 
@@ -47,8 +50,12 @@ export const LocationFromFacet = GraphLocationFacet.pipe(
     Schema.NullOr(Location),
     SchemaTransformation.transform({
       decode: (f) =>
-        f.latitude != null && f.longitude != null
-          ? { latitude: f.latitude, longitude: f.longitude, ...(f.altitude != null ? { altitude: f.altitude } : {}) }
+        f.latitude !== undefined && f.longitude !== undefined
+          ? {
+              latitude: f.latitude,
+              longitude: f.longitude,
+              ...(f.altitude === undefined ? {} : { altitude: f.altitude }),
+            }
           : null,
       encode: (l) => l ?? {},
     }),
@@ -61,8 +68,8 @@ const YearFromPath = Schema.String.pipe(
     Schema.NullOr(Schema.Int),
     SchemaTransformation.transform({
       decode: (path) => {
-        const seg = path.split("/").find((s) => /^(19|20)\d{2}$/.test(s));
-        return seg ? Number(seg) : null;
+        const seg = path.split("/").find((s) => /^(?:19|20)\d{2}$/u.test(s));
+        return seg === undefined ? null : Number(seg);
       },
       encode: () => "",
     }),
