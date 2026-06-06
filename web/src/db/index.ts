@@ -1,25 +1,14 @@
-import { env } from "cloudflare:workers";
 import { drizzle } from "drizzle-orm/d1";
 
-import {
-  account,
-  accountRelations,
-  session,
-  sessionRelations,
-  user,
-  userRelations,
-  verification,
-} from "./schema.ts";
+import { env } from "#/env";
+import { account, session, user, verification } from "./schema.ts";
 
 const schema = {
   account,
-  accountRelations,
   session,
-  sessionRelations,
   user,
-  userRelations,
   verification,
 };
 
-/** D1-backed Drizzle instance. The `DB` binding comes from wrangler.jsonc. */
+/** D1-backed Drizzle instance. The `DB` binding comes from alchemy.run.ts. */
 export const db = drizzle(env.DB, { schema });

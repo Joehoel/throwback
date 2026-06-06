@@ -1,6 +1,5 @@
-import { env } from "cloudflare:workers";
-
 import { db } from "#/db";
+import { env } from "#/env";
 import { createAuth } from "./auth.ts";
 
 /**

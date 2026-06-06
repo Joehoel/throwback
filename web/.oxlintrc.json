@@ -93,6 +93,7 @@
     "build/**",
     ".vinxi/**",
     ".output/**",
+    "alchemy.run.ts",
     "spike/**",
     "src/routeTree.gen.ts",
     "worker-configuration.d.ts",

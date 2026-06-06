@@ -6,17 +6,20 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vite dev --port 3000",
+    "dev": "alchemy dev",
+    "dev:vite": "vite dev --port 3000",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run",
+    "test": "vitest run --passWithNoTests",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "hooks:install": "LEFTHOOK_CONFIG=lefthook.yml lefthook install",
-    "prepare": "npm run hooks:install",
-    "deploy": "npm run build && wrangler deploy",
+    "prepare": "bun run hooks:install",
+    "plan": "alchemy plan",
+    "deploy": "alchemy deploy",
+    "destroy": "alchemy destroy",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -25,7 +28,6 @@
   },
   "dependencies": {
     "@cloudflare/kumo": "^2.5.0",
-    "@cloudflare/vite-plugin": "^1.26.0",
     "@orpc/client": "^1.13.6",
     "@orpc/json-schema": "^1.13.6",
     "@orpc/openapi": "^1.13.6",
@@ -53,8 +55,8 @@
     "@tanstack/store": "latest",
     "better-auth": "^1.5.3",
     "better-sqlite3": "^12.6.2",
-    "drizzle-kit": "^0.31.9",
-    "drizzle-orm": "^0.45.1",
+    "drizzle-kit": "1.0.0-rc.3",
+    "drizzle-orm": "1.0.0-rc.3",
     "highlight.js": "^11.11.1",
     "piexifjs": "^1.0.6",
     "react": "^19.2.0",
@@ -64,6 +66,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260606.1",
+    "@effect/platform-node": "^4.0.0-beta.78",
     "@rolldown/plugin-babel": "^0.2.3",
     "@tailwindcss/typography": "^0.5.16",
     "@tanstack/devtools-event-client": "latest",
@@ -75,8 +79,10 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "alchemy": "2.0.0-beta.52",
     "babel-plugin-react-compiler": "^1.0.0",
     "dotenv": "^17.3.1",
+    "effect": "^4.0.0-beta.78",
     "jsdom": "^28.1.0",
     "lefthook": "^2.1.9",
     "oxfmt": "^0.53.0",
@@ -87,16 +93,21 @@
     "typescript": "^6.0.2",
     "vite": "^8.0.0",
     "vitest": "^4.1.5",
-    "wrangler": "^4.95.0"
+    "wrangler": "^4.95.0",
+    "ws": "^8.21.0"
   },
   "overrides": {
     "kysely": "0.28.17"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "lightningcss",
-      "better-sqlite3"
-    ]
-  }
+  "packageManager": "bun@1.3.10",
+  "trustedDependencies": [
+    "better-sqlite3",
+    "esbuild",
+    "lefthook",
+    "lightningcss",
+    "msgpackr-extract",
+    "protobufjs",
+    "sharp",
+    "workerd"
+  ]
 }
