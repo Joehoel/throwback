@@ -1,4 +1,6 @@
+import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -11,9 +13,10 @@ import { defineConfig } from "vitest/config";
  * Vitest globs and runs them — alchemy's suite provisions and deletes real
  * Cloudflare resources. Every project is scoped to our own `src/`.
  *
- * Test environments are split into `projects` (added per phase):
+ * Test environments are split into `projects`:
  * - `unit` — node; pure Effect/Schema + XState actor logic.
- * - `d1`   — `@cloudflare/vitest-pool-workers`; real `env.DB` (added in phase 1).
+ * - `d1`   — `@cloudflare/vitest-pool-workers`; the repos against a real (workerd)
+ *            D1, with the app's drizzle migrations applied.
  * - `browser` — `@vitest/browser` + Playwright (added in phase 3).
  */
 
@@ -27,6 +30,31 @@ const ignored = [
   ".alchemy/**",
   ".wrangler/**",
 ];
+
+/**
+ * Build a `D1Migration[]` from the drizzle SQL files. We can't use the pool's
+ * `readD1Migrations` here: it splits on `;`, but drizzle separates statements
+ * with `--> statement-breakpoint` and emits no semicolons. Passed to the worker
+ * as a binding so the d1 setup can `applyD1Migrations`.
+ */
+function readDrizzleMigrations(files: string[]) {
+  return Promise.all(
+    files.map(async (name) => {
+      const body = await readFile(new URL(`drizzle/${name}`, import.meta.url), "utf8");
+      const queries = body
+        .split("--> statement-breakpoint")
+        .map((chunk) =>
+          chunk
+            .split("\n")
+            .filter((line) => !line.trim().startsWith("--"))
+            .join("\n")
+            .trim(),
+        )
+        .filter(Boolean);
+      return { name, queries };
+    }),
+  );
+}
 
 export default defineConfig({
   resolve: {
@@ -43,6 +71,31 @@ export default defineConfig({
           include: ["src/**/*.test.{ts,tsx}"],
           // db/** needs a real D1 (the `d1` project); browser tests run in Playwright.
           exclude: [...ignored, "src/db/**", "src/**/*.browser.test.tsx"],
+        },
+      },
+      {
+        extends: true,
+        plugins: [
+          cloudflareTest(async () => {
+            const migrations = await readDrizzleMigrations([
+              "0001_photo_index.sql",
+              "0002_write_jobs.sql",
+            ]);
+            return {
+              miniflare: {
+                compatibilityDate: "2025-09-02",
+                compatibilityFlags: ["nodejs_compat"],
+                d1Databases: ["DB"],
+                // Test-only binding — the repos test applies these in `beforeAll`.
+                bindings: { TEST_MIGRATIONS: migrations },
+              },
+            };
+          }),
+        ],
+        test: {
+          name: "d1",
+          include: ["src/db/**/*.test.ts"],
+          exclude: ignored,
         },
       },
     ],
