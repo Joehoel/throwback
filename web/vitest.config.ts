@@ -1,6 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
+import react from "@vitejs/plugin-react";
+import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
 /**
@@ -17,7 +19,8 @@ import { defineConfig } from "vitest/config";
  * - `unit` — node; pure Effect/Schema + XState actor logic.
  * - `d1`   — `@cloudflare/vitest-pool-workers`; the repos against a real (workerd)
  *            D1, with the app's drizzle migrations applied.
- * - `browser` — `@vitest/browser` + Playwright (added in phase 3).
+ * - `browser` — `@vitest/browser` + Playwright (chromium); React components and
+ *            XState-driven UI in a real browser (`*.browser.test.tsx`).
  */
 
 const srcRoot = fileURLToPath(new URL("src", import.meta.url));
@@ -96,6 +99,21 @@ export default defineConfig({
           name: "d1",
           include: ["src/db/**/*.test.ts"],
           exclude: ignored,
+        },
+      },
+      {
+        extends: true,
+        plugins: [react()],
+        test: {
+          name: "browser",
+          include: ["src/**/*.browser.test.tsx"],
+          exclude: ignored,
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            headless: true,
+            instances: [{ browser: "chromium" }],
+          },
         },
       },
     ],

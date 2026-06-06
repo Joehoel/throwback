@@ -19,11 +19,28 @@ npm run build
 
 ## Testing
 
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+This project uses [Vitest](https://vitest.dev/), split into three projects (see `vitest.config.ts`):
+
+- **unit** (node) — Effect/Schema domain codecs and the OneDrive client via
+  [`@effect/vitest`](https://www.npmjs.com/package/@effect/vitest) (`layer()` + `it.effect`, with
+  `TestClock` for the retry path), plus the XState machines (incl. `@xstate/graph` model-based tests).
+- **d1** ([`@cloudflare/vitest-pool-workers`](https://developers.cloudflare.com/workers/testing/vitest-integration/)) —
+  the `@effect/sql-d1` repos against a real workerd D1, with the drizzle migrations applied.
+- **browser** ([`@vitest/browser`](https://vitest.dev/guide/browser/) + Playwright/chromium) —
+  React components and XState-driven UI in a real browser (`*.browser.test.tsx`).
 
 ```bash
-npm run test
+bun run test            # all projects
+bun run test:unit       # node only
+bun run test:d1         # D1 / workerd only
+bun run test:browser    # browser only
 ```
+
+> The browser project needs the Playwright chromium binary. Run it once locally and in CI:
+>
+> ```bash
+> bunx playwright install chromium
+> ```
 
 ## Styling
 
