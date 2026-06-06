@@ -4,7 +4,12 @@ import { routeTree } from "./routeTree.gen";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { getContext } from "./integrations/tanstack-query/root-provider";
 
-export function getRouter(): ReturnType<typeof createTanStackRouter> {
+// `createTanStackRouter`'s own `ReturnType` collapses the route tree to
+// `AnyRoute`; binding `typeof routeTree` recovers the precise, type-safe router.
+const createAppRouter = createTanStackRouter<typeof routeTree>;
+type AppRouter = ReturnType<typeof createAppRouter>;
+
+export function getRouter(): AppRouter {
   const context = getContext();
 
   const router = createTanStackRouter({

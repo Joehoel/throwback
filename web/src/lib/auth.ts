@@ -1,4 +1,5 @@
 import { betterAuth } from "better-auth";
+import type { BetterAuthOptions } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import type { DB } from "better-auth/adapters/drizzle";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
@@ -23,25 +24,28 @@ export function createAuth(opts: {
   secret?: string;
   baseURL?: string;
 }): ReturnType<typeof betterAuth> {
-  const hasMicrosoftCredentials = opts.clientId !== undefined && opts.clientId !== "";
+  const { clientId, clientSecret } = opts;
 
-  return betterAuth({
+  const options: BetterAuthOptions = {
     baseURL: opts.baseURL,
     secret: opts.secret,
     database: drizzleAdapter(opts.db, { provider: "sqlite" }),
-    ...(hasMicrosoftCredentials && {
-      socialProviders: {
-        microsoft: {
-          clientId: opts.clientId,
-          clientSecret: opts.clientSecret ?? "",
-          prompt: "select_account",
-          scope: ["Files.ReadWrite"],
-          tenantId: "consumers",
+    ...(clientId !== undefined &&
+      clientId !== "" && {
+        socialProviders: {
+          microsoft: {
+            clientId,
+            clientSecret: clientSecret ?? "",
+            prompt: "select_account",
+            scope: ["Files.ReadWrite"],
+            tenantId: "consumers",
+          },
         },
-      },
-    }),
+      }),
     plugins: [tanstackStartCookies()],
-  });
+  };
+
+  return betterAuth(options);
 }
 
 /**
