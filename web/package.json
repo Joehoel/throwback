@@ -83,6 +83,7 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^6.0.1",
+    "@xstate/graph": "^3.0.4",
     "alchemy": "2.0.0-beta.52",
     "babel-plugin-react-compiler": "^1.0.0",
     "dotenv": "^17.3.1",

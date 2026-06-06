@@ -3,8 +3,13 @@ pre-commit:
   jobs:
     - name: oxlint autofix
       glob: "web/**/*.{js,jsx,ts,tsx}"
+      # Mirror .oxlintrc.json ignorePatterns: oxlint's own ignores are config-dir
+      # relative ("src/prototypes/**") and don't match the "web/"-prefixed paths
+      # lefthook passes from the repo root, so list the prototype dirs here too.
       exclude:
         - "web/spike/**"
+        - "web/src/prototypes/**"
+        - "web/src/routes/prototypes/**"
         - "web/src/routeTree.gen.ts"
         - "web/worker-configuration.d.ts"
       run: PATH=./web/node_modules/.bin:$PATH ./web/node_modules/.bin/oxlint -c web/.oxlintrc.json --fix {staged_files}
