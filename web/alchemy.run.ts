@@ -14,7 +14,7 @@ export const DB = Cloudflare.D1Database("DB", {
 export class Website extends Cloudflare.Vite<Website>()("Website", {
   name: "throwback-web",
   compatibility: {
-    date: "2026-06-06",
+    date: "2026-06-02",
     flags: ["nodejs_compat"],
   },
   env: {
