@@ -1,17 +1,15 @@
 {
-	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "throwback-web",
-	"compatibility_date": "2025-09-02",
-	"compatibility_flags": [
-		"nodejs_compat"
-	],
-	"main": "@tanstack/react-start/server-entry",
-	"d1_databases": [
-		{
-			"binding": "DB",
-			"database_name": "throwback-web",
-			"database_id": "165c369c-4ad9-400c-901b-eb8ea71e50aa",
-			"migrations_dir": "drizzle"
-		}
-	]
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "throwback-web",
+  "compatibility_date": "2025-09-02",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "throwback-web",
+      "database_id": "165c369c-4ad9-400c-901b-eb8ea71e50aa",
+      "migrations_dir": "drizzle",
+    },
+  ],
 }

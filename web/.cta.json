@@ -22,8 +22,6 @@
     "compiler",
     "drizzle",
     "oRPC",
-    "shadcn",
-    "t3env",
     "better-auth",
     "store",
     "tanstack-query"

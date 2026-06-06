@@ -1,0 +1,22 @@
+pre-commit:
+  parallel: false
+  jobs:
+    - name: oxlint autofix
+      glob: "web/**/*.{js,jsx,ts,tsx}"
+      exclude:
+        - "web/spike/**"
+        - "web/src/routeTree.gen.ts"
+        - "web/worker-configuration.d.ts"
+      run: PATH=./web/node_modules/.bin:$PATH ./web/node_modules/.bin/oxlint -c web/.oxlintrc.json --fix {staged_files}
+      stage_fixed: true
+
+    - name: oxfmt format
+      glob: "web/**/*.{js,jsx,ts,tsx,json,jsonc,css,md,mdx,html}"
+      exclude:
+        - "web/spike/**"
+        - "web/src/routeTree.gen.ts"
+        - "web/worker-configuration.d.ts"
+        - "web/drizzle/meta/**"
+        - "web/package-lock.json"
+      run: ./web/node_modules/.bin/oxfmt -c web/.oxfmtrc.json --write {staged_files}
+      stage_fixed: true

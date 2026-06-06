@@ -1,0 +1,5 @@
+{
+  "name": "piexif-check",
+  "main": "piexif_check.worker.ts",
+  "compatibility_date": "2025-09-02",
+}

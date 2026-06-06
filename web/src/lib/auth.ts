@@ -1,6 +1,7 @@
-import { betterAuth } from 'better-auth'
-import { drizzleAdapter, type DB } from 'better-auth/adapters/drizzle'
-import { tanstackStartCookies } from 'better-auth/tanstack-start'
+import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import type { DB } from "better-auth/adapters/drizzle";
+import { tanstackStartCookies } from "better-auth/tanstack-start";
 
 /**
  * Builds the better-auth instance.
@@ -16,29 +17,31 @@ import { tanstackStartCookies } from 'better-auth/tanstack-start'
  * `auth.api.getAccessToken({ body: { providerId: 'microsoft' } })`.
  */
 export function createAuth(opts: {
-  db: DB
-  clientId?: string
-  clientSecret?: string
-  secret?: string
-  baseURL?: string
-}) {
+  db: DB;
+  clientId?: string;
+  clientSecret?: string;
+  secret?: string;
+  baseURL?: string;
+}): ReturnType<typeof betterAuth> {
+  const hasMicrosoftCredentials = opts.clientId !== undefined && opts.clientId !== "";
+
   return betterAuth({
     baseURL: opts.baseURL,
     secret: opts.secret,
-    database: drizzleAdapter(opts.db, { provider: 'sqlite' }),
-    ...(opts.clientId && {
+    database: drizzleAdapter(opts.db, { provider: "sqlite" }),
+    ...(hasMicrosoftCredentials && {
       socialProviders: {
         microsoft: {
           clientId: opts.clientId,
-          clientSecret: opts.clientSecret ?? '',
-          tenantId: 'consumers',
-          scope: ['Files.ReadWrite'],
-          prompt: 'select_account',
+          clientSecret: opts.clientSecret ?? "",
+          prompt: "select_account",
+          scope: ["Files.ReadWrite"],
+          tenantId: "consumers",
         },
       },
     }),
     plugins: [tanstackStartCookies()],
-  })
+  });
 }
 
 /**
@@ -46,4 +49,4 @@ export function createAuth(opts: {
  * `DB` type is an index signature, so an empty object is a valid value — schema
  * generation only reads the provider, never runs a query.
  */
-export const auth = createAuth({ db: {} })
+export const auth = createAuth({ db: {} });

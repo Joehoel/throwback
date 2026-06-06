@@ -1,7 +1,7 @@
-import { env } from 'cloudflare:workers'
+import { env } from "cloudflare:workers";
 
-import { db } from '#/db'
-import { createAuth } from './auth.ts'
+import { db } from "#/db";
+import { createAuth } from "./auth.ts";
 
 /**
  * Runtime better-auth instance, bound to the Worker's D1 + secrets. Import this
@@ -9,9 +9,9 @@ import { createAuth } from './auth.ts'
  * loads inside the Worker, never in the better-auth CLI.
  */
 export const auth = createAuth({
-  db,
+  baseURL: env.BETTER_AUTH_URL,
   clientId: env.MICROSOFT_CLIENT_ID,
   clientSecret: env.MICROSOFT_CLIENT_SECRET,
+  db,
   secret: env.BETTER_AUTH_SECRET,
-  baseURL: env.BETTER_AUTH_URL,
-})
+});
