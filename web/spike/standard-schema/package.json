@@ -1,0 +1,9 @@
+{
+  "name": "spike-standard-schema",
+  "private": true,
+  "type": "module",
+  "description": "P0 verify: real Effect v4 (smol) Schema API surface + Standard Schema export",
+  "dependencies": {
+    "effect": "4.0.0-beta.78"
+  }
+}

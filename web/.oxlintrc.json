@@ -84,17 +84,22 @@
     "react-perf/jsx-no-new-function-as-prop": "off",
     "react-perf/jsx-no-new-object-as-prop": "off",
     "typescript/promise-function-async": "off",
+    "typescript/explicit-function-return-type": "off",
+    "typescript/explicit-module-boundary-types": "off",
     "typescript/prefer-readonly-parameter-types": "off",
     "unicorn/no-null": "off"
   },
   "ignorePatterns": [
     "node_modules/**",
+    ".context/**",
     "dist/**",
     "build/**",
     ".vinxi/**",
     ".output/**",
     "alchemy.run.ts",
     "spike/**",
+    "src/prototypes/**",
+    "src/routes/prototypes/**",
     "src/routeTree.gen.ts",
     "worker-configuration.d.ts",
     "drizzle/meta/**"

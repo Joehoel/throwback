@@ -1,0 +1,17 @@
+{
+  "name": "spike-sql-d1",
+  "private": true,
+  "type": "module",
+  "description": "P0 verify: @effect/sql-d1 + PhotoFromRow codec, and better-auth on Kysely/D1 (no drizzle), against miniflare D1",
+  "dependencies": {
+    "@effect/sql-d1": "4.0.0-beta.78",
+    "better-auth": "^1.6.14",
+    "better-auth-cloudflare": "^0.3.0",
+    "drizzle-kit": "^0.31.10",
+    "drizzle-orm": "^0.45.2",
+    "effect": "4.0.0-beta.78",
+    "kysely": "0.28.17",
+    "kysely-d1": "0.4.0",
+    "miniflare": "^4.20250612.0"
+  }
+}

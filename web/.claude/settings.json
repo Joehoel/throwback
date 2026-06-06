@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Grep|Glob|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/effect-source-pointer.mjs",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

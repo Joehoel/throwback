@@ -10,14 +10,29 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PrototypesIndexRouteImport } from './routes/prototypes/index'
+import { Route as PrototypesSplitscreenRouteImport } from './routes/prototypes/splitscreen'
 import { Route as ApiDriveRouteImport } from './routes/api/drive'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
+import { Route as PrototypesSplitscreenIndexRouteImport } from './routes/prototypes/splitscreen.index'
+import { Route as PrototypesApiSuggestRouteImport } from './routes/prototypes/api/suggest'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as PrototypesSplitscreenEventIdPhotoIdRouteImport } from './routes/prototypes/splitscreen.$eventId.$photoId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrototypesIndexRoute = PrototypesIndexRouteImport.update({
+  id: '/prototypes/',
+  path: '/prototypes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrototypesSplitscreenRoute = PrototypesSplitscreenRouteImport.update({
+  id: '/prototypes/splitscreen',
+  path: '/prototypes/splitscreen',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiDriveRoute = ApiDriveRouteImport.update({
@@ -30,6 +45,17 @@ const ApiSplatRoute = ApiSplatRouteImport.update({
   path: '/api/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrototypesSplitscreenIndexRoute =
+  PrototypesSplitscreenIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => PrototypesSplitscreenRoute,
+  } as any)
+const PrototypesApiSuggestRoute = PrototypesApiSuggestRouteImport.update({
+  id: '/prototypes/api/suggest',
+  path: '/prototypes/api/suggest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   id: '/api/rpc/$',
   path: '/api/rpc/$',
@@ -40,43 +66,96 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrototypesSplitscreenEventIdPhotoIdRoute =
+  PrototypesSplitscreenEventIdPhotoIdRouteImport.update({
+    id: '/$eventId/$photoId',
+    path: '/$eventId/$photoId',
+    getParentRoute: () => PrototypesSplitscreenRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
+  '/prototypes/splitscreen': typeof PrototypesSplitscreenRouteWithChildren
+  '/prototypes/': typeof PrototypesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/prototypes/api/suggest': typeof PrototypesApiSuggestRoute
+  '/prototypes/splitscreen/': typeof PrototypesSplitscreenIndexRoute
+  '/prototypes/splitscreen/$eventId/$photoId': typeof PrototypesSplitscreenEventIdPhotoIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
+  '/prototypes': typeof PrototypesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/prototypes/api/suggest': typeof PrototypesApiSuggestRoute
+  '/prototypes/splitscreen': typeof PrototypesSplitscreenIndexRoute
+  '/prototypes/splitscreen/$eventId/$photoId': typeof PrototypesSplitscreenEventIdPhotoIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
+  '/prototypes/splitscreen': typeof PrototypesSplitscreenRouteWithChildren
+  '/prototypes/': typeof PrototypesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
+  '/prototypes/api/suggest': typeof PrototypesApiSuggestRoute
+  '/prototypes/splitscreen/': typeof PrototypesSplitscreenIndexRoute
+  '/prototypes/splitscreen/$eventId/$photoId': typeof PrototypesSplitscreenEventIdPhotoIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/$' | '/api/drive' | '/api/auth/$' | '/api/rpc/$'
+  fullPaths:
+    | '/'
+    | '/api/$'
+    | '/api/drive'
+    | '/prototypes/splitscreen'
+    | '/prototypes/'
+    | '/api/auth/$'
+    | '/api/rpc/$'
+    | '/prototypes/api/suggest'
+    | '/prototypes/splitscreen/'
+    | '/prototypes/splitscreen/$eventId/$photoId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/$' | '/api/drive' | '/api/auth/$' | '/api/rpc/$'
-  id: '__root__' | '/' | '/api/$' | '/api/drive' | '/api/auth/$' | '/api/rpc/$'
+  to:
+    | '/'
+    | '/api/$'
+    | '/api/drive'
+    | '/prototypes'
+    | '/api/auth/$'
+    | '/api/rpc/$'
+    | '/prototypes/api/suggest'
+    | '/prototypes/splitscreen'
+    | '/prototypes/splitscreen/$eventId/$photoId'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/$'
+    | '/api/drive'
+    | '/prototypes/splitscreen'
+    | '/prototypes/'
+    | '/api/auth/$'
+    | '/api/rpc/$'
+    | '/prototypes/api/suggest'
+    | '/prototypes/splitscreen/'
+    | '/prototypes/splitscreen/$eventId/$photoId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiSplatRoute: typeof ApiSplatRoute
   ApiDriveRoute: typeof ApiDriveRoute
+  PrototypesSplitscreenRoute: typeof PrototypesSplitscreenRouteWithChildren
+  PrototypesIndexRoute: typeof PrototypesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
+  PrototypesApiSuggestRoute: typeof PrototypesApiSuggestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -86,6 +165,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prototypes/': {
+      id: '/prototypes/'
+      path: '/prototypes'
+      fullPath: '/prototypes/'
+      preLoaderRoute: typeof PrototypesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prototypes/splitscreen': {
+      id: '/prototypes/splitscreen'
+      path: '/prototypes/splitscreen'
+      fullPath: '/prototypes/splitscreen'
+      preLoaderRoute: typeof PrototypesSplitscreenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/drive': {
@@ -102,6 +195,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/prototypes/splitscreen/': {
+      id: '/prototypes/splitscreen/'
+      path: '/'
+      fullPath: '/prototypes/splitscreen/'
+      preLoaderRoute: typeof PrototypesSplitscreenIndexRouteImport
+      parentRoute: typeof PrototypesSplitscreenRoute
+    }
+    '/prototypes/api/suggest': {
+      id: '/prototypes/api/suggest'
+      path: '/prototypes/api/suggest'
+      fullPath: '/prototypes/api/suggest'
+      preLoaderRoute: typeof PrototypesApiSuggestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/rpc/$': {
       id: '/api/rpc/$'
       path: '/api/rpc/$'
@@ -116,15 +223,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/prototypes/splitscreen/$eventId/$photoId': {
+      id: '/prototypes/splitscreen/$eventId/$photoId'
+      path: '/$eventId/$photoId'
+      fullPath: '/prototypes/splitscreen/$eventId/$photoId'
+      preLoaderRoute: typeof PrototypesSplitscreenEventIdPhotoIdRouteImport
+      parentRoute: typeof PrototypesSplitscreenRoute
+    }
   }
 }
+
+interface PrototypesSplitscreenRouteChildren {
+  PrototypesSplitscreenIndexRoute: typeof PrototypesSplitscreenIndexRoute
+  PrototypesSplitscreenEventIdPhotoIdRoute: typeof PrototypesSplitscreenEventIdPhotoIdRoute
+}
+
+const PrototypesSplitscreenRouteChildren: PrototypesSplitscreenRouteChildren = {
+  PrototypesSplitscreenIndexRoute: PrototypesSplitscreenIndexRoute,
+  PrototypesSplitscreenEventIdPhotoIdRoute:
+    PrototypesSplitscreenEventIdPhotoIdRoute,
+}
+
+const PrototypesSplitscreenRouteWithChildren =
+  PrototypesSplitscreenRoute._addFileChildren(
+    PrototypesSplitscreenRouteChildren,
+  )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiSplatRoute: ApiSplatRoute,
   ApiDriveRoute: ApiDriveRoute,
+  PrototypesSplitscreenRoute: PrototypesSplitscreenRouteWithChildren,
+  PrototypesIndexRoute: PrototypesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
+  PrototypesApiSuggestRoute: PrototypesApiSuggestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

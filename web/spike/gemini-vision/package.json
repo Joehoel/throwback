@@ -1,0 +1,12 @@
+{
+  "name": "spike-gemini-vision",
+  "private": true,
+  "type": "module",
+  "description": "P0 verify (ADR-0012 #2): Gemini vision + structured output over the OpenAI-compat endpoint via @effect/ai-openai + core effect/unstable/ai",
+  "dependencies": {
+    "@effect/ai-openai": "4.0.0-beta.78",
+    "@tanstack/ai": "^0.28.0",
+    "@tanstack/ai-gemini": "^0.15.1",
+    "effect": "4.0.0-beta.78"
+  }
+}

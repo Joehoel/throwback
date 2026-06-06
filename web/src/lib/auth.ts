@@ -1,24 +1,25 @@
 import { betterAuth } from "better-auth";
 import type { BetterAuthOptions } from "better-auth";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import type { DB } from "better-auth/adapters/drizzle";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
+import type { D1Database } from "@cloudflare/workers-types";
 
 /**
- * Builds the better-auth instance.
+ * Builds the better-auth instance on **native D1** — no drizzle.
  *
- * Kept as a factory (no `cloudflare:workers` import) so the better-auth CLI can
- * load it for schema generation in plain Node. At runtime, `auth-server.ts`
- * calls this with the D1-backed db + secrets from the Worker env.
+ * better-auth detects a `D1Database` and uses its built-in Kysely D1 dialect
+ * (verified in `web/spike/sql-d1/` Part D). The auth tables live as plain SQL in
+ * `./drizzle/*.sql`, applied to D1 by Alchemy (`alchemy.run.ts` `migrationsDir`).
+ * Regenerate that SQL when the better-auth schema changes via `getMigrations()`
+ * (`better-auth/db/migration`) against a local/miniflare D1 — see the spike.
  *
- * Microsoft provider: personal accounts (`tenantId: 'consumers'`). Default
- * scopes already include `openid profile email User.Read offline_access`; we add
- * `Files.ReadWrite` so we can write captions/rotations back to OneDrive. The
- * Graph access token is later retrieved via
+ * Microsoft provider: personal accounts (`tenantId: 'consumers'`). Default scopes
+ * already include `openid profile email User.Read offline_access`; we add
+ * `Files.ReadWrite` to write captions/rotations back to OneDrive. The Graph access
+ * token is later retrieved via
  * `auth.api.getAccessToken({ body: { providerId: 'microsoft' } })`.
  */
 export function createAuth(opts: {
-  db: DB;
+  db: D1Database;
   clientId?: string;
   clientSecret?: string;
   secret?: string;
@@ -29,7 +30,7 @@ export function createAuth(opts: {
   const options: BetterAuthOptions = {
     baseURL: opts.baseURL,
     secret: opts.secret,
-    database: drizzleAdapter(opts.db, { provider: "sqlite" }),
+    database: opts.db,
     ...(clientId !== undefined &&
       clientId !== "" && {
         socialProviders: {
@@ -47,10 +48,3 @@ export function createAuth(opts: {
 
   return betterAuth(options);
 }
-
-/**
- * No-secrets instance used only by `@better-auth/cli generate`. The adapter's
- * `DB` type is an index signature, so an empty object is a valid value — schema
- * generation only reads the provider, never runs a query.
- */
-export const auth = createAuth({ db: {} });
