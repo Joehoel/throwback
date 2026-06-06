@@ -7,7 +7,7 @@ import { HttpClient, HttpClientResponse } from 'effect/unstable/http';
 import type { HttpClientRequest } from 'effect/unstable/http';
 import { OneDriveClient, OneDriveClientLive } from "#/domains/onedrive/client.ts";
 import { GRAPH_BASE, OneDriveHttpLive } from "#/domains/onedrive/http-client.ts";
-import { GraphToken } from "#/domains/onedrive/token.ts";
+import { CurrentUser, GraphToken } from "#/domains/onedrive/token.ts";
 import { makeRuntime } from "#/effect/runtime.ts";
 import type { DriveItemId, UserId } from "#/domain/ids.ts";
 
@@ -54,12 +54,15 @@ const StubHttp = Layer.succeed(
   }),
 );
 const StubToken = Layer.succeed(GraphToken, GraphToken.of({ forUser: () => Effect.succeed("fake-token") }));
+const StubUser = Layer.succeed(CurrentUser, USER);
 
-const TestLayer = OneDriveClientLive.pipe(
-  Layer.provide(Layer.mergeAll(OneDriveHttpLive.pipe(Layer.provide(StubHttp)), StubToken)),
-);
+// The client over the stub HTTP. The request-scoped auth (GraphToken + CurrentUser) is merged in so the
+// methods' requirements are satisfied when run.
+const ClientOnly = OneDriveClientLive.pipe(Layer.provide(OneDriveHttpLive.pipe(Layer.provide(StubHttp))));
+const TestLayer = Layer.mergeAll(ClientOnly, StubToken, StubUser);
 
-const run = <A, E>(program: Effect.Effect<A, E, OneDriveClient>) => Effect.runPromise(Effect.provide(program, TestLayer));
+const run = <A, E>(program: Effect.Effect<A, E, OneDriveClient | GraphToken | CurrentUser>) =>
+  Effect.runPromise(Effect.provide(program, TestLayer));
 
 const out: [string, "PASS" | "FAIL", string][] = [];
 const check = async (name: string, fn: () => Promise<string>) => {
@@ -72,7 +75,7 @@ const check = async (name: string, fn: () => Promise<string>) => {
 
 await check("crawl streams files across pages + recurses into folders", async () => {
   seen.length = 0;
-  const files = await run(OneDriveClient.use((c) => Stream.runCollect(c.crawl(USER, "root" as DriveItemId))));
+  const files = await run(OneDriveClient.use((c) => Stream.runCollect(c.crawl("root" as DriveItemId))));
   const ids = files.map((f) => f.id).sort().join(",");
   if (ids !== "p1,p2,p3") {throw new Error(`expected p1,p2,p3 got ${ids}`);}
   return `ids=${ids} requests=${seen.length}`;
@@ -89,7 +92,7 @@ await check("base URL + bearer + accept applied to requests", async () => {
 });
 
 await check("downloadBytes returns the canned bytes", async () => {
-  const bytes = await run(OneDriveClient.use((c) => c.downloadBytes(USER, "p1" as DriveItemId)));
+  const bytes = await run(OneDriveClient.use((c) => c.downloadBytes("p1" as DriveItemId)));
   const arr = [...bytes].join(",");
   if (arr !== "1,2,3") {throw new Error(`bytes=${arr}`);}
   return `bytes=[${arr}]`;
@@ -97,7 +100,7 @@ await check("downloadBytes returns the canned bytes", async () => {
 
 await check("patchDescription sends a PATCH to the item", async () => {
   seen.length = 0;
-  await run(OneDriveClient.use((c) => c.patchDescription(USER, "p1" as DriveItemId, "Holiday at the lake" as never)));
+  await run(OneDriveClient.use((c) => c.patchDescription("p1" as DriveItemId, "Holiday at the lake" as never)));
   const r = seen.at(-1)!;
   if (r.method !== "PATCH") {throw new Error(`method=${r.method}`);}
   if (!r.url.includes("/items/p1")) {throw new Error(`url=${r.url}`);}
@@ -105,26 +108,26 @@ await check("patchDescription sends a PATCH to the item", async () => {
 });
 
 await check("verifyLocation decodes a facet to Location", async () => {
-  const loc = await run(OneDriveClient.use((c) => c.verifyLocation(USER, "p1" as DriveItemId)));
+  const loc = await run(OneDriveClient.use((c) => c.verifyLocation("p1" as DriveItemId)));
   if (loc === null || loc.latitude !== 52.1) {throw new Error(`loc=${JSON.stringify(loc)}`);}
   return `lat=${loc.latitude} lon=${loc.longitude}`;
 });
 
 await check("verifyLocation → null when no facet present", async () => {
-  const loc = await run(OneDriveClient.use((c) => c.verifyLocation(USER, "p2" as DriveItemId)));
+  const loc = await run(OneDriveClient.use((c) => c.verifyLocation("p2" as DriveItemId)));
   if (loc !== null) {throw new Error(`expected null got ${JSON.stringify(loc)}`);}
   return "null";
 });
 
 await check("404 (non-transient) → GraphRequestError{status:404} immediately", async () => {
-  const exit = await run(Effect.exit(OneDriveClient.use((c) => c.verifyLocation(USER, "missing" as DriveItemId))));
+  const exit = await run(Effect.exit(OneDriveClient.use((c) => c.verifyLocation("missing" as DriveItemId))));
   const s = JSON.stringify(exit);
   if (!s.includes("GraphRequestError") || !s.includes("404")) {throw new Error(`exit=${s.slice(0, 200)}`);}
   return "status=404";
 });
 
 await check("429 + Retry-After → GraphRequestError{status:429,retryAfter:3} after retries", async () => {
-  const exit = await run(Effect.exit(OneDriveClient.use((c) => c.verifyLocation(USER, "throttled" as DriveItemId))));
+  const exit = await run(Effect.exit(OneDriveClient.use((c) => c.verifyLocation("throttled" as DriveItemId))));
   const s = JSON.stringify(exit);
   if (!s.includes("GraphRequestError") || !s.includes("429")) {throw new Error(`exit=${s.slice(0, 200)}`);}
   if (!s.includes("\"retryAfter\":3")) {throw new Error(`retryAfter not parsed: ${s.slice(0, 200)}`);}
@@ -132,8 +135,8 @@ await check("429 + Retry-After → GraphRequestError{status:429,retryAfter:3} af
 });
 
 await check("makeRuntime runs a service method (lazy ManagedRuntime + Observability merge)", async () => {
-  const rt = makeRuntime(OneDriveClient, TestLayer);
-  const bytes = await rt.runPromise((c) => c.downloadBytes(USER, "p1" as DriveItemId));
+  const rt = makeRuntime(TestLayer);
+  const bytes = await rt.runPromise(OneDriveClient.use((c) => c.downloadBytes("p1" as DriveItemId)));
   const arr = [...bytes].join(",");
   if (arr !== "1,2,3") {
     throw new Error(`bytes=${arr}`);

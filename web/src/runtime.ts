@@ -1,5 +1,5 @@
 import { Layer } from "effect";
-import { OneDriveClient, OneDriveClientLive } from "#/domains/onedrive/client.ts";
+import { OneDriveClientLive } from "#/domains/onedrive/client.ts";
 import { OneDriveHttpDefault } from "#/domains/onedrive/http-client.ts";
 import { GraphTokenLive } from "#/domains/onedrive/token-live.ts";
 import { makeRuntime } from "#/effect/runtime.ts";
@@ -13,11 +13,13 @@ import { makeRuntime } from "#/effect/runtime.ts";
  * better-auth token source. `OneDriveRuntime` is a lazy `ManagedRuntime` that
  * merges the `Observability` layer, so the `Effect.fn` spans export once tracing
  * is wired (ADR-0007). P5 (oRPC) runs procedure-body Effects on this runtime; it
- * will be extended to also provide `SqlLive` (`src/db/client.ts`). Tests build
- * their own composition with a stub `HttpClient` + stub `GraphToken`.
+ * will be extended to also provide `SqlLive` (`src/db/client.ts`). The OneDrive
+ * methods additionally require the request-scoped `CurrentUser` (and `GraphToken`,
+ * provided here) — P5 supplies `CurrentUser` from the better-auth session per
+ * request. Tests build their own composition with stub `HttpClient`/token/user.
  */
-export const OneDriveLayer: Layer.Layer<OneDriveClient> = OneDriveClientLive.pipe(
-  Layer.provide(Layer.mergeAll(OneDriveHttpDefault, GraphTokenLive)),
+export const OneDriveLayer = OneDriveClientLive.pipe(
+  Layer.provideMerge(Layer.mergeAll(OneDriveHttpDefault, GraphTokenLive)),
 );
 
-export const OneDriveRuntime = makeRuntime(OneDriveClient, OneDriveLayer);
+export const OneDriveRuntime = makeRuntime(OneDriveLayer);
