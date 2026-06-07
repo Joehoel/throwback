@@ -9,10 +9,11 @@ import type { IngestResult } from "#/domains/local/source.ts";
 import { LocalRuntime } from "#/effect/client-runtime.ts";
 
 /**
- * Local-folder curation harness (phase 1: read-only). Pick a downloaded folder via
- * the File System Access API, crawl it into the real `Photo` domain model, and
- * browse it by folder structure — no OneDrive, no Worker round-trip. The EXIF
- * write-back and the full review/edit flow land in the next phase.
+ * Local-folder curation harness. Pick a downloaded folder via the File System
+ * Access API, crawl it into the real `Photo` domain model, browse it by folder
+ * structure, and review: edit a photo's Beschrijving and approve/skip. Approve
+ * writes the metadata back into the file (XMP + EXIF, lossless) and records the
+ * review status in D1 (ADR-0019) — no OneDrive, no Worker round-trip for the crawl.
  */
 
 const supportsFsa = (): boolean => typeof globalThis.showDirectoryPicker === "function";
