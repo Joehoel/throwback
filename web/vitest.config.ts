@@ -83,6 +83,7 @@ export default defineConfig({
             const migrations = await readDrizzleMigrations([
               "0001_photo_index.sql",
               "0002_write_jobs.sql",
+              "0003_local_review.sql",
             ]);
             return {
               miniflare: {
