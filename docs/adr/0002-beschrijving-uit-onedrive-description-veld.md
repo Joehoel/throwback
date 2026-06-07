@@ -6,6 +6,8 @@ Belangrijke beperking: `driveItem.description` is alleen read-write op **OneDriv
 
 ## Status
 
+**Herzien door ADR-0019 (2026-06-07):** Beschrijving leeft nu canoniek in de bestandsmetadata (**XMP `dc:description`**), niet meer in `driveItem.description`. Reden: echte data toonde mojibake in EXIF en correcte UTF-8 in XMP, en XMP is cross-format. Het Graph-`description`-leespad blijft alleen relevant zolang de Fotoshow nog niet uit het bestand leest.
+
 **Geverifieerd (2026-05-29).** Spike `scripts/verify_description.py`: een in de OneDrive-UI getypte beschrijving ("Hallo Wereld") kwam exact terug in `driveItem.description` via Graph. De plumbing (registratie, device-login, Graph, beschrijving lezen) werkt end-to-end.
 
 ## Consequences

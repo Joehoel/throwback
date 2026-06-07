@@ -1,9 +1,10 @@
 import { expect, layer } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
+import { fileFromBinary, jpegBinaryWithExif } from "#/domains/metadata/__fixtures__/jpeg.ts";
+import { PhotoMetadataDefault } from "#/domains/metadata/codec.ts";
 import { DriveItemId } from "#/domains/shared/ids.ts";
 import { LocalPhotoSourceLive } from "./client.ts";
 import { PhotoSource } from "./source.ts";
-import { fileFromBinary, jpegBinaryWithExif } from "./__fixtures__/jpeg.ts";
 
 /**
  * The local source over fake File System Access handles — no real browser/folder.
@@ -57,7 +58,7 @@ const root = dirHandle("Vakantie", [
   dirHandle("no-year", [fileHandle("beach.jpg", beach)]),
 ]);
 
-layer(LocalPhotoSourceLive)("LocalPhotoSource", (it) => {
+layer(LocalPhotoSourceLive.pipe(Layer.provide(PhotoMetadataDefault)))("LocalPhotoSource", (it) => {
   it.effect("crawls images into Photos, skipping non-images", () =>
     Effect.gen(function* () {
       const { photos } = yield* PhotoSource.use((s) => s.ingest(root));

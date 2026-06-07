@@ -1,4 +1,6 @@
+import { Layer } from "effect";
 import { LocalPhotoSourceLive } from "#/domains/local/client.ts";
+import { PhotoMetadataDefault } from "#/domains/metadata/codec.ts";
 import { makeRuntime } from "./runtime.ts";
 
 /**
@@ -10,4 +12,6 @@ import { makeRuntime } from "./runtime.ts";
  * Run programs that require `PhotoSource`:
  * `LocalRuntime.runPromise(PhotoSource.use((s) => s.ingest(handle)))`.
  */
-export const LocalRuntime = makeRuntime(LocalPhotoSourceLive);
+export const LocalRuntime = makeRuntime(
+  LocalPhotoSourceLive.pipe(Layer.provide(PhotoMetadataDefault)),
+);

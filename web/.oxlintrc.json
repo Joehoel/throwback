@@ -102,7 +102,8 @@
     "oxc/no-barrel-file": "off",
     "unicorn/no-array-method-this-argument": "off",
     "eslint/init-declarations": "off",
-    "unicorn/filename-case": ["error", { "case": "kebabCase" }]
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    "unicorn/number-literal-case": "off"
   },
   "overrides": [
     {

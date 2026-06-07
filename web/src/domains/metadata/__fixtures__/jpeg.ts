@@ -50,6 +50,32 @@ export function jpegBinaryWithExif(options: ExifOptions = {}): string {
   return piexif.insert(piexif.dump({ "0th": zeroth, Exif: exifIfd, GPS: gps }), base);
 }
 
+function bytesToBinary(bytes: Uint8Array): string {
+  let out = "";
+  const chunk = 32_768;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    out += String.fromCodePoint(...bytes.subarray(i, i + chunk));
+  }
+  return out;
+}
+
+/** Inject an APP1 XMP packet (carrying `dc:description`) into a JPEG binary string. */
+export function jpegWithXmp(jpegBinary: string, description: string): string {
+  const xml =
+    `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF ` +
+    `xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">` +
+    `<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/">` +
+    `<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${description}</rdf:li>` +
+    `</rdf:Alt></dc:description></rdf:Description></rdf:RDF></x:xmpmeta>`;
+  const payload = new TextEncoder().encode(`http://ns.adobe.com/xap/1.0/ ${xml}`);
+  const length = payload.length + 2;
+  const segment =
+    String.fromCodePoint(0xff, 0xe1, Math.trunc(length / 256), length % 256) +
+    bytesToBinary(payload);
+  // insert the APP1 segment right after SOI (the first two bytes)
+  return jpegBinary.slice(0, 2) + segment + jpegBinary.slice(2);
+}
+
 /** Wrap a binary string as an in-memory image File. */
 export function fileFromBinary(name: string, binary: string, type: string): File {
   const bytes = new Uint8Array(binary.length);

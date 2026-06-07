@@ -8,3 +8,7 @@ Daarom: **OneDrive wordt de bron van waarheid.** De vader cureert voortaan in On
 
 - Beschrijvingen die alleen in Google Photos staan, zijn voor de app onzichtbaar — deze moeten (eenmalig) naar OneDrive overgezet worden als ze meetellen.
 - De werkwijze van de vader verandert: nieuwe gebeurtenissen + beschrijvingen horen in OneDrive thuis.
+
+## Status
+
+**Gedeeltelijk herzien door ADR-0019 (2026-06-07):** de *embedded bestandsmetadata* wordt de bron van waarheid en de **Beheer-webapp** cureert lokaal-direct; OneDrive blijft sync/transport (vs. Google Photos blijft dit ongewijzigd). De **Fotoshow** leest voorlopig nog via Graph.

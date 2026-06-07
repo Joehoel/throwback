@@ -13,11 +13,11 @@ Een map op het diepste niveau (onder jaar/maand) die één voorval bevat; de map
 _Avoid_: Event, album, map
 
 **Beschrijving**:
-De per-foto tekst die de vader in het OneDrive-beschrijvingsveld (`driveItem.description`) vastlegt — zelf getypt óf een AI-suggestie die hij goedkeurt (zie de **Beheer-webapp**). Blijft "zijn" tekst: niets landt zonder goedkeuring. Optioneel — niet elke foto heeft er een.
+De per-foto tekst die de vader vastlegt in de **metadata van het bestand** (canoniek **XMP `dc:description`**, UTF-8) — zelf getypt óf een AI-suggestie die hij goedkeurt (zie de **Beheer-webapp**). Blijft "zijn" tekst: niets landt zonder goedkeuring. Optioneel — niet elke foto heeft er een. Historisch staat dezelfde tekst ook in EXIF `ImageDescription` / Windows `XPTitle`; EXIF is onbetrouwbaar voor accenten, dus XMP is leidend (ADR-0019 — vervangt het OneDrive `driveItem.description`-pad van ADR-0002).
 _Avoid_: Caption, bijschrift
 
 **Locatie**:
-De geografische plek waar een **Foto** is gemaakt, als GPS-coördinaten (lat/lon). Bron van waarheid is de **EXIF GPS-IFD** in het bestand; de apps lezen het uitsluitend via het afgeleide Graph `location`-facet (`PhotoParser`, `item.location`), nooit los uit EXIF. Optioneel — niet elke foto heeft een Locatie (~34% wél; zie `docs/research/gps-coverage.md`). Wordt toegekend op **Gebeurtenis**-niveau (één punt voor de hele map als default), met afwijking per **Foto** mogelijk.
+De geografische plek waar een **Foto** is gemaakt, als GPS-coördinaten (lat/lon). Bron van waarheid is de **EXIF GPS-IFD** in het bestand. De **Beheer-webapp** leest/schrijft die nu rechtstreeks op de lokaal-gesyncte bestanden (ADR-0019); de **Fotoshow** leest 'm voorlopig via het afgeleide Graph `location`-facet (`PhotoParser`, `item.location`). Optioneel — niet elke foto heeft een Locatie (~34% wél; zie `docs/research/gps-coverage.md`). Wordt toegekend op **Gebeurtenis**-niveau (één punt voor de hele map als default), met afwijking per **Foto** mogelijk.
 _Avoid_: GPS, geotag, plaats
 
 **Fotoshow**:
