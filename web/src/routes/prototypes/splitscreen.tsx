@@ -1,6 +1,6 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { WriteQueue } from "#/prototypes/WriteQueue";
+import { WriteQueue } from "#/domains/curation/write-queue";
 
 /**
  * Layout for the splitscreen review prototype. Hosts the long-lived write-queue

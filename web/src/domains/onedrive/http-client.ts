@@ -8,8 +8,8 @@ import {
   HttpClientResponse,
 } from "effect/unstable/http";
 import type { HttpClientError } from "effect/unstable/http";
-import { GraphRequestError } from "#/domain/errors.ts";
-import type { TokenUnavailable } from "#/domain/errors.ts";
+import { GraphRequestError } from "#/domains/shared/errors.ts";
+import type { TokenUnavailable } from "#/domains/shared/errors.ts";
 import { CurrentUser, GraphToken } from "./token.ts";
 
 /**

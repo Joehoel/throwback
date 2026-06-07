@@ -1,7 +1,7 @@
 import { Context } from "effect";
 import type { Effect } from "effect";
-import type { TokenUnavailable } from "#/domain/errors.ts";
-import type { UserId } from "#/domain/ids.ts";
+import type { TokenUnavailable } from "#/domains/shared/errors.ts";
+import type { UserId } from "#/domains/shared/ids.ts";
 
 /**
  * Microsoft Graph access-token source. Abstracted as a service so the HTTP client
@@ -9,9 +9,12 @@ import type { UserId } from "#/domain/ids.ts";
  * fetched sessionless, just from a `userId`). The live, better-auth-backed layer
  * lives in `token-live.ts` (Worker-only); tests provide a stub.
  */
-export class GraphToken extends Context.Service<GraphToken, {
-  readonly forUser: (userId: UserId) => Effect.Effect<string, TokenUnavailable>;
-}>()("GraphToken") {}
+export class GraphToken extends Context.Service<
+  GraphToken,
+  {
+    readonly forUser: (userId: UserId) => Effect.Effect<string, TokenUnavailable>;
+  }
+>()("GraphToken") {}
 
 /**
  * The authenticated user for the current request/operation. Request-scoped, so it

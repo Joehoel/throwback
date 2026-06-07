@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createActor } from "xstate";
-import { writeQueueMachine } from "./writeQueueMachine";
+import { writeQueueMachine } from "./write-queue-machine";
 
 describe("writeQueueMachine", () => {
   it("starts empty", () => {

@@ -1,9 +1,9 @@
 import { Context, Effect, Layer, Option, Stream } from "effect";
 import { HttpClientRequest } from "effect/unstable/http";
-import type { GraphRequestError, TokenUnavailable } from "#/domain/errors.ts";
-import type { GraphDriveItem } from "#/domain/graph.ts";
-import type { DriveItemId } from "#/domain/ids.ts";
-import type { Description, Location } from "#/domain/photo.ts";
+import type { GraphRequestError, TokenUnavailable } from "#/domains/shared/errors.ts";
+import type { GraphDriveItem } from "#/domains/shared/graph.ts";
+import type { DriveItemId } from "#/domains/shared/ids.ts";
+import type { Description, Location } from "#/domains/shared/photo.ts";
 import { bytesOf, decodeJson, GRAPH_BASE, OneDriveHttp } from "./http-client.ts";
 import { GraphChildrenPage, GraphLocationEnvelope } from "./schemas.ts";
 import type { CurrentUser, GraphToken } from "./token.ts";
@@ -29,14 +29,18 @@ export interface OneDriveClientApi {
    * Streaming lets the indexer upsert progressively instead of buffering the whole library (PRD:
    * "streamend indexeren"). Run with `Stream.runForEach` / `Stream.runCollect`.
    */
-  readonly crawl: (rootFolderId: DriveItemId) => Stream.Stream<GraphDriveItem, GraphRequestError | TokenUnavailable, GraphAuth>;
+  readonly crawl: (
+    rootFolderId: DriveItemId,
+  ) => Stream.Stream<GraphDriveItem, GraphRequestError | TokenUnavailable, GraphAuth>;
   /** Cheap description write (ADR-0002), outside the workflow. */
   readonly patchDescription: (
     photoId: DriveItemId,
     text: Description,
   ) => Effect.Effect<void, GraphRequestError | TokenUnavailable, GraphAuth>;
   /** Download the original bytes (write path). */
-  readonly downloadBytes: (photoId: DriveItemId) => Effect.Effect<Uint8Array, GraphRequestError | TokenUnavailable, GraphAuth>;
+  readonly downloadBytes: (
+    photoId: DriveItemId,
+  ) => Effect.Effect<Uint8Array, GraphRequestError | TokenUnavailable, GraphAuth>;
   /** Re-upload bytes after EXIF injection — JPEG content-type (ADR-0011). */
   readonly uploadBytes: (
     photoId: DriveItemId,
@@ -48,7 +52,9 @@ export interface OneDriveClientApi {
   ) => Effect.Effect<Location | null, GraphRequestError | TokenUnavailable, GraphAuth>;
 }
 
-export class OneDriveClient extends Context.Service<OneDriveClient, OneDriveClientApi>()("OneDriveClient") {}
+export class OneDriveClient extends Context.Service<OneDriveClient, OneDriveClientApi>()(
+  "OneDriveClient",
+) {}
 
 // The driveItem fields the children-crawl needs to project a Photo (domain-model §3).
 const SELECT = "id,name,description,lastModifiedDateTime,file,folder,location,parentReference";
@@ -88,20 +94,30 @@ const make = OneDriveHttp.pipe(
         ),
       );
 
-    const patchDescription = Effect.fn("onedrive.patchDescription")(function* (photoId: DriveItemId, text: Description) {
+    const patchDescription = Effect.fn("onedrive.patchDescription")(function* (
+      photoId: DriveItemId,
+      text: Description,
+    ) {
       // Encoding a `{ description }` object can't realistically fail → orDie.
       const request = yield* Effect.orDie(
-        HttpClientRequest.bodyJson(HttpClientRequest.patch(`/drive/items/${photoId}`), { description: text }),
+        HttpClientRequest.bodyJson(HttpClientRequest.patch(`/drive/items/${photoId}`), {
+          description: text,
+        }),
       );
       yield* http.execute(request);
     });
 
     const downloadBytes = Effect.fn("onedrive.downloadBytes")(function* (photoId: DriveItemId) {
-      const response = yield* http.execute(HttpClientRequest.get(`/drive/items/${photoId}/content`));
+      const response = yield* http.execute(
+        HttpClientRequest.get(`/drive/items/${photoId}/content`),
+      );
       return yield* bytesOf(response);
     });
 
-    const uploadBytes = Effect.fn("onedrive.uploadBytes")(function* (photoId: DriveItemId, bytes: Uint8Array) {
+    const uploadBytes = Effect.fn("onedrive.uploadBytes")(function* (
+      photoId: DriveItemId,
+      bytes: Uint8Array,
+    ) {
       const request = HttpClientRequest.bodyUint8Array(
         HttpClientRequest.put(`/drive/items/${photoId}/content`),
         bytes,
@@ -111,12 +127,20 @@ const make = OneDriveHttp.pipe(
     });
 
     const verifyLocation = Effect.fn("onedrive.verifyLocation")(function* (photoId: DriveItemId) {
-      const response = yield* http.execute(HttpClientRequest.get(`/drive/items/${photoId}?$select=location`));
+      const response = yield* http.execute(
+        HttpClientRequest.get(`/drive/items/${photoId}?$select=location`),
+      );
       const envelope = yield* decodeJson(GraphLocationEnvelope)(response);
       return envelope.location ?? null;
     });
 
-    return OneDriveClient.of({ crawl, patchDescription, downloadBytes, uploadBytes, verifyLocation });
+    return OneDriveClient.of({
+      crawl,
+      patchDescription,
+      downloadBytes,
+      uploadBytes,
+      verifyLocation,
+    });
   }),
 );
 

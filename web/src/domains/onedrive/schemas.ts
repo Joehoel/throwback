@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { GraphDriveItem, LocationFromFacet } from "#/domain/graph.ts";
+import { GraphDriveItem, LocationFromFacet } from "#/domains/shared/graph.ts";
 
 /**
  * Wire envelopes for the Graph responses the OneDrive client reads. The item

@@ -7,34 +7,21 @@
  *
  * The URL is the single source of truth for the cursor (no cursor in any
  * machine). TanStack Query is the cache (loader prefetch); the photoMachine owns
- * the per-photo edit lifecycle (remounted via key={photoId}); the write queue is
- * a long-lived actor in the layout.
+ * the per-photo edit lifecycle (the provider is remounted via key={photoId}); the
+ * write queue is a long-lived actor in the layout. This route is a thin shell:
+ * it orchestrates URL/data and composes the `Review.*` compound parts.
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ClientOnly, createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMachine } from "@xstate/react";
 import { Schema } from "effect";
-import { Badge, Button, Dialog, DropdownMenu, InputArea, Loader, Text } from "@cloudflare/kumo";
-import {
-  ArrowClockwiseIcon,
-  ArrowRightIcon,
-  CaretDownIcon,
-  CaretRightIcon,
-  CheckIcon,
-  FolderIcon,
-  KeyboardIcon,
-  SparkleIcon,
-} from "@phosphor-icons/react";
-import { useHotkeys } from "@tanstack/react-hotkeys";
-import { type Photo, type ThrowbackEvent, eventProgress, photoDone } from "#/prototypes/data";
-import { buildCrumbs } from "#/prototypes/breadcrumbs";
-import { Kbd, PhotoView } from "#/prototypes/shared";
-import { LocationSection, type Viewport } from "#/prototypes/LocationPicker";
-import { type PhotoOutput, photoMachine } from "#/prototypes/machine/photoMachine";
-import { type WriteKind } from "#/prototypes/machine/writeQueueMachine";
-import { WriteQueue } from "#/prototypes/WriteQueue";
-import { EVENTS_QUERY_KEY, eventsQuery } from "#/prototypes/eventsQuery";
+import { Loader } from "@cloudflare/kumo";
+import type { Photo, ThrowbackEvent } from "#/domains/curation/data.ts";
+import type { PhotoOutput } from "#/domains/curation/machine/photo-machine.ts";
+import type { WriteKind } from "#/domains/curation/machine/write-queue-machine.ts";
+import { WriteQueue } from "#/domains/curation/write-queue.tsx";
+import { EVENTS_QUERY_KEY, eventsQuery } from "#/domains/curation/events-query.ts";
+import { Review } from "#/domains/curation/components/review/index.ts";
 
 // Search params (effect/Schema → Standard Schema v1 validator) — filter + viewport only.
 const ReviewSearch = Schema.Struct({
@@ -173,7 +160,7 @@ function ReviewScreen({ events }: { events: ThrowbackEvent[] }): React.ReactNode
   };
 
   return (
-    <PhotoEditor
+    <Review.Provider
       key={`${event.id}:${photo.id}`}
       photo={photo}
       event={event}
@@ -197,311 +184,16 @@ function ReviewScreen({ events }: { events: ThrowbackEvent[] }): React.ReactNode
       onViewport={(v) => setSearch({ lat: v.lat, lng: v.lng, z: v.z }, true)}
       onPickPhoto={goPhoto}
       onCommit={onCommit}
-    />
-  );
-}
-
-interface EditorProps {
-  photo: Photo;
-  event: ThrowbackEvent;
-  events: ThrowbackEvent[];
-  helpOpen: boolean;
-  viewport?: Viewport;
-  runningWrites: number;
-  savedWrites: number;
-  hasNext: boolean;
-  onPrev: () => void;
-  onNext: () => void;
-  onEventPrev: () => void;
-  onEventNext: () => void;
-  onSelectEvent: (id: string) => void;
-  onToggleHelp: () => void;
-  onCloseHelp: () => void;
-  onViewport: (v: Viewport) => void;
-  onPickPhoto: (id: string) => void;
-  onCommit: (out: PhotoOutput) => void;
-}
-
-const SHORTCUTS = [
-  { keys: <Kbd>←</Kbd>, label: "Vorige foto" },
-  { keys: <Kbd>→</Kbd>, label: "Volgende foto" },
-  {
-    keys: (
-      <span className="flex gap-1">
-        <Kbd>[</Kbd>
-        <Kbd>]</Kbd>
-      </span>
-    ),
-    label: "Vorige / volgende gebeurtenis",
-  },
-  {
-    keys: (
-      <span className="flex items-center gap-1">
-        <Kbd>⌘/Ctrl</Kbd>
-        <Kbd>↵</Kbd>
-      </span>
-    ),
-    label: "Opslaan en volgende",
-  },
-  { keys: <Kbd>R</Kbd>, label: "Scheve scan rechtzetten" },
-  { keys: <Kbd>A</Kbd>, label: "AI-suggestie overnemen" },
-  { keys: <Kbd>?</Kbd>, label: "Dit overzicht tonen" },
-];
-
-function PhotoEditor(props: EditorProps): React.ReactNode {
-  const { photo, event, events, helpOpen } = props;
-  const [snapshot, send] = useMachine(photoMachine, {
-    input: {
-      photo,
-      place: event.location ?? event.aiPlace,
-      coords: event.coords,
-      eventName: event.name,
-      period: event.period,
-    },
-  });
-
-  useEffect(() => {
-    if (snapshot.status === "done") props.onCommit(snapshot.output);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.status]);
-
-  const { description, suggestion, place, coords, orientationFixed, aiPlaceSuggestion } =
-    snapshot.context;
-  const suggesting = snapshot.hasTag("suggesting");
-  const { done, total } = eventProgress(event);
-
-  useHotkeys([
-    { hotkey: "ArrowRight", callback: props.onNext, options: { enabled: !helpOpen } },
-    { hotkey: "ArrowLeft", callback: props.onPrev, options: { enabled: !helpOpen } },
-    { hotkey: "]", callback: props.onEventNext, options: { enabled: !helpOpen } },
-    { hotkey: "[", callback: props.onEventPrev, options: { enabled: !helpOpen } },
-    {
-      hotkey: "r",
-      callback: () => photo.needsRotation && send({ type: "rotation.toggled" }),
-      options: { enabled: !helpOpen },
-    },
-    {
-      hotkey: "Mod+Enter",
-      callback: () => send({ type: "approve" }),
-      options: { enabled: !helpOpen },
-    },
-    {
-      hotkey: "a",
-      callback: () => send({ type: "suggestion.applied" }),
-      options: { enabled: !helpOpen },
-    },
-    { hotkey: "Shift+/", callback: props.onToggleHelp },
-  ]);
-
-  return (
-    <div className="flex h-screen flex-col bg-kumo-base">
-      <header className="flex items-center justify-between gap-4 border-b border-kumo-hairline px-6 py-2">
-        <nav aria-label="Mappad" className="flex min-w-0 items-center gap-1.5 text-sm">
-          <FolderIcon size={16} aria-hidden className="shrink-0 text-kumo-subtle" />
-          <ol className="flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap">
-            {buildCrumbs(events, event).map((crumb, i) => (
-              <li key={crumb.label} className="flex shrink-0 items-center gap-1">
-                {i > 0 && <CaretRightIcon size={12} aria-hidden className="text-kumo-subtle" />}
-                <DropdownMenu>
-                  <DropdownMenu.Trigger>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      aria-current={crumb.isCurrent ? "page" : undefined}
-                      className={crumb.isCurrent ? "text-kumo-default" : "text-kumo-subtle"}
-                    >
-                      {crumb.label}
-                      <CaretDownIcon className="opacity-60" />
-                    </Button>
-                  </DropdownMenu.Trigger>
-                  <DropdownMenu.Content className="min-w-52">
-                    {crumb.siblings.map((sibling) => (
-                      <DropdownMenu.Item
-                        key={sibling.label}
-                        icon={FolderIcon}
-                        selected={sibling.label === crumb.label}
-                        onClick={() => props.onSelectEvent(sibling.targetEventId)}
-                      >
-                        {sibling.label}
-                      </DropdownMenu.Item>
-                    ))}
-                  </DropdownMenu.Content>
-                </DropdownMenu>
-              </li>
-            ))}
-          </ol>
-        </nav>
-        <div className="flex items-center gap-3">
-          <Text variant="secondary" size="sm">
-            {done} / {total} klaar
-          </Text>
-          {props.runningWrites > 0 && (
-            <span className="flex items-center gap-1.5">
-              <Loader size="sm" />
-              <Text variant="secondary" size="sm">
-                {props.runningWrites} opslaan…
-              </Text>
-            </span>
-          )}
-          {props.runningWrites === 0 && props.savedWrites > 0 && (
-            <Badge variant="success" appearance="dot">
-              {props.savedWrites} opgeslagen
-            </Badge>
-          )}
-          <Button size="sm" variant="ghost" icon={<KeyboardIcon />} onClick={props.onToggleHelp}>
-            <Kbd>?</Kbd>
-          </Button>
+    >
+      <div className="flex h-screen flex-col bg-kumo-base">
+        <Review.Header />
+        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+          <Review.Stage />
+          <Review.EditPanel />
         </div>
-      </header>
-
-      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        <div className="relative flex min-h-0 flex-1 bg-kumo-base p-3">
-          <PhotoView photo={photo} rotated={orientationFixed} className="h-full w-full" />
-          <div className="absolute inset-x-0 bottom-6 flex flex-col items-center gap-3">
-            {photo.needsRotation && (
-              <Button
-                variant={orientationFixed ? "secondary" : "primary"}
-                size="sm"
-                icon={<ArrowClockwiseIcon />}
-                onClick={() => send({ type: "rotation.toggled" })}
-              >
-                {orientationFixed ? "Rechtgezet — ongedaan maken" : "Scheve scan rechtzetten"}
-                <Kbd>R</Kbd>
-              </Button>
-            )}
-            <div className="flex items-center gap-2 rounded-full border border-kumo-hairline bg-kumo-base/90 p-1.5 shadow-lg backdrop-blur">
-              <Button
-                variant="ghost"
-                size="base"
-                className="rounded-full"
-                onClick={() => send({ type: "skip" })}
-              >
-                Overslaan
-              </Button>
-              <Button
-                variant="primary"
-                size="base"
-                className="rounded-full"
-                icon={props.hasNext ? <ArrowRightIcon /> : <CheckIcon />}
-                onClick={() => send({ type: "approve" })}
-              >
-                {props.hasNext ? "Opslaan en volgende" : "Opslaan"}
-                <Kbd>⌘/Ctrl ↵</Kbd>
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <aside className="flex w-full shrink-0 flex-col overflow-auto border-t border-kumo-hairline lg:w-96 lg:border-l lg:border-t-0">
-          <div className="flex min-h-full flex-col gap-3 p-4">
-            <Text bold>Bewerken</Text>
-
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between">
-                <Text bold size="sm">
-                  Beschrijving
-                </Text>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  icon={<SparkleIcon />}
-                  disabled={suggesting}
-                  onClick={() => send({ type: "suggestion.applied" })}
-                >
-                  AI-suggestie <Kbd>A</Kbd>
-                </Button>
-              </div>
-              <button
-                type="button"
-                onClick={() => !suggesting && send({ type: "suggestion.applied" })}
-                className="flex items-start gap-1.5 rounded-lg bg-kumo-recessed p-2.5 text-left transition-colors hover:bg-kumo-fill"
-              >
-                {suggesting ? (
-                  <Loader size="sm" />
-                ) : (
-                  <SparkleIcon size={14} weight="fill" className="mt-0.5 shrink-0 text-kumo-link" />
-                )}
-                <Text variant="secondary" size="sm">
-                  {suggestion || "AI denkt na…"}
-                </Text>
-              </button>
-              <InputArea
-                value={description}
-                onChange={(e) => send({ type: "description.changed", value: e.target.value })}
-                placeholder="Beschrijf wat je ziet…"
-                className="min-h-20"
-              />
-            </div>
-
-            <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-              <Text bold size="sm">
-                Locatie
-              </Text>
-              <LocationSection
-                place={place}
-                coords={coords}
-                aiPlace={aiPlaceSuggestion}
-                viewport={props.viewport}
-                onViewport={props.onViewport}
-                onChange={(p, c) => send({ type: "location.changed", place: p, coords: c })}
-              />
-            </div>
-          </div>
-        </aside>
+        <Review.Filmstrip />
+        <Review.HelpDialog />
       </div>
-
-      <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-kumo-hairline bg-kumo-elevated p-2">
-        {event.photos.map((p) => (
-          <button
-            key={p.id}
-            type="button"
-            onClick={() => props.onPickPhoto(p.id)}
-            aria-label={p.id}
-            className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg ring-2 transition-all ${
-              p.id === photo.id ? "ring-kumo-brand" : "ring-transparent hover:ring-kumo-line"
-            }`}
-          >
-            <img
-              src={`https://picsum.photos/seed/${p.seed}/120/120`}
-              alt=""
-              className="h-full w-full object-cover"
-            />
-            {photoDone(p) && (
-              <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-kumo-success text-kumo-badge-inverted">
-                <CheckIcon size={10} weight="bold" />
-              </span>
-            )}
-          </button>
-        ))}
-      </div>
-
-      <Dialog.Root open={helpOpen} onOpenChange={(o) => !o && props.onCloseHelp()}>
-        <Dialog size="sm" className="p-6">
-          <Dialog.Title className="mb-1 text-lg font-semibold">Sneltoetsen</Dialog.Title>
-          <Dialog.Description className="mb-4 text-kumo-subtle">
-            Loop foto's na zonder de muis. Event + foto staan in het pad; filter + kaart in de URL.
-          </Dialog.Description>
-          <div className="flex flex-col gap-2">
-            {SHORTCUTS.map((s) => (
-              <div key={s.label} className="flex items-center justify-between gap-4">
-                <Text variant="secondary" size="sm">
-                  {s.label}
-                </Text>
-                {s.keys}
-              </div>
-            ))}
-          </div>
-          <div className="mt-6 flex justify-end">
-            <Dialog.Close
-              render={(p) => (
-                <Button variant="secondary" {...p}>
-                  Sluiten
-                </Button>
-              )}
-            />
-          </div>
-        </Dialog>
-      </Dialog.Root>
-    </div>
+    </Review.Provider>
   );
 }

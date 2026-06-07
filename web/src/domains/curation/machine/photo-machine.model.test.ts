@@ -2,8 +2,8 @@ import { getShortestPaths } from "@xstate/graph";
 import { describe, expect, it } from "vitest";
 import { createActor, fromCallback } from "xstate";
 import type { Photo } from "../data";
-import { photoMachine } from "./photoMachine";
-import type { PhotoEvent } from "./photoMachine";
+import { photoMachine } from "./photo-machine";
+import type { PhotoEvent } from "./photo-machine";
 
 /**
  * Model-based tests for photoMachine (@xstate/graph). Where photoMachine.test.ts

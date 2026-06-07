@@ -8,8 +8,8 @@ import {
   ReviewStatus,
   WriteJob,
   WritePayload,
-} from "#/domain/index.ts";
-import { GraphRequestError } from "#/domain/errors.ts";
+} from "#/domains/shared/index.ts";
+import { GraphRequestError } from "#/domains/shared/errors.ts";
 
 /**
  * Domain schema codecs (ADR-0012/0013) — the single contract source. Migrated

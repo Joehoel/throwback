@@ -9,7 +9,7 @@ import { buildCrumbs } from "./breadcrumbs";
  */
 const evt = (id: string, ...chain: string[]): ThrowbackEvent => ({
   id,
-  name: chain[chain.length - 1],
+  name: chain.at(-1),
   path: chain.slice(0, -1),
   period: "",
   aiPlace: "",

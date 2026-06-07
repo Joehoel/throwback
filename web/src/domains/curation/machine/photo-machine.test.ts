@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createActor, fromCallback } from "xstate";
-import { photoMachine } from "./photoMachine";
+import { photoMachine } from "./photo-machine";
 import type { Photo } from "../data";
 
 // Inert suggestion actor for the "no description" tests — keeps the unit tests

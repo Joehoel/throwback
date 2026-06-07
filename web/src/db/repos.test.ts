@@ -5,7 +5,7 @@ import type { SqlClient } from "effect/unstable/sql";
 import { beforeAll, expect, it } from "vitest";
 import * as PhotoIndex from "#/db/photo-index.ts";
 import * as WriteQueue from "#/db/write-queue.ts";
-import { PhotoFromGraphItem } from "#/domain/graph.ts";
+import { PhotoFromGraphItem } from "#/domains/shared/graph.ts";
 
 /**
  * Photo-index + write-queue repos against a real (workerd/Miniflare) D1 — migrated

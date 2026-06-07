@@ -1,8 +1,8 @@
 import { Effect, Schema } from "effect";
 import { SqlClient } from "effect/unstable/sql";
-import { DriveItemId } from "#/domain/ids.ts";
-import { Description, Location, ReviewStatus } from "#/domain/photo.ts";
-import type { Photo } from "#/domain/photo.ts";
+import { DriveItemId } from "#/domains/shared/ids.ts";
+import { Description, Location, ReviewStatus } from "#/domains/shared/photo.ts";
+import type { Photo } from "#/domains/shared/photo.ts";
 
 /**
  * Photo index persistence (ADR-0009). Repo = a module of Effects that require the

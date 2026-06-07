@@ -38,12 +38,15 @@
         "@vis.gl/react-google-maps": "^1.8.3",
         "@xstate/react": "^6.1.0",
         "better-auth": "^1.5.3",
+        "class-variance-authority": "^0.7.1",
+        "clsx": "^2.1.1",
         "effect": "^4.0.0-beta.78",
         "highlight.js": "^11.11.1",
         "piexifjs": "^1.0.6",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
         "streamdown": "^2.3.0",
+        "tailwind-merge": "^3.6.0",
         "tailwindcss": "^4.1.18",
         "xstate": "^5.32.0",
         "zod": "^4.3.6",
@@ -1180,6 +1183,8 @@
     "chownr": ["chownr@1.1.4", "", {}, "sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg=="],
 
     "cjs-module-lexer": ["cjs-module-lexer@1.2.3", "", {}, "sha512-0TNiGstbQmCFwt4akjjBg5pLRTSyj/PkWQ1ZoO2zntmg9yLqSRxwEa4iCfQLGjqhiqBfOJa7W/E8wfGrTDmlZQ=="],
+
+    "class-variance-authority": ["class-variance-authority@0.7.1", "", { "dependencies": { "clsx": "^2.1.1" } }, "sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg=="],
 
     "cli-boxes": ["cli-boxes@3.0.0", "", {}, "sha512-/lzGpEWL/8PfI0BmBOPRwp0c/wFNX1RdUML3jK/RcSBA9T8mZDdQpqYBKtCFTOfQbwPqWEOpjqW+Fnayc0969g=="],
 

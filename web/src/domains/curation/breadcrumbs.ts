@@ -10,10 +10,10 @@ import { Array as Arr, pipe } from "effect";
 import type { ThrowbackEvent } from "./data";
 
 /** Full folder path of an event: parent folders followed by the event's own leaf folder. */
-const fullPath = (e: ThrowbackEvent): ReadonlyArray<string> => [...e.path, e.name];
+const fullPath = (e: ThrowbackEvent): readonly string[] => [...e.path, e.name];
 
 /** Whether the first `depth` segments of two folder paths are identical (same parent folder). */
-const sharePrefix = (a: ReadonlyArray<string>, b: ReadonlyArray<string>, depth: number): boolean =>
+const sharePrefix = (a: readonly string[], b: readonly string[], depth: number): boolean =>
   pipe(
     a,
     Arr.take(depth),
@@ -24,7 +24,7 @@ export interface Crumb {
   label: string;
   isCurrent: boolean;
   /** Sibling folders at this depth — selecting one navigates to its first leaf event. */
-  siblings: ReadonlyArray<{ label: string; targetEventId: string }>;
+  siblings: readonly { label: string; targetEventId: string }[];
 }
 
 /**
@@ -35,9 +35,9 @@ export interface Crumb {
  * targets the active event itself (no surprise photo jump).
  */
 export const buildCrumbs = (
-  events: ReadonlyArray<ThrowbackEvent>,
+  events: readonly ThrowbackEvent[],
   active: ThrowbackEvent,
-): ReadonlyArray<Crumb> => {
+): readonly Crumb[] => {
   const segments = fullPath(active);
   return pipe(
     segments,

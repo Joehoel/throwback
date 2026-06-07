@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
-import { type ThrowbackEvent, loadEvents } from "./data";
+import { loadEvents } from "./data";
+import type { ThrowbackEvent } from "./data";
 
 export const EVENTS_QUERY_KEY = ["prototype", "events"] as const;
 
@@ -8,6 +9,11 @@ export const EVENTS_QUERY_KEY = ["prototype", "events"] as const;
 export function eventsQuery() {
   return queryOptions({
     queryKey: EVENTS_QUERY_KEY,
-    queryFn: () => new Promise<ThrowbackEvent[]>((r) => setTimeout(() => r(loadEvents()), 300)),
+    queryFn: () =>
+      new Promise<ThrowbackEvent[]>((r) =>
+        setTimeout(() => {
+          r(loadEvents());
+        }, 300),
+      ),
   });
 }

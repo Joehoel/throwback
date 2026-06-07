@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { eventsQuery } from "#/prototypes/eventsQuery";
+import { eventsQuery } from "#/domains/curation/events-query";
 
 /** `/prototypes/splitscreen` → first event's first photo. */
 export const Route = createFileRoute("/prototypes/splitscreen/")({

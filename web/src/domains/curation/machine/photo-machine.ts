@@ -64,14 +64,20 @@ export type PhotoEvent =
  * or an AI error) it falls back to the canned `aiDescription`, so the prototype
  * keeps working without a key. `sendBack` delivers events to the photoMachine.
  */
-type SuggestInput = { photo: Photo; eventName: string; period: string };
+interface SuggestInput {
+  photo: Photo;
+  eventName: string;
+  period: string;
+}
 
 const streamSuggestion = fromCallback<PhotoEvent, SuggestInput>(({ input, sendBack }) => {
   let handle: ReturnType<typeof setInterval> | undefined;
   let cancelled = false;
 
   const animate = (full: string): void => {
-    if (cancelled) return;
+    if (cancelled) {
+      return;
+    }
     const words = full.split(" ");
     let i = 0;
     handle = setInterval(() => {
@@ -97,16 +103,22 @@ const streamSuggestion = fromCallback<PhotoEvent, SuggestInput>(({ input, sendBa
   })
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
     .then((d: { description?: string; place?: string | null }) => {
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
       // Gemini's place-name guess (name only; the client geocodes it).
       sendBack({ type: "location.suggested", place: d.place ?? null });
       animate(d.description?.trim() || input.photo.aiDescription);
     })
-    .catch(() => animate(input.photo.aiDescription));
+    .catch(() => {
+      animate(input.photo.aiDescription);
+    });
 
   return () => {
     cancelled = true;
-    if (handle) clearInterval(handle);
+    if (handle) {
+      clearInterval(handle);
+    }
   };
 });
 

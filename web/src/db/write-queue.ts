@@ -1,8 +1,8 @@
 import { Effect, Schema } from "effect";
 import { SqlClient } from "effect/unstable/sql";
-import { DriveItemId, WorkflowInstanceId } from "#/domain/ids.ts";
-import { WritePayload, WriteStatus } from "#/domain/write.ts";
-import type { WriteJob } from "#/domain/write.ts";
+import { DriveItemId, WorkflowInstanceId } from "#/domains/shared/ids.ts";
+import { WritePayload, WriteStatus } from "#/domains/shared/write.ts";
+import type { WriteJob } from "#/domains/shared/write.ts";
 
 /**
  * Write-queue persistence (ADR-0011/0009). The D1 index is the source for pending

@@ -19,14 +19,18 @@ export interface WriteJobRec {
 }
 
 export type WriteQueueEvent =
-  | { type: "enqueue"; jobs: Array<{ photoId: string; kind: WriteKind }> }
+  | { type: "enqueue"; jobs: { photoId: string; kind: WriteKind }[] }
   | { type: "write.settled"; id: string; ok: boolean };
 
 const writeJob = fromCallback<WriteQueueEvent, { id: string; kind: WriteKind }>(
   ({ input, sendBack }) => {
     const ms = input.kind === "location_orientation" ? 2400 : 800;
-    const handle = setTimeout(() => sendBack({ type: "write.settled", id: input.id, ok: true }), ms);
-    return () => clearTimeout(handle);
+    const handle = setTimeout(() => {
+      sendBack({ type: "write.settled", id: input.id, ok: true });
+    }, ms);
+    return () => {
+      clearTimeout(handle);
+    };
   },
 );
 
@@ -48,7 +52,9 @@ export const writeQueueMachine = setup({
           kind: j.kind,
           status: "running" as WriteStatus,
         }));
-        if (newJobs.length === 0) return;
+        if (newJobs.length === 0) {
+          return;
+        }
         enqueue.assign({ jobs: [...context.jobs, ...newJobs] });
         newJobs.forEach((job) => {
           enqueue.spawnChild("writeJob", { id: job.id, input: { id: job.id, kind: job.kind } });

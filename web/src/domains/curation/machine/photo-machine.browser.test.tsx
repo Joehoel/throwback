@@ -4,7 +4,7 @@ import { page, userEvent } from "vitest/browser";
 import { afterEach, describe, expect, it } from "vitest";
 import { fromCallback } from "xstate";
 import type { Photo } from "../data";
-import { photoMachine } from "./photoMachine";
+import { photoMachine } from "./photo-machine";
 
 /**
  * Browser test (@vitest/browser + Playwright/chromium): drive the *real*
@@ -52,17 +52,34 @@ function PhotoEditor() {
       <p data-testid="description">{snapshot.context.description}</p>
       <button
         type="button"
-        onClick={() => send({ type: "suggestion.complete", text: "Een mooie foto" })}
+        onClick={() => {
+          send({ type: "suggestion.complete", text: "Een mooie foto" });
+        }}
       >
         Complete suggestion
       </button>
-      <button type="button" onClick={() => send({ type: "suggestion.applied" })}>
+      <button
+        type="button"
+        onClick={() => {
+          send({ type: "suggestion.applied" });
+        }}
+      >
         Apply suggestion
       </button>
-      <button type="button" onClick={() => send({ type: "approve" })}>
+      <button
+        type="button"
+        onClick={() => {
+          send({ type: "approve" });
+        }}
+      >
         Approve
       </button>
-      <button type="button" onClick={() => send({ type: "skip" })}>
+      <button
+        type="button"
+        onClick={() => {
+          send({ type: "skip" });
+        }}
+      >
         Skip
       </button>
     </div>

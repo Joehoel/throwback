@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
-import { TokenUnavailable } from "#/domain/errors.ts";
-import type { UserId } from "#/domain/ids.ts";
+import { TokenUnavailable } from "#/domains/shared/errors.ts";
+import type { UserId } from "#/domains/shared/ids.ts";
 import { auth } from "#/lib/auth-server.ts";
 import { GraphToken } from "./token.ts";
 
