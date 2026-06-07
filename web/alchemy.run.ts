@@ -62,25 +62,31 @@ export default Alchemy.Stack(
   Effect.gen(function* () {
     const website = yield* Website;
 
-    // Optional edge IP-lock: when `ACCESS_ALLOWED_IP_CIDR` is set (e.g. your
-    // home IP as `203.0.113.7/32`), gate the domain behind a Cloudflare Access
-    // app that only allows that source IP. Unset = no Access app provisioned.
-    // NOTE: residential IPs are usually dynamic — this locks YOU out when the
-    // ISP rotates the address. Use a login-based policy for something durable.
-    const allowedIp = yield* Config.string("ACCESS_ALLOWED_IP_CIDR").pipe(
+    // Optional edge lock-down: when `ACCESS_ALLOWED_EMAILS` is set (a
+    // comma-separated allowlist), gate the domain behind a Cloudflare Access
+    // app. Access challenges every visitor with a one-time PIN emailed to the
+    // address they enter and only admits listed addresses. Unset = no Access
+    // app provisioned. Identity-based, so it works from any network/IP.
+    const allowedEmailsCsv = yield* Config.string("ACCESS_ALLOWED_EMAILS").pipe(
       Config.option,
     );
-    if (Option.isSome(allowedIp)) {
-      const homeOnly = yield* AccessPolicy("HomeOnly", {
-        name: "Home IP only",
-        decision: "allow",
-        include: [{ ip: { ip: allowedIp.value } }],
-      });
-      yield* AccessApplication("Lock", {
-        name: "Throwback (IP-locked)",
-        domain: DOMAIN,
-        policyIds: [homeOnly.policyId],
-      });
+    if (Option.isSome(allowedEmailsCsv)) {
+      const emails = allowedEmailsCsv.value
+        .split(",")
+        .map((email) => email.trim())
+        .filter((email) => email.length > 0);
+      if (emails.length > 0) {
+        const allowed = yield* AccessPolicy("AllowedPeople", {
+          name: "Allowed people",
+          decision: "allow",
+          include: emails.map((email) => ({ email: { email } })),
+        });
+        yield* AccessApplication("Lock", {
+          name: "Throwback (email-locked)",
+          domain: DOMAIN,
+          policyIds: [allowed.policyId],
+        });
+      }
     }
 
     return {
