@@ -102,7 +102,7 @@ describe("PhotoMetadata facade parity", () => {
     const bin = jpegWithStandardXmp(RICH, "Aan het meer café");
     const facts = (layer: typeof PhotoMetadataDefault) =>
       run(
-        Effect.flatMap(PhotoMetadata, (metadata) => metadata.read(bin)),
+        Effect.flatMap(PhotoMetadata, (metadata) => metadata.read(bin, "image/jpeg")),
         layer,
       );
     const viaExifReader = facts(PhotoMetadataExifReader);

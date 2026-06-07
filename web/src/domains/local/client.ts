@@ -1,6 +1,7 @@
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { PhotoMetadata } from "#/domains/metadata/codec.ts";
-import { blobToBinaryString } from "#/domains/metadata/binary.ts";
+import type { MetadataEdit } from "#/domains/metadata/codec.ts";
+import { binaryToBytes, blobToBinaryString } from "#/domains/metadata/binary.ts";
 import type { DriveItemId } from "#/domains/shared/ids.ts";
 import { buildFolderTree } from "./folder-tree.ts";
 import { PhotoFromLocalFile } from "./mapper.ts";
@@ -31,6 +32,15 @@ const EXT_MIME: Record<string, string> = {
 };
 
 const YEAR_SEGMENT = /^(?:19|20)\d{2}$/u;
+
+/** The file's MIME type, falling back to its extension when the browser leaves it blank. */
+const mimeOf = (file: File, name: string): string => {
+  if (file.type !== "") {
+    return file.type;
+  }
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  return EXT_MIME[ext] ?? "";
+};
 
 /** The per-ingest accumulator the crawl writes into — provided as a requirement. */
 interface CrawlSinkApi {
@@ -78,8 +88,7 @@ function ingestFile(
     const prepared = yield* Effect.tryPromise({
       try: async (): Promise<{ mimeType: string; binary: string } | null> => {
         const file = await handle.getFile();
-        const ext = handle.name.split(".").pop()?.toLowerCase() ?? "";
-        const mimeType = file.type === "" ? (EXT_MIME[ext] ?? "") : file.type;
+        const mimeType = mimeOf(file, handle.name);
         if (mimeType.startsWith("image/")) {
           return { mimeType, binary: await blobToBinaryString(file.slice(0, HEADER_BYTES)) };
         }
@@ -88,7 +97,7 @@ function ingestFile(
       catch: (cause) => new LocalSourceError({ operation: "crawl", message: String(cause) }),
     });
     if (prepared !== null) {
-      const facts = yield* metadata.read(prepared.binary);
+      const facts = yield* metadata.read(prepared.binary, prepared.mimeType);
       const yearFromPath = pathSegments.find((segment) => YEAR_SEGMENT.test(segment));
       const id = [...pathSegments, handle.name].join("/");
       yield* sink.emit(
@@ -180,7 +189,27 @@ const make = Effect.all([Ref.make(new Map<string, FileSystemFileHandle>()), Phot
       });
     });
 
-    return PhotoSource.of({ ingest, getFile });
+    const write = Effect.fn("local.write")(function* (photoId: DriveItemId, edit: MetadataEdit) {
+      const handle = (yield* Ref.get(registry)).get(photoId);
+      if (handle === undefined) {
+        return yield* Effect.fail(
+          new LocalSourceError({ operation: "write", message: `unknown photo: ${photoId}` }),
+        );
+      }
+      return yield* Effect.tryPromise({
+        try: async () => {
+          const file = await handle.getFile();
+          const binary = await blobToBinaryString(file); // whole file: the write is a lossless rewrite
+          const next = metadata.write(binary, mimeOf(file, handle.name), edit);
+          const writable = await handle.createWritable();
+          await writable.write(binaryToBytes(next));
+          await writable.close();
+        },
+        catch: (cause) => new LocalSourceError({ operation: "write", message: String(cause) }),
+      });
+    });
+
+    return PhotoSource.of({ ingest, getFile, write });
   }),
 );
 

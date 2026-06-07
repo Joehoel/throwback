@@ -1,5 +1,6 @@
 import { Context, Schema } from "effect";
 import type { Effect } from "effect";
+import type { MetadataEdit } from "#/domains/metadata/codec.ts";
 import type { DriveItemId } from "#/domains/shared/ids.ts";
 import type { Photo } from "#/domains/shared/photo.ts";
 import type { FolderNode } from "./folder-tree.ts";
@@ -41,6 +42,15 @@ export interface PhotoSourceApi {
   ) => Effect.Effect<IngestResult, LocalSourceError>;
   /** The original `File` for a crawled photo — for display (object URL) and EXIF read/write. */
   readonly getFile: (photoId: DriveItemId) => Effect.Effect<File, LocalSourceError>;
+  /**
+   * Write the approved metadata back into the photo file itself (lossless), via the
+   * File System Access writable. The OneDrive sync client on the laptop propagates
+   * it (ADR-0019); review bookkeeping stays in D1, not the file.
+   */
+  readonly write: (
+    photoId: DriveItemId,
+    edit: MetadataEdit,
+  ) => Effect.Effect<void, LocalSourceError>;
 }
 
 export class PhotoSource extends Context.Service<PhotoSource, PhotoSourceApi>()("PhotoSource") {}

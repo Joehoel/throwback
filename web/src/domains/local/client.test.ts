@@ -1,7 +1,10 @@
 import { expect, layer } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { fileFromBinary, jpegBinaryWithExif } from "#/domains/metadata/__fixtures__/jpeg.ts";
+import { blobToBinaryString } from "#/domains/metadata/binary.ts";
 import { PhotoMetadataDefault } from "#/domains/metadata/codec.ts";
+import { readExif } from "#/domains/metadata/reader.ts";
+import { readXmpDescription } from "#/domains/metadata/xmp.ts";
 import { DriveItemId } from "#/domains/shared/ids.ts";
 import { LocalPhotoSourceLive } from "./client.ts";
 import { PhotoSource } from "./source.ts";
@@ -15,6 +18,25 @@ import { PhotoSource } from "./source.ts";
 
 const fileHandle = (name: string, file: File): FileSystemFileHandle =>
   ({ kind: "file", name, getFile: () => Promise.resolve(file) }) as unknown as FileSystemFileHandle;
+
+// A file handle whose bytes are mutable: `createWritable` replaces them, so a
+// write followed by `getFile` observes the new bytes (an in-memory FSA stand-in).
+const writableHandle = (name: string, initial: File): FileSystemFileHandle => {
+  let current = initial;
+  return {
+    kind: "file",
+    name,
+    getFile: () => Promise.resolve(current),
+    createWritable: () =>
+      Promise.resolve({
+        write: (data: BufferSource) => {
+          current = new File([data], name, { type: initial.type });
+          return Promise.resolve();
+        },
+        close: () => Promise.resolve(),
+      }),
+  } as unknown as FileSystemFileHandle;
+};
 
 const dirHandle = (
   name: string,
@@ -130,6 +152,36 @@ layer(LocalPhotoSourceLive.pipe(Layer.provide(PhotoMetadataDefault)))("LocalPhot
         PhotoSource.use((s) => s.getFile(DriveItemId.make("Vakantie/ghost.jpg"))),
       );
       expect(error._tag).toBe("LocalSourceError");
+    }),
+  );
+
+  it.effect("writes approved metadata back into the file, losslessly", () =>
+    Effect.gen(function* () {
+      const scan = writableHandle(
+        "scan.jpg",
+        fileFromBinary(
+          "scan.jpg",
+          jpegBinaryWithExif({ dateTimeOriginal: "2005:06:01 12:00:00" }),
+          "image/jpeg",
+        ),
+      );
+      const album = dirHandle("Album", [scan]);
+      yield* PhotoSource.use((s) => s.ingest(album));
+
+      const id = DriveItemId.make("Album/scan.jpg");
+      yield* PhotoSource.use((s) =>
+        s.write(id, {
+          description: "Joël aan het meer",
+          location: { latitude: 52.1, longitude: 5.2 },
+          orientation: 6,
+        }),
+      );
+
+      const file = yield* PhotoSource.use((s) => s.getFile(id));
+      const binary = yield* Effect.promise(() => blobToBinaryString(file));
+      expect(readXmpDescription(binary)).toBe("Joël aan het meer"); // canonical XMP
+      expect(readExif(binary).orientation).toBe(6); // EXIF
+      expect(readExif(binary).captureDate).toBe("2005:06:01 12:00:00"); // preserved
     }),
   );
 });

@@ -64,7 +64,7 @@ export const writeU32 = (value: number, le: boolean): string => {
 };
 
 /** Binary string → bytes (inverse of `bytesToBinary`); for libraries wanting an ArrayBuffer. */
-export function binaryToBytes(binary: string): Uint8Array {
+export function binaryToBytes(binary: string): Uint8Array<ArrayBuffer> {
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = byteAt(binary, i);
