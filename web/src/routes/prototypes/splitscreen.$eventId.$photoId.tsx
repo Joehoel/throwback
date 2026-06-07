@@ -15,10 +15,20 @@ import { ClientOnly, createFileRoute, useNavigate } from "@tanstack/react-router
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMachine } from "@xstate/react";
 import { Schema } from "effect";
-import { Badge, Button, Dialog, InputArea, Loader, Tabs, Text } from "@cloudflare/kumo";
-import { ArrowClockwiseIcon, ArrowRightIcon, CheckIcon, KeyboardIcon, SparkleIcon } from "@phosphor-icons/react";
+import { Badge, Button, Dialog, DropdownMenu, InputArea, Loader, Text } from "@cloudflare/kumo";
+import {
+  ArrowClockwiseIcon,
+  ArrowRightIcon,
+  CaretDownIcon,
+  CaretRightIcon,
+  CheckIcon,
+  FolderIcon,
+  KeyboardIcon,
+  SparkleIcon,
+} from "@phosphor-icons/react";
 import { useHotkeys } from "@tanstack/react-hotkeys";
 import { type Photo, type ThrowbackEvent, eventProgress, photoDone } from "#/prototypes/data";
+import { buildCrumbs } from "#/prototypes/breadcrumbs";
 import { Kbd, PhotoView } from "#/prototypes/shared";
 import { LocationSection, type Viewport } from "#/prototypes/LocationPicker";
 import { type PhotoOutput, photoMachine } from "#/prototypes/machine/photoMachine";
@@ -75,7 +85,11 @@ function applyApproval(
           photos: e.photos.map((p) =>
             p.id !== photoId
               ? p
-              : { ...p, description: out.description.trim() || p.description, rotationFixed: out.orientationFixed },
+              : {
+                  ...p,
+                  description: out.description.trim() || p.description,
+                  rotationFixed: out.orientationFixed,
+                },
           ),
         },
   );
@@ -89,7 +103,8 @@ function neededWrites(
   const kinds: WriteKind[] = [];
   const desc = out.description.trim();
   if (desc && desc !== (photo.description ?? "")) kinds.push("description");
-  if (out.orientationFixed !== photo.rotationFixed || out.place !== seedPlace) kinds.push("location_orientation");
+  if (out.orientationFixed !== photo.rotationFixed || out.place !== seedPlace)
+    kinds.push("location_orientation");
   return kinds;
 }
 
@@ -147,7 +162,11 @@ function ReviewScreen({ events }: { events: ThrowbackEvent[] }): React.ReactNode
       const next = applyApproval(events, event.id, photo.id, out);
       queryClient.setQueryData(EVENTS_QUERY_KEY, next);
       const kinds = neededWrites(photo, out, seedPlace);
-      if (kinds.length) writeRef.send({ type: "enqueue", jobs: kinds.map((kind) => ({ photoId: photo.id, kind })) });
+      if (kinds.length)
+        writeRef.send({
+          type: "enqueue",
+          jobs: kinds.map((kind) => ({ photoId: photo.id, kind })),
+        });
     }
     const nextPhoto = list[idx + 1];
     if (nextPhoto && nextPhoto.id !== photo.id) goPhoto(nextPhoto.id);
@@ -159,9 +178,12 @@ function ReviewScreen({ events }: { events: ThrowbackEvent[] }): React.ReactNode
       photo={photo}
       event={event}
       events={events}
-      filter={filter}
       helpOpen={helpOpen}
-      viewport={search.lat != null && search.lng != null ? { lat: search.lat, lng: search.lng, z: search.z } : undefined}
+      viewport={
+        search.lat != null && search.lng != null
+          ? { lat: search.lat, lng: search.lng, z: search.z }
+          : undefined
+      }
       runningWrites={jobs.filter((j) => j.status === "running").length}
       savedWrites={jobs.filter((j) => j.status === "succeeded").length}
       hasNext={idx < list.length - 1}
@@ -170,7 +192,6 @@ function ReviewScreen({ events }: { events: ThrowbackEvent[] }): React.ReactNode
       onEventPrev={() => eventIndex > 0 && goEvent(events[eventIndex - 1].id)}
       onEventNext={() => eventIndex < events.length - 1 && goEvent(events[eventIndex + 1].id)}
       onSelectEvent={goEvent}
-      onSetFilter={(f) => setSearch({ filter: f === "any" ? undefined : f })}
       onToggleHelp={() => setHelpOpen((o) => !o)}
       onCloseHelp={() => setHelpOpen(false)}
       onViewport={(v) => setSearch({ lat: v.lat, lng: v.lng, z: v.z }, true)}
@@ -184,7 +205,6 @@ interface EditorProps {
   photo: Photo;
   event: ThrowbackEvent;
   events: ThrowbackEvent[];
-  filter: string;
   helpOpen: boolean;
   viewport?: Viewport;
   runningWrites: number;
@@ -195,7 +215,6 @@ interface EditorProps {
   onEventPrev: () => void;
   onEventNext: () => void;
   onSelectEvent: (id: string) => void;
-  onSetFilter: (f: string) => void;
   onToggleHelp: () => void;
   onCloseHelp: () => void;
   onViewport: (v: Viewport) => void;
@@ -230,7 +249,7 @@ const SHORTCUTS = [
 ];
 
 function PhotoEditor(props: EditorProps): React.ReactNode {
-  const { photo, event, events, filter, helpOpen } = props;
+  const { photo, event, events, helpOpen } = props;
   const [snapshot, send] = useMachine(photoMachine, {
     input: {
       photo,
@@ -246,9 +265,9 @@ function PhotoEditor(props: EditorProps): React.ReactNode {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snapshot.status]);
 
-  const { description, suggestion, place, coords, orientationFixed, aiPlaceSuggestion } = snapshot.context;
+  const { description, suggestion, place, coords, orientationFixed, aiPlaceSuggestion } =
+    snapshot.context;
   const suggesting = snapshot.hasTag("suggesting");
-  const dirty = snapshot.hasTag("dirty");
   const { done, total } = eventProgress(event);
 
   useHotkeys([
@@ -261,47 +280,85 @@ function PhotoEditor(props: EditorProps): React.ReactNode {
       callback: () => photo.needsRotation && send({ type: "rotation.toggled" }),
       options: { enabled: !helpOpen },
     },
-    { hotkey: "Mod+Enter", callback: () => send({ type: "approve" }), options: { enabled: !helpOpen } },
-    { hotkey: "a", callback: () => send({ type: "suggestion.applied" }), options: { enabled: !helpOpen } },
+    {
+      hotkey: "Mod+Enter",
+      callback: () => send({ type: "approve" }),
+      options: { enabled: !helpOpen },
+    },
+    {
+      hotkey: "a",
+      callback: () => send({ type: "suggestion.applied" }),
+      options: { enabled: !helpOpen },
+    },
     { hotkey: "Shift+/", callback: props.onToggleHelp },
   ]);
-
-  const FILTERS = [
-    { value: "any", label: "Alle" },
-    { value: "missing_description", label: "Mist beschrijving" },
-    { value: "missing_location", label: "Mist locatie" },
-  ];
 
   return (
     <div className="flex h-screen flex-col bg-kumo-base">
       <header className="flex items-center justify-between gap-4 border-b border-kumo-hairline px-6 py-2">
-        <Tabs
-          variant="underline"
-          size="sm"
-          value={event.id}
-          onValueChange={props.onSelectEvent}
-          tabs={events.map((e) => ({ value: e.id, label: e.name }))}
-        />
-        <div className="flex items-center gap-2">
-          <Tabs
-            variant="segmented"
-            size="sm"
-            value={filter}
-            onValueChange={props.onSetFilter}
-            tabs={FILTERS}
-          />
+        <nav aria-label="Mappad" className="flex min-w-0 items-center gap-1.5 text-sm">
+          <FolderIcon size={16} aria-hidden className="shrink-0 text-kumo-subtle" />
+          <ol className="flex min-w-0 items-center gap-1 overflow-x-auto whitespace-nowrap">
+            {buildCrumbs(events, event).map((crumb, i) => (
+              <li key={crumb.label} className="flex shrink-0 items-center gap-1">
+                {i > 0 && <CaretRightIcon size={12} aria-hidden className="text-kumo-subtle" />}
+                <DropdownMenu>
+                  <DropdownMenu.Trigger>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-current={crumb.isCurrent ? "page" : undefined}
+                      className={crumb.isCurrent ? "text-kumo-default" : "text-kumo-subtle"}
+                    >
+                      {crumb.label}
+                      <CaretDownIcon className="opacity-60" />
+                    </Button>
+                  </DropdownMenu.Trigger>
+                  <DropdownMenu.Content className="min-w-52">
+                    {crumb.siblings.map((sibling) => (
+                      <DropdownMenu.Item
+                        key={sibling.label}
+                        icon={FolderIcon}
+                        selected={sibling.label === crumb.label}
+                        onClick={() => props.onSelectEvent(sibling.targetEventId)}
+                      >
+                        {sibling.label}
+                      </DropdownMenu.Item>
+                    ))}
+                  </DropdownMenu.Content>
+                </DropdownMenu>
+              </li>
+            ))}
+          </ol>
+        </nav>
+        <div className="flex items-center gap-3">
+          <Text variant="secondary" size="sm">
+            {done} / {total} klaar
+          </Text>
+          {props.runningWrites > 0 && (
+            <span className="flex items-center gap-1.5">
+              <Loader size="sm" />
+              <Text variant="secondary" size="sm">
+                {props.runningWrites} opslaan…
+              </Text>
+            </span>
+          )}
+          {props.runningWrites === 0 && props.savedWrites > 0 && (
+            <Badge variant="success" appearance="dot">
+              {props.savedWrites} opgeslagen
+            </Badge>
+          )}
           <Button size="sm" variant="ghost" icon={<KeyboardIcon />} onClick={props.onToggleHelp}>
             <Kbd>?</Kbd>
           </Button>
-          <Badge variant="secondary">URL-state</Badge>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
         <div className="relative flex min-h-0 flex-1 bg-kumo-base p-3">
           <PhotoView photo={photo} rotated={orientationFixed} className="h-full w-full" />
-          {photo.needsRotation && (
-            <div className="absolute inset-x-0 bottom-6 flex justify-center">
+          <div className="absolute inset-x-0 bottom-6 flex flex-col items-center gap-3">
+            {photo.needsRotation && (
               <Button
                 variant={orientationFixed ? "secondary" : "primary"}
                 size="sm"
@@ -311,30 +368,33 @@ function PhotoEditor(props: EditorProps): React.ReactNode {
                 {orientationFixed ? "Rechtgezet — ongedaan maken" : "Scheve scan rechtzetten"}
                 <Kbd>R</Kbd>
               </Button>
+            )}
+            <div className="flex items-center gap-2 rounded-full border border-kumo-hairline bg-kumo-base/90 p-1.5 shadow-lg backdrop-blur">
+              <Button
+                variant="ghost"
+                size="base"
+                className="rounded-full"
+                onClick={() => send({ type: "skip" })}
+              >
+                Overslaan
+              </Button>
+              <Button
+                variant="primary"
+                size="base"
+                className="rounded-full"
+                icon={props.hasNext ? <ArrowRightIcon /> : <CheckIcon />}
+                onClick={() => send({ type: "approve" })}
+              >
+                {props.hasNext ? "Opslaan en volgende" : "Opslaan"}
+                <Kbd>⌘/Ctrl ↵</Kbd>
+              </Button>
             </div>
-          )}
+          </div>
         </div>
 
         <aside className="flex w-full shrink-0 flex-col overflow-auto border-t border-kumo-hairline lg:w-96 lg:border-l lg:border-t-0">
           <div className="flex min-h-full flex-col gap-3 p-4">
-            <div className="flex items-center justify-between">
-              <Text bold>Bewerken</Text>
-              {suggesting ? (
-                <Badge variant="info">AI denkt na…</Badge>
-              ) : dirty ? (
-                <Badge variant="warning" appearance="dot">
-                  Niet opgeslagen
-                </Badge>
-              ) : photoDone(photo) ? (
-                <Badge variant="success" appearance="dot">
-                  Opgeslagen
-                </Badge>
-              ) : (
-                <Badge variant="neutral" appearance="dot">
-                  Nog te doen
-                </Badge>
-              )}
-            </div>
+            <Text bold>Bewerken</Text>
 
             <div className="flex flex-col gap-1.5">
               <div className="flex items-center justify-between">
@@ -390,40 +450,6 @@ function PhotoEditor(props: EditorProps): React.ReactNode {
         </aside>
       </div>
 
-      <footer className="relative flex items-center justify-center gap-3 border-t border-kumo-hairline bg-kumo-base px-6 py-2.5">
-        <span className="absolute left-6 flex items-center gap-3 text-kumo-subtle">
-          <Text variant="secondary" size="sm">
-            {done} / {total} klaar
-          </Text>
-          {props.runningWrites > 0 && (
-            <span className="flex items-center gap-1.5">
-              <Loader size="sm" />
-              <Text variant="secondary" size="sm">
-                {props.runningWrites} opslaan…
-              </Text>
-            </span>
-          )}
-          {props.runningWrites === 0 && props.savedWrites > 0 && (
-            <Badge variant="success" appearance="dot">
-              {props.savedWrites} opgeslagen
-            </Badge>
-          )}
-        </span>
-        <Button variant="ghost" size="lg" onClick={() => send({ type: "skip" })}>
-          Overslaan
-        </Button>
-        <Button
-          variant="primary"
-          size="lg"
-          className="min-w-64"
-          icon={props.hasNext ? <ArrowRightIcon /> : <CheckIcon />}
-          onClick={() => send({ type: "approve" })}
-        >
-          {props.hasNext ? "Opslaan en volgende" : "Opslaan"}
-          <Kbd>⌘/Ctrl ↵</Kbd>
-        </Button>
-      </footer>
-
       <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-kumo-hairline bg-kumo-elevated p-2">
         {event.photos.map((p) => (
           <button
@@ -435,7 +461,11 @@ function PhotoEditor(props: EditorProps): React.ReactNode {
               p.id === photo.id ? "ring-kumo-brand" : "ring-transparent hover:ring-kumo-line"
             }`}
           >
-            <img src={`https://picsum.photos/seed/${p.seed}/120/120`} alt="" className="h-full w-full object-cover" />
+            <img
+              src={`https://picsum.photos/seed/${p.seed}/120/120`}
+              alt=""
+              className="h-full w-full object-cover"
+            />
             {photoDone(p) && (
               <span className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-kumo-success text-kumo-badge-inverted">
                 <CheckIcon size={10} weight="bold" />
@@ -462,7 +492,13 @@ function PhotoEditor(props: EditorProps): React.ReactNode {
             ))}
           </div>
           <div className="mt-6 flex justify-end">
-            <Dialog.Close render={(p) => <Button variant="secondary" {...p}>Sluiten</Button>} />
+            <Dialog.Close
+              render={(p) => (
+                <Button variant="secondary" {...p}>
+                  Sluiten
+                </Button>
+              )}
+            />
           </div>
         </Dialog>
       </Dialog.Root>
