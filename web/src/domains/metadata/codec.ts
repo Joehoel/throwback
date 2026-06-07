@@ -76,7 +76,8 @@ const make = Effect.all([Exif, Xmp]).pipe(
   }),
 );
 
-const PhotoMetadataLive = Layer.effect(PhotoMetadata)(make);
+/** The facade over whichever `Exif` + `Xmp` backend is provided (our own, or exifreader). */
+export const PhotoMetadataLive = Layer.effect(PhotoMetadata)(make);
 
 /** `PhotoMetadata` with both readers wired — provide this to a `PhotoSource`. */
 export const PhotoMetadataDefault = PhotoMetadataLive.pipe(

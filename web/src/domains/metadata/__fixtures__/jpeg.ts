@@ -76,6 +76,27 @@ export function jpegWithXmp(jpegBinary: string, description: string): string {
   return jpegBinary.slice(0, 2) + segment + jpegBinary.slice(2);
 }
 
+/**
+ * Like `jpegWithXmp`, but with the *spec-correct* APP1 signature: the namespace URI
+ * is NUL-terminated (`…xap/1.0/\0`), not space-separated. Strict parsers (exifreader,
+ * ExifTool, Lightroom) only recognise this form — our own reader tolerates either.
+ */
+export function jpegWithStandardXmp(jpegBinary: string, description: string): string {
+  const xml =
+    `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>` +
+    `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF ` +
+    `xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">` +
+    `<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/">` +
+    `<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${description}</rdf:li>` +
+    `</rdf:Alt></dc:description></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+  const payload = new TextEncoder().encode(`http://ns.adobe.com/xap/1.0/\0${xml}`);
+  const length = payload.length + 2;
+  const segment =
+    String.fromCodePoint(0xff, 0xe1, Math.trunc(length / 256), length % 256) +
+    bytesToBinary(payload);
+  return jpegBinary.slice(0, 2) + segment + jpegBinary.slice(2);
+}
+
 /** Wrap a binary string as an in-memory image File. */
 export function fileFromBinary(name: string, binary: string, type: string): File {
   const bytes = new Uint8Array(binary.length);
