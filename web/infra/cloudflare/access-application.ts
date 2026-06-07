@@ -3,8 +3,6 @@ import { CloudflareEnvironment } from "alchemy/Cloudflare";
 import * as Provider from "alchemy/Provider";
 import { Resource } from "alchemy/Resource";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
-import * as Stream from "effect/Stream";
 import type { AccessProviders } from "./collection.ts";
 
 export interface AccessApplicationProps {
@@ -72,18 +70,22 @@ export const AccessApplicationProvider = () =>
       const get = yield* zeroTrust.getAccessApplicationForAccount;
       const update = yield* zeroTrust.updateAccessApplicationForAccount;
       const remove = yield* zeroTrust.deleteAccessApplicationForAccount;
-      const list = zeroTrust.listAccessApplicationsForAccount;
+      const listApps = yield* zeroTrust.listAccessApplicationsForAccount;
 
-      // Resolve the app id for a domain. We extract just the id (a plain
-      // string) rather than returning the whole list item: the get-response and
-      // list-item shapes are redundant, separately-emitted copies (distilled
-      // #175), so unifying them in one variable trips TS. `domain` is
-      // variant-specific, so narrow with the `in` operator; `id` is common.
+      // Resolve the app id for a domain via a SINGLE list call. The endpoint
+      // isn't truly paginated (empty request, no cursor), but distilled
+      // generates a page-mode paginator whose `.items()` stream never
+      // terminates here — it re-fetches forever. Calling the operation directly
+      // does one bounded GET; we read `.result`. We take just the id (a plain
+      // string), never unifying the list-item and get-response shapes — they're
+      // redundant, separately-emitted copies (distilled #175). `domain` is
+      // variant-specific, so narrow with `in`; `id` is common to every variant.
       const findIdByDomain = (domain: string) =>
-        list.items({ accountId }).pipe(
-          Stream.filter((app) => "domain" in app && app.domain === domain),
-          Stream.runHead,
-          Effect.map((head) => Option.getOrUndefined(head)?.id ?? undefined),
+        listApps({ accountId }).pipe(
+          Effect.map(
+            (res) =>
+              res.result.find((app) => "domain" in app && app.domain === domain)?.id ?? undefined,
+          ),
         );
 
       return {

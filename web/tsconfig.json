@@ -8,7 +8,7 @@
     "paths": {
       "#/*": ["./src/*"]
     },
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": ["vite/client", "@cloudflare/workers-types", "@cloudflare/vitest-pool-workers/types"],
 
     /* Bundler mode */

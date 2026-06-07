@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as CurateRouteImport } from './routes/curate'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PrototypesIndexRouteImport } from './routes/prototypes/index'
 import { Route as PrototypesSplitscreenRouteImport } from './routes/prototypes/splitscreen'
@@ -20,6 +21,11 @@ import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as PrototypesSplitscreenEventIdPhotoIdRouteImport } from './routes/prototypes/splitscreen.$eventId.$photoId'
 
+const CurateRoute = CurateRouteImport.update({
+  id: '/curate',
+  path: '/curate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -75,6 +81,7 @@ const PrototypesSplitscreenEventIdPhotoIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/curate': typeof CurateRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
   '/prototypes/splitscreen': typeof PrototypesSplitscreenRouteWithChildren
@@ -87,6 +94,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/curate': typeof CurateRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
   '/prototypes': typeof PrototypesIndexRoute
@@ -99,6 +107,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/curate': typeof CurateRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
   '/prototypes/splitscreen': typeof PrototypesSplitscreenRouteWithChildren
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/curate'
     | '/api/$'
     | '/api/drive'
     | '/prototypes/splitscreen'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/curate'
     | '/api/$'
     | '/api/drive'
     | '/prototypes'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/curate'
     | '/api/$'
     | '/api/drive'
     | '/prototypes/splitscreen'
@@ -149,6 +161,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CurateRoute: typeof CurateRoute
   ApiSplatRoute: typeof ApiSplatRoute
   ApiDriveRoute: typeof ApiDriveRoute
   PrototypesSplitscreenRoute: typeof PrototypesSplitscreenRouteWithChildren
@@ -160,6 +173,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/curate': {
+      id: '/curate'
+      path: '/curate'
+      fullPath: '/curate'
+      preLoaderRoute: typeof CurateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -251,6 +271,7 @@ const PrototypesSplitscreenRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CurateRoute: CurateRoute,
   ApiSplatRoute: ApiSplatRoute,
   ApiDriveRoute: ApiDriveRoute,
   PrototypesSplitscreenRoute: PrototypesSplitscreenRouteWithChildren,
