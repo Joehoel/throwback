@@ -12,6 +12,8 @@ pre-commit:
         - "web/src/routes/prototypes/**"
         - "web/src/routeTree.gen.ts"
         - "web/worker-configuration.d.ts"
+        - "web/alchemy.run.ts"
+        - "web/infra/**"
       run: PATH=./web/node_modules/.bin:$PATH ./web/node_modules/.bin/oxlint -c web/.oxlintrc.json --fix {staged_files}
       stage_fixed: true
 

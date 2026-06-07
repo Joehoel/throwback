@@ -197,11 +197,13 @@
     ".vinxi/**",
     ".output/**",
     "alchemy.run.ts",
+    "infra/**",
     "spike/**",
     "src/prototypes/**",
     "src/routes/prototypes/**",
     "src/routeTree.gen.ts",
     "worker-configuration.d.ts",
+    "src/types/**",
     "drizzle/meta/**"
   ]
 }

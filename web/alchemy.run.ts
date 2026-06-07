@@ -3,6 +3,11 @@ import * as Cloudflare from "alchemy/Cloudflare";
 import { config } from "dotenv";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import { AccessApplication } from "./infra/cloudflare/access-application.ts";
+import { AccessPolicy } from "./infra/cloudflare/access-policy.ts";
+import { accessProviders } from "./infra/cloudflare/providers.ts";
 
 config({ path: ".env.local" });
 
@@ -46,11 +51,37 @@ export type WebsiteEnv = Cloudflare.InferEnv<typeof Website>;
 export default Alchemy.Stack(
   "ThrowbackWeb",
   {
-    providers: Cloudflare.providers(),
+    // Compose our custom Access resources on top of the Cloudflare catalog.
+    // `provideMerge` hands Cloudflare's credentials/environment/retry to the
+    // Access providers, and both collections end up in the stack context.
+    providers: accessProviders().pipe(
+      Layer.provideMerge(Cloudflare.providers()),
+    ),
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
     const website = yield* Website;
+
+    // Optional edge IP-lock: when `ACCESS_ALLOWED_IP_CIDR` is set (e.g. your
+    // home IP as `203.0.113.7/32`), gate the domain behind a Cloudflare Access
+    // app that only allows that source IP. Unset = no Access app provisioned.
+    // NOTE: residential IPs are usually dynamic — this locks YOU out when the
+    // ISP rotates the address. Use a login-based policy for something durable.
+    const allowedIp = yield* Config.string("ACCESS_ALLOWED_IP_CIDR").pipe(
+      Config.option,
+    );
+    if (Option.isSome(allowedIp)) {
+      const homeOnly = yield* AccessPolicy("HomeOnly", {
+        name: "Home IP only",
+        decision: "allow",
+        include: [{ ip: { ip: allowedIp.value } }],
+      });
+      yield* AccessApplication("Lock", {
+        name: "Throwback (IP-locked)",
+        domain: DOMAIN,
+        policyIds: [homeOnly.policyId],
+      });
+    }
 
     return {
       url: website.url.as<string>(),
