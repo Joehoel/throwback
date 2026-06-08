@@ -1,8 +1,8 @@
 [versions]
 agp = "9.2.1"
-coreKtx = "1.18.0"
+coreKtx = "1.19.0"
 appcompat = "1.7.1"
-kotlin = "2.3.21"
+kotlin = "2.4.0"
 composeBom = "2026.05.01"
 tvFoundation = "1.0.0"
 tvMaterial = "1.1.0"
@@ -18,8 +18,8 @@ commonsText = "1.15.0"
 exifinterface = "1.4.2"
 ksp = "2.3.9"
 room = "2.8.4"
-sentry = "8.43.0"
-sentryGradlePlugin = "6.9.0"
+sentry = "8.43.1"
+sentryGradlePlugin = "6.10.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
