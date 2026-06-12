@@ -128,7 +128,11 @@ function removeXmpSegment(jpeg: string): string {
  * binary string.
  */
 export function writeXmpDescription(jpegBinary: string, description: string): string {
-  const payload = utf8ToBinary(`${XMP_MARKER} ${buildXmpPacket(description)}`);
+  // The APP1 XMP namespace must be NUL-terminated per spec, so strict parsers
+  // (ExifTool / Lightroom / exifreader) recognise it — a space is non-conformant.
+  const payload = utf8ToBinary(
+    `${XMP_MARKER}${String.fromCodePoint(0)}${buildXmpPacket(description)}`,
+  );
   const length = payload.length + 2; // APP1 length counts its own 2 length bytes
   const segment =
     String.fromCodePoint(0xff, 0xe1, Math.trunc(length / 256), length % 256) + payload;

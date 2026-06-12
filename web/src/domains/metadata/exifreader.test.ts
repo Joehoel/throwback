@@ -5,6 +5,7 @@ import { jpegBinaryWithExif, jpegWithStandardXmp, jpegWithXmp } from "./__fixtur
 import { Exif, PhotoMetadata, PhotoMetadataDefault, Xmp } from "./codec.ts";
 import { ExifReaderLive, PhotoMetadataExifReader, XmpReaderLive } from "./exifreader.ts";
 import { EMPTY, readExif } from "./reader.ts";
+import { writeXmpDescription } from "./xmp.ts";
 
 /**
  * The exifreader-backed backend (`exifreader.ts`) is a *parallel* implementation of
@@ -89,11 +90,16 @@ describe("Xmp via exifreader", () => {
     expect(readXmp(jpegBinaryWithExif({ orientation: 1 }))).toBeNull();
   });
 
-  it("does not recognise the non-spec (space-separated) XMP signature", () => {
-    // Documents the interop gap: our `xmp.ts` writer emits a space, not a NUL, so a
-    // strict parser like exifreader won't see it. Our own reader tolerates both.
+  it("does not recognise a non-spec (space-separated) XMP signature", () => {
+    // A space after the namespace (not a NUL) is non-conformant; strict parsers like
+    // exifreader won't see it. Our own reader tolerates both; our writer emits NUL.
     const bin = jpegWithXmp(jpegBinaryWithExif({ orientation: 1 }), "Aan het meer");
     expect(readXmp(bin)).toBeNull();
+  });
+
+  it("reads the spec-form XMP our own writer produces (interop)", () => {
+    const bin = writeXmpDescription(jpegBinaryWithExif({ orientation: 1 }), "Joël schrijft mee");
+    expect(readXmp(bin)).toBe("Joël schrijft mee");
   });
 });
 
