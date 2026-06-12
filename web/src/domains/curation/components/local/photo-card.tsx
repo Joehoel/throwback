@@ -5,20 +5,13 @@ import {
   NoteIcon,
   ProhibitIcon,
 } from "@phosphor-icons/react";
-import { Effect } from "effect";
 import { useEffect, useState } from "react";
-import { PhotoSource } from "#/domains/local/source.ts";
+import { readPhotoFile } from "#/domains/curation/components/local/actions.ts";
 import type { DriveItemId } from "#/domains/shared/ids.ts";
 import type { Photo, ReviewStatus } from "#/domains/shared/photo.ts";
-import { LocalRuntime } from "#/effect/client-runtime.ts";
 import { cn } from "#/lib/cn.ts";
 
 /** A photo thumbnail + metadata badges; click to select it for editing. */
-
-// Read a photo's bytes via the client runtime. (Effect.flatMap on the service tag
-// rather than `.use`, which the react-hooks lint mistakes for React's `use` hook.)
-const readPhotoFile = (photoId: DriveItemId): Promise<File> =>
-  LocalRuntime.runPromise(Effect.flatMap(PhotoSource, (source) => source.getFile(photoId)));
 
 /** Re-open a photo's bytes as an object URL, revoking it on unmount/change. */
 function useObjectUrl(photoId: DriveItemId): string | null {
