@@ -2,7 +2,7 @@ import { Button, Loader } from "@cloudflare/kumo";
 import { FolderIcon } from "@phosphor-icons/react";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { ingestFolder } from "#/domains/curation/components/local/actions.ts";
+import { describeError, ingestFolder } from "#/domains/curation/components/local/actions.ts";
 import { Centered, FolderBrowser } from "#/domains/curation/components/local/folder-browser.tsx";
 import type { IngestResult } from "#/domains/local/source.ts";
 
@@ -32,14 +32,14 @@ function CurateApp(): React.ReactNode {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
-      setErrorMessage(String(error));
+      setErrorMessage(describeError(error));
       return;
     }
     setBusy(true);
     try {
       setResult(await ingestFolder(handle));
     } catch (error) {
-      setErrorMessage(String(error));
+      setErrorMessage(describeError(error));
     } finally {
       setBusy(false);
     }

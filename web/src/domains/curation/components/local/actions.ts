@@ -1,5 +1,5 @@
 import { fetchReviewStatuses, setReviewStatus } from "#/domains/curation/review-server.ts";
-import { mergeReviewStatuses } from "#/domains/local/curate-actions.ts";
+import { describeError, mergeReviewStatuses } from "#/domains/local/curate-actions.ts";
 import { PhotoSource } from "#/domains/local/source.ts";
 import type { IngestResult } from "#/domains/local/source.ts";
 import type { MetadataEdit } from "#/domains/metadata/codec.ts";
@@ -14,7 +14,7 @@ import { LocalRuntime } from "#/effect/client-runtime.ts";
  * directly — the runtime runs only at this edge.
  */
 
-export { fetchReviewStatuses, mergeReviewStatuses, setReviewStatus };
+export { describeError, fetchReviewStatuses, mergeReviewStatuses, setReviewStatus };
 
 /** Crawl a picked directory into the folder tree + `Photo[]`. */
 export const ingestFolder = (handle: FileSystemDirectoryHandle): Promise<IngestResult> =>

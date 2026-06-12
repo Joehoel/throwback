@@ -1,6 +1,20 @@
 import { describe, expect, it } from "@effect/vitest";
 import { DriveItemId } from "#/domains/shared/ids.ts";
-import { mergeReviewStatuses } from "./curate-actions.ts";
+import { describeError, mergeReviewStatuses } from "./curate-actions.ts";
+import { LocalSourceError } from "./source.ts";
+
+describe("describeError", () => {
+  it("surfaces a tagged error's own message", () => {
+    const error = new LocalSourceError({ operation: "write", message: "schrijven mislukt" });
+    expect(describeError(error)).toBe("schrijven mislukt");
+  });
+
+  it("falls back to a generic message for unknown shapes", () => {
+    expect(describeError("boom")).toBe("Er ging iets mis");
+    expect(describeError(null)).toBe("Er ging iets mis");
+    expect(describeError({ message: "" })).toBe("Er ging iets mis");
+  });
+});
 
 describe("mergeReviewStatuses", () => {
   const photos = [

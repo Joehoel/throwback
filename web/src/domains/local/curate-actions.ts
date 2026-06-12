@@ -27,3 +27,17 @@ export const mergeReviewStatuses = (
   const byPath = new Map(recorded.map((record) => [record.path, record.reviewStatus]));
   return new Map(photos.map((photo) => [photo.id, byPath.get(photo.id) ?? photo.reviewStatus]));
 };
+
+/**
+ * A user-facing message from a rejected action. Our actions reject with a typed,
+ * tagged error (`LocalSourceError`, …) that carries its own `message`; surface that
+ * rather than `String(error)` (which leaks the error's internals into the UI).
+ */
+export const describeError = (error: unknown): string =>
+  typeof error === "object" &&
+  error !== null &&
+  "message" in error &&
+  typeof error.message === "string" &&
+  error.message !== ""
+    ? error.message
+    : "Er ging iets mis";

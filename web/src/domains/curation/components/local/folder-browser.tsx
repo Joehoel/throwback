@@ -1,6 +1,7 @@
 import { Button } from "@cloudflare/kumo";
 import { useEffect, useMemo, useState } from "react";
 import {
+  describeError,
   fetchReviewStatuses,
   mergeReviewStatuses,
   setReviewStatus,
@@ -93,7 +94,7 @@ export function FolderBrowser({
       setStatuses((previous) => new Map(previous).set(photo.id, status));
       setSelectedId(null);
     } catch (error) {
-      setErrorMessage(String(error));
+      setErrorMessage(describeError(error));
     } finally {
       setBusy(false);
     }
