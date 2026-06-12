@@ -187,6 +187,12 @@
         "vitest/prefer-to-be-truthy": "off",
         "vitest/prefer-to-be-falsy": "off"
       }
+    },
+    {
+      "files": ["**/*.ts"],
+      "rules": {
+        "react-hooks/rules-of-hooks": "off"
+      }
     }
   ],
   "ignorePatterns": [

@@ -1,4 +1,3 @@
-import { Effect } from "effect";
 import { fetchReviewStatuses, setReviewStatus } from "#/domains/curation/review-server.ts";
 import { mergeReviewStatuses } from "#/domains/local/curate-actions.ts";
 import { PhotoSource } from "#/domains/local/source.ts";
@@ -19,15 +18,15 @@ export { fetchReviewStatuses, mergeReviewStatuses, setReviewStatus };
 
 /** Crawl a picked directory into the folder tree + `Photo[]`. */
 export const ingestFolder = (handle: FileSystemDirectoryHandle): Promise<IngestResult> =>
-  LocalRuntime.runPromise(Effect.flatMap(PhotoSource, (source) => source.ingest(handle)));
+  LocalRuntime.runPromise(PhotoSource.use((source) => source.ingest(handle)));
 
 /** Re-open a crawled photo's original bytes (for display / object URLs). */
 export const readPhotoFile = (photoId: DriveItemId): Promise<File> =>
-  LocalRuntime.runPromise(Effect.flatMap(PhotoSource, (source) => source.getFile(photoId)));
+  LocalRuntime.runPromise(PhotoSource.use((source) => source.getFile(photoId)));
 
 /** Write the approved metadata into the photo file (lossless) via the client runtime. */
 export const writePhoto = (photoId: DriveItemId, edit: MetadataEdit): Promise<void> =>
-  LocalRuntime.runPromise(Effect.flatMap(PhotoSource, (source) => source.write(photoId, edit)));
+  LocalRuntime.runPromise(PhotoSource.use((source) => source.write(photoId, edit)));
 
 /** The approved edit: trimmed Beschrijving (null if blank); EXIF location preserved. */
 export const toApproveEdit = (photo: Photo, description: string): MetadataEdit => {
