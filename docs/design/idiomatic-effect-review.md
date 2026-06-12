@@ -110,18 +110,18 @@ surface refactor). → one shared `memoMap`, `dispose()`, top-level `enabled`/`l
 
 | # | Change | Effort/Impact | Files | Status |
 |---|--------|---------------|-------|--------|
-| 1 | Server-edge via shared `ServerRuntime = makeRuntime(mergeAll(OneDriveLayer, SqlLive))`; drop per-call `Effect.provide(SqlLive)` | low / **high** | `effect/runtime.ts`, `runtime.ts`, `review-server.ts` | todo |
-| 2 | Collapse 3 client runtime crossings into one action module; components never touch `LocalRuntime`/`Effect` | low / **high** | `curate.tsx`, `photo-card.tsx`, `actions.ts` | todo |
-| 3 | Observe-then-degrade on EXIF read (`logWarning` + cause before `orElseSucceed(EMPTY)`) | low / med | `codec.ts`, `exifreader.ts` | todo |
-| 4 | `Effect.fn` spans on inner crawl helpers + D1 repo methods | low / med | `local/client.ts`, `db/local-review.ts`, `db/photo-index.ts` | todo |
-| 5 | `Xmp.readDescription` returns `Effect`; delete in-service `Effect.runSync` | low / med | `exifreader.ts`, `codec.ts` | todo |
-| 6 | Cross boundaries with `runPromiseExit` + `Match` on `_tag` (`describeError`); kill `String(error)` + bare `catch {}` | med / **high** | `curate.tsx`, `folder-browser.tsx`, `photo-card.tsx`, `review-server.ts` | todo |
-| 7 | `PhotoMetadata.write` → `Effect.fn` with `MetadataWriteError`; `client.ts` `mapError` into `LocalSourceError` | med / **high** | `codec.ts`, `exif.ts`, `local/client.ts` | todo |
-| 8 | Shared `memoMap` + `dispose()`; `Observability` → top-level `enabled`/`layer` + `Layer.unwrap` | low / med | `effect/runtime.ts`, `observability.ts` | todo |
-| 9 | Year/path derivation into the mapper (`YearFromSegments`); `ingestFile` emits raw input; share YYYY regex | med / med | `local/client.ts`, `local/mapper.ts`, `graph.ts` | todo |
-| 10 | `CrawlSink` + `collectEntries` + `Effect.forEach` → `Stream` pipeline | **high** / **high** | `local/client.ts` | todo |
-| 11 | Namespace service/error ids (`@throwback/…`); fix the `Effect.flatMap(Tag,…)` lint-workaround at config level, restore `Tag.use` | low / low | services + oxlint config | todo |
-| 12 | One canonical server-edge dialect (oRPC w/ effect/Schema input on `ServerRuntime`, `Schema.TaggedError` over the wire); fold the review server-fn in | **high** / med | `orpc/*`, `review-server.ts` | todo |
+| 1 | Server-edge via shared `ServerRuntime = makeRuntime(mergeAll(OneDriveLayer, SqlLive))`; drop per-call `Effect.provide(SqlLive)` | low / **high** | `effect/runtime.ts`, `runtime.ts`, `review-server.ts` | ✅ |
+| 2 | Collapse 3 client runtime crossings into one action module; components never touch `LocalRuntime`/`Effect` | low / **high** | `curate.tsx`, `photo-card.tsx`, `actions.ts` | ✅ |
+| 3 | Observe-then-degrade on EXIF read (`logWarning` + cause before `orElseSucceed(EMPTY)`) | low / med | `codec.ts`, `exifreader.ts` | ✅ |
+| 4 | `Effect.fn` spans on inner crawl helpers + D1 repo methods | low / med | `local/client.ts`, `db/local-review.ts`, `db/photo-index.ts` | ✅ |
+| 5 | `Xmp.readDescription` returns `Effect`; delete in-service `Effect.runSync` | low / med | `exifreader.ts`, `codec.ts` | ✅ |
+| 6 | Cross boundaries with `runPromiseExit` + `Match` on `_tag` (`describeError`); kill `String(error)` + bare `catch {}` | med / **high** | `curate.tsx`, `folder-browser.tsx`, `photo-card.tsx`, `review-server.ts` | ✅ |
+| 7 | `PhotoMetadata.write` → `Effect.fn` with `MetadataWriteError`; `client.ts` `mapError` into `LocalSourceError` | med / **high** | `codec.ts`, `exif.ts`, `local/client.ts` | ✅ |
+| 8 | Shared `memoMap` + `dispose()`; `Observability` → top-level `enabled`/`layer` + `Layer.unwrap` | low / med | `effect/runtime.ts`, `observability.ts` | ✅ |
+| 9 | Year/path derivation into the mapper (`YearFromSegments`); `ingestFile` emits raw input; share YYYY regex | med / med | `local/client.ts`, `local/mapper.ts`, `graph.ts` | ✅ |
+| 10 | `CrawlSink` + `collectEntries` + `Effect.forEach` → `Stream` pipeline | **high** / **high** | `local/client.ts` | ✅ |
+| 11 | Namespace service/error ids (`@throwback/…`); fix the `Effect.flatMap(Tag,…)` lint-workaround at config level, restore `Tag.use` | low / low | services + oxlint config | ✅ |
+| 12 | One canonical server-edge dialect (oRPC w/ effect/Schema input on `ServerRuntime`, `Schema.TaggedError` over the wire); fold the review server-fn in | **high** / med | `orpc/*`, `review-server.ts` | 🟡 see note |
 
 Sequencing: #1 unblocks #6 (server) + #12; #2 unblocks #6 (client) + #11. #4-5-7 are the
 metadata/crawl span-&-error pass. #10 subsumes `CrawlSink` (then #11 only renames) and absorbs #4's
@@ -139,3 +139,31 @@ metadata/crawl span-&-error pass. #10 subsumes `CrawlSink` (then #11 only rename
 - **`folder-tree.ts`** and **`mergeReviewStatuses`** — pure code stays pure.
 - **Row codecs in the D1 repos** — `encodeKeys`, `decodeUnknownEffect`, branded ids. Only spans (#4)
   and call-site wiring (#1) need work, not the Schema layer.
+
+## #12 decision — keep the two server-edge dialects (deliberate, not a smell)
+
+Consolidating the D1 review-status path from a TanStack `createServerFn` into an oRPC
+procedure was **decided against**, because it would *regress* the client/server boundary:
+
+- `createServerFn`'s handler body (with the `DbRuntime`/`cloudflare:workers` binding) is
+  **stripped from the client bundle** by the TanStack compiler — exactly what a client-only route
+  (`/curate`) needs. An oRPC procedure touching D1 is statically imported by the isomorphic
+  `orpc/client.ts`, so it would pull `cloudflare:workers` into the browser bundle.
+- Injecting D1 via oRPC **context** (so the router module stays env-free) conflicts with the
+  existing `createRouterClient(router, { context: { headers } })` — the SSR client can't supply a
+  request-scoped `db`, and the types don't line up.
+
+So the two "dialects" have **different jobs**, not redundant ones: **oRPC** for general client↔server
+RPC, **`createServerFn`** for server-only-binding access from a client route. Both already validate
+input with **effect/Schema** on the real path (`review-server.ts`), so there is no validation-library
+split to fix. The remaining nit — the demo `orpc/router/todos.ts` uses `zod` — is left as-is (demo
+code; not worth churning the oRPC example). Service-id namespacing (`@throwback/…`, part of lever 5)
+is likewise a cosmetic sweep left for later.
+
+## Status — complete
+
+Landed (TDD, commit per slice, all green): **#1–#11** plus a real interop bug the review surfaced
+(the XMP namespace was space- not NUL-terminated, so ExifTool/Lightroom/exifreader couldn't read our
+XMP). **#12** is a reasoned non-change (above). The codebase's load-bearing seams were already
+idiomatic; this pass brought the *edges* (runtime crossings, typed errors, spans, the Stream crawl)
+up to the same bar.
