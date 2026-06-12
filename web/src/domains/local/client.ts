@@ -1,8 +1,9 @@
-import { Context, Effect, Layer, Ref, Schema } from "effect";
+import { Effect, Layer, Option, Ref, Schema, Stream } from "effect";
+import { binaryToBytes, blobToBinaryString } from "#/domains/metadata/binary.ts";
 import { PhotoMetadata } from "#/domains/metadata/codec.ts";
 import type { MetadataEdit } from "#/domains/metadata/codec.ts";
-import { binaryToBytes, blobToBinaryString } from "#/domains/metadata/binary.ts";
 import type { DriveItemId } from "#/domains/shared/ids.ts";
+import type { Location } from "#/domains/shared/photo.ts";
 import { buildFolderTree } from "./folder-tree.ts";
 import { PhotoFromLocalFile } from "./mapper.ts";
 import { LocalSourceError, PhotoSource } from "./source.ts";
@@ -14,13 +15,17 @@ import { LocalSourceError, PhotoSource } from "./source.ts";
  * EXIF GPS/orientation, ADR-0019), and keeps a registry of file handles so
  * `getFile` can re-open the bytes for display and the later metadata write-back.
  *
- * The crawl is an Effect that takes its collaborators from the environment rather
- * than threading them: `PhotoMetadata` (read) + `CrawlSink` (the per-ingest
- * accumulator), both provided in `ingest`.
+ * The crawl is a `Stream` pipeline: `filesUnder` flattens the directory tree into a
+ * stream of image candidates, `ingestFile` reads + projects each (concurrently),
+ * and `runCollect` gathers the sources + handle registry — no mutable sink, no
+ * eager snapshot.
  */
 
 // Only the EXIF/XMP header is needed to read facts — avoid loading whole files into a string.
 const HEADER_BYTES = 256 * 1024;
+
+// How many files to read+decode concurrently during a crawl.
+const CRAWL_CONCURRENCY = 8;
 
 const EXT_MIME: Record<string, string> = {
   jpg: "image/jpeg",
@@ -40,99 +45,76 @@ const mimeOf = (file: File, name: string): string => {
   return EXT_MIME[ext] ?? "";
 };
 
-/** The per-ingest accumulator the crawl writes into — provided as a requirement. */
-interface CrawlSinkApi {
-  readonly emit: (id: string, source: unknown, handle: FileSystemFileHandle) => Effect.Effect<void>;
-  readonly drain: Effect.Effect<{
-    readonly sources: readonly unknown[];
-    readonly registry: ReadonlyMap<string, FileSystemFileHandle>;
-  }>;
+/** A file found by the crawl, with its directory path (no filename). */
+interface CrawledFile {
+  readonly handle: FileSystemFileHandle;
+  readonly pathSegments: readonly string[];
 }
-class CrawlSink extends Context.Service<CrawlSink, CrawlSinkApi>()("CrawlSink") {}
 
-/** A fresh sink (encapsulated mutable accumulation) for one crawl. */
-const makeCrawlSink = Effect.sync(() => {
-  const sources: unknown[] = [];
-  const registry = new Map<string, FileSystemFileHandle>();
-  return CrawlSink.of({
-    emit: (id, source, handle) =>
-      Effect.sync(() => {
-        registry.set(id, handle);
-        sources.push(source);
-      }),
-    drain: Effect.sync(() => ({ sources, registry })),
+/** A crawled file's raw, decode-ready inputs (the mapper derives id/folder/year). */
+interface LocalSource {
+  readonly name: string;
+  readonly pathSegments: readonly string[];
+  readonly mimeType: string;
+  readonly exifYear: number | null;
+  readonly description: string | null;
+  readonly location: Location | null;
+}
+
+/** An ingested image: its decode source plus the registry entry (id → handle). */
+interface IngestedFile {
+  readonly id: string;
+  readonly handle: FileSystemFileHandle;
+  readonly source: LocalSource;
+}
+
+/** A recursive `Stream` of image-candidate files under a directory (folders descended). */
+const filesUnder = (
+  dir: FileSystemDirectoryHandle,
+  pathSegments: readonly string[],
+): Stream.Stream<CrawledFile, LocalSourceError> =>
+  Stream.fromAsyncIterable(
+    dir.values(),
+    (cause) => new LocalSourceError({ operation: "crawl", message: String(cause) }),
+  ).pipe(
+    Stream.flatMap((entry) =>
+      entry.kind === "directory"
+        ? filesUnder(entry, [...pathSegments, entry.name])
+        : Stream.succeed({ handle: entry, pathSegments }),
+    ),
+  );
+
+/** Read one image file's header and project it to a decode-ready source; non-images → None. */
+const ingestFile = Effect.fn("local.ingestFile")(function* (file: CrawledFile) {
+  const metadata = yield* PhotoMetadata;
+  const prepared = yield* Effect.tryPromise({
+    try: async (): Promise<{ mimeType: string; binary: string } | null> => {
+      const blob = await file.handle.getFile();
+      const mimeType = mimeOf(blob, file.handle.name);
+      if (mimeType.startsWith("image/")) {
+        return { mimeType, binary: await blobToBinaryString(blob.slice(0, HEADER_BYTES)) };
+      }
+      return null;
+    },
+    catch: (cause) => new LocalSourceError({ operation: "crawl", message: String(cause) }),
+  });
+  if (prepared === null) {
+    return Option.none<IngestedFile>();
+  }
+  const facts = yield* metadata.read(prepared.binary, prepared.mimeType);
+  return Option.some<IngestedFile>({
+    id: [...file.pathSegments, file.handle.name].join("/"),
+    handle: file.handle,
+    source: {
+      name: file.handle.name,
+      pathSegments: file.pathSegments,
+      mimeType: prepared.mimeType,
+      exifYear: facts.year,
+      description: facts.description,
+      location: facts.location,
+    },
   });
 });
-
-/** Snapshot a directory's async-iterated entries into an array. */
-async function collectEntries(
-  dir: FileSystemDirectoryHandle,
-): Promise<(FileSystemFileHandle | FileSystemDirectoryHandle)[]> {
-  const entries: (FileSystemFileHandle | FileSystemDirectoryHandle)[] = [];
-  for await (const handle of dir.values()) {
-    entries.push(handle);
-  }
-  return entries;
-}
-
-/** Read one image file's header and emit a decode-ready source into the sink. */
-function ingestFile(
-  handle: FileSystemFileHandle,
-  pathSegments: readonly string[],
-): Effect.Effect<void, LocalSourceError, PhotoMetadata | CrawlSink> {
-  return Effect.gen(function* () {
-    const metadata = yield* PhotoMetadata;
-    const sink = yield* CrawlSink;
-    const prepared = yield* Effect.tryPromise({
-      try: async (): Promise<{ mimeType: string; binary: string } | null> => {
-        const file = await handle.getFile();
-        const mimeType = mimeOf(file, handle.name);
-        if (mimeType.startsWith("image/")) {
-          return { mimeType, binary: await blobToBinaryString(file.slice(0, HEADER_BYTES)) };
-        }
-        return null;
-      },
-      catch: (cause) => new LocalSourceError({ operation: "crawl", message: String(cause) }),
-    });
-    if (prepared !== null) {
-      const facts = yield* metadata.read(prepared.binary, prepared.mimeType);
-      const id = [...pathSegments, handle.name].join("/"); // the registry key (= Photo id)
-      yield* sink.emit(
-        id,
-        {
-          name: handle.name,
-          pathSegments,
-          mimeType: prepared.mimeType,
-          exifYear: facts.year,
-          description: facts.description,
-          location: facts.location,
-        },
-        handle,
-      );
-    }
-  });
-}
-
-/** Recursively crawl a directory, emitting image files; folders are descended. */
-function crawl(
-  dir: FileSystemDirectoryHandle,
-  pathSegments: readonly string[],
-): Effect.Effect<void, LocalSourceError, PhotoMetadata | CrawlSink> {
-  return Effect.gen(function* () {
-    const entries = yield* Effect.tryPromise({
-      try: () => collectEntries(dir),
-      catch: (cause) => new LocalSourceError({ operation: "crawl", message: String(cause) }),
-    });
-    yield* Effect.forEach(
-      entries,
-      (handle) =>
-        handle.kind === "directory"
-          ? crawl(handle, [...pathSegments, handle.name])
-          : ingestFile(handle, pathSegments),
-      { discard: true },
-    );
-  });
-}
 
 /** Ask once for read-write so the later metadata write-back doesn't prompt per file. */
 const ensurePermission = (handle: FileSystemDirectoryHandle) =>
@@ -153,22 +135,23 @@ const make = Effect.all([Ref.make(new Map<string, FileSystemFileHandle>()), Phot
     const ingest = Effect.fn("local.ingest")(function* (rootHandle: FileSystemDirectoryHandle) {
       yield* ensurePermission(rootHandle);
 
-      const sink = yield* makeCrawlSink;
-      yield* crawl(rootHandle, [rootHandle.name]).pipe(
-        Effect.provideService(CrawlSink, sink),
+      const collected = yield* filesUnder(rootHandle, [rootHandle.name]).pipe(
+        Stream.mapEffect(ingestFile, { concurrency: CRAWL_CONCURRENCY }),
+        Stream.runCollect,
         Effect.provideService(PhotoMetadata, metadata),
       );
-      const crawled = yield* sink.drain;
+      // Drop the non-image Nones, keeping the projected sources.
+      const ingested = collected.flatMap((option) => (Option.isSome(option) ? [option.value] : []));
 
-      const photos = yield* Effect.forEach(crawled.sources, (source) =>
-        Schema.decodeUnknownEffect(PhotoFromLocalFile)(source).pipe(
+      const photos = yield* Effect.forEach(ingested, (item) =>
+        Schema.decodeUnknownEffect(PhotoFromLocalFile)(item.source).pipe(
           Effect.mapError(
             (cause) => new LocalSourceError({ operation: "decode", message: String(cause) }),
           ),
         ),
       );
 
-      yield* Ref.set(registry, new Map(crawled.registry));
+      yield* Ref.set(registry, new Map(ingested.map((item) => [item.id, item.handle])));
       return { root: buildFolderTree(photos, rootHandle.name), photos };
     });
 
