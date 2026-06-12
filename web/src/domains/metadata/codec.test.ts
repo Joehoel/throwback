@@ -43,7 +43,7 @@ layer(PhotoMetadataDefault)("PhotoMetadata", (it) => {
   it.effect("writes JPEG description + location, then reads them back", () =>
     Effect.gen(function* () {
       const metadata = yield* PhotoMetadata;
-      const written = metadata.write(jpegBinaryWithExif(), JPEG, {
+      const written = yield* metadata.write(jpegBinaryWithExif(), JPEG, {
         description: "Joël aan het meer",
         location: { latitude: 52.1, longitude: 5.2 },
         orientation: 6,
@@ -58,7 +58,7 @@ layer(PhotoMetadataDefault)("PhotoMetadata", (it) => {
   it.effect("round-trips a PNG description through XMP", () =>
     Effect.gen(function* () {
       const metadata = yield* PhotoMetadata;
-      const written = metadata.write(pngBinary(), PNG, {
+      const written = yield* metadata.write(pngBinary(), PNG, {
         description: "Joël in de tuin",
         location: null,
         orientation: null,

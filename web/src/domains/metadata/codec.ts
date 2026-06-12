@@ -1,4 +1,4 @@
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import type { Location } from "#/domains/shared/photo.ts";
 import { writeExif } from "./exif.ts";
 import { decodeMetadata } from "./facts.ts";
@@ -16,11 +16,25 @@ import { readXmpDescription, writeXmpDescription } from "./xmp.ts";
  * `MetadataFacts` via the read schema (`facts.ts`), where every value transform +
  * XMP-over-EXIF precedence lives (ADR-0019).
  *
- * Write is a lossless imperative byte merge (ADR-0019), not a Schema encode: for
- * JPEG, Locatie/Oriëntatie + Windows XP tags to EXIF and canonical Beschrijving to
- * XMP; for PNG, Beschrijving to the XMP `iTXt` chunk (PNG GPS is deferred). Read
- * confines the one throwing boundary (malformed EXIF) to `Exif`'s `Effect.try`.
+ * Everything is Effect-shaped: the read confines the one throwing boundary
+ * (malformed EXIF) to `Exif`'s `Effect.try` and *observes* the cause (logWarning)
+ * before degrading to EMPTY — a corrupt file is never silently invisible. The write
+ * is a lossless imperative byte merge (ADR-0019), not a Schema encode, wrapped in
+ * `Effect.fn` with a typed `MetadataWriteError`: for JPEG, Locatie/Oriëntatie +
+ * Windows XP tags to EXIF and canonical Beschrijving to XMP; for PNG, Beschrijving
+ * to the XMP `iTXt` chunk (PNG GPS is deferred).
  */
+
+/** A throwing EXIF read (non-image / corrupt) — observed, then degraded to EMPTY (ADR-0013). */
+export class ExifReadError extends Schema.TaggedErrorClass<ExifReadError>()("ExifReadError", {
+  message: Schema.String,
+}) {}
+
+/** A failed metadata write-back (ADR-0013) — the codec owns it, the consumer re-wraps it. */
+export class MetadataWriteError extends Schema.TaggedErrorClass<MetadataWriteError>()(
+  "MetadataWriteError",
+  { mimeType: Schema.String, message: Schema.String },
+) {}
 
 const isPng = (mimeType: string): boolean => mimeType === "image/png";
 const isJpeg = (mimeType: string): boolean => mimeType === "image/jpeg";
@@ -43,7 +57,15 @@ export const ExifLive = Layer.succeed(
   Exif,
   Exif.of({
     read: (jpegBinary) =>
-      Effect.try({ try: () => readExif(jpegBinary), catch: () => null }).pipe(
+      Effect.try({
+        try: () => readExif(jpegBinary),
+        catch: (cause) => new ExifReadError({ message: String(cause) }),
+      }).pipe(
+        Effect.tapError((error) =>
+          Effect.logWarning("EXIF read failed; degrading to no metadata").pipe(
+            Effect.annotateLogs("cause", error.message),
+          ),
+        ),
         Effect.orElseSucceed(() => EMPTY),
       ),
   }),
@@ -56,10 +78,13 @@ export const ExifFake = (raw: RawExif): Layer.Layer<Exif> =>
 // --- XMP service (canonical description, JPEG) ---
 
 export interface XmpApi {
-  readonly readDescription: (jpegBinary: string) => string | null;
+  readonly readDescription: (jpegBinary: string) => Effect.Effect<string | null>;
 }
 export class Xmp extends Context.Service<Xmp, XmpApi>()("Xmp") {}
-export const XmpLive = Layer.succeed(Xmp, Xmp.of({ readDescription: readXmpDescription }));
+export const XmpLive = Layer.succeed(
+  Xmp,
+  Xmp.of({ readDescription: (jpegBinary) => Effect.succeed(readXmpDescription(jpegBinary)) }),
+);
 
 // --- facade ---
 
@@ -74,20 +99,40 @@ export interface PhotoMetadataApi {
   /** Read the curated fields for a JPEG/PNG; the read schema applies precedence. */
   readonly read: (binary: string, mimeType: string) => Effect.Effect<MetadataFacts>;
   /** Lossless write-back of the approved fields; returns the new binary. */
-  readonly write: (binary: string, mimeType: string, edit: MetadataEdit) => string;
+  readonly write: (
+    binary: string,
+    mimeType: string,
+    edit: MetadataEdit,
+  ) => Effect.Effect<string, MetadataWriteError>;
 }
 export class PhotoMetadata extends Context.Service<PhotoMetadata, PhotoMetadataApi>()(
   "PhotoMetadata",
 ) {}
 
+/** The lossless byte merge (imperative, ADR-0019). Throws on malformed bytes; wrapped by the facade. */
+const writeBytes = (binary: string, mimeType: string, edit: MetadataEdit): string => {
+  if (isPng(mimeType)) {
+    return edit.description === null ? binary : writePngDescription(binary, edit.description);
+  }
+  if (isJpeg(mimeType)) {
+    const withExif = writeExif(binary, {
+      orientation: edit.orientation,
+      location: edit.location,
+      description: edit.description,
+    });
+    return edit.description === null ? withExif : writeXmpDescription(withExif, edit.description);
+  }
+  return binary; // formats we don't manage (gif/webp/avif) pass through untouched
+};
+
 const make = Effect.all([Exif, Xmp]).pipe(
   Effect.map(([exif, xmp]) => {
     const read = (binary: string, mimeType: string): Effect.Effect<MetadataFacts> => {
       if (isJpeg(mimeType)) {
-        return exif.read(binary).pipe(
-          Effect.map((raw) =>
+        return Effect.all([exif.read(binary), xmp.readDescription(binary)]).pipe(
+          Effect.map(([raw, xmpDescription]) =>
             decodeMetadata({
-              description: { xmp: xmp.readDescription(binary), exif: raw.description },
+              description: { xmp: xmpDescription, exif: raw.description },
               year: raw.captureDate,
               location: raw.gps,
               orientation: raw.orientation,
@@ -101,22 +146,16 @@ const make = Effect.all([Exif, Xmp]).pipe(
       );
     };
 
-    const write = (binary: string, mimeType: string, edit: MetadataEdit): string => {
-      if (isPng(mimeType)) {
-        return edit.description === null ? binary : writePngDescription(binary, edit.description);
-      }
-      if (isJpeg(mimeType)) {
-        const withExif = writeExif(binary, {
-          orientation: edit.orientation,
-          location: edit.location,
-          description: edit.description,
-        });
-        return edit.description === null
-          ? withExif
-          : writeXmpDescription(withExif, edit.description);
-      }
-      return binary; // formats we don't manage (gif/webp/avif) pass through untouched
-    };
+    const write = Effect.fn("PhotoMetadata.write")(function* (
+      binary: string,
+      mimeType: string,
+      edit: MetadataEdit,
+    ) {
+      return yield* Effect.try({
+        try: () => writeBytes(binary, mimeType, edit),
+        catch: (cause) => new MetadataWriteError({ mimeType, message: String(cause) }),
+      });
+    });
 
     return PhotoMetadata.of({ read, write });
   }),

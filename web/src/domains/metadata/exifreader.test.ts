@@ -76,7 +76,7 @@ describe("Exif via exifreader", () => {
 describe("Xmp via exifreader", () => {
   const readXmp = (bin: string) =>
     run(
-      Effect.map(Xmp, (xmp) => xmp.readDescription(bin)),
+      Effect.flatMap(Xmp, (xmp) => xmp.readDescription(bin)),
       XmpReaderLive,
     );
 

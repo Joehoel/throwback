@@ -196,11 +196,20 @@ const make = Effect.all([Ref.make(new Map<string, FileSystemFileHandle>()), Phot
           new LocalSourceError({ operation: "write", message: `unknown photo: ${photoId}` }),
         );
       }
+      const file = yield* Effect.tryPromise({
+        try: () => handle.getFile(),
+        catch: (cause) => new LocalSourceError({ operation: "write", message: String(cause) }),
+      });
+      const binary = yield* Effect.promise(() => blobToBinaryString(file)); // whole file: lossless rewrite
+      const next = yield* metadata
+        .write(binary, mimeOf(file, handle.name), edit)
+        .pipe(
+          Effect.mapError(
+            (cause) => new LocalSourceError({ operation: "write", message: cause.message }),
+          ),
+        );
       return yield* Effect.tryPromise({
         try: async () => {
-          const file = await handle.getFile();
-          const binary = await blobToBinaryString(file); // whole file: the write is a lossless rewrite
-          const next = metadata.write(binary, mimeOf(file, handle.name), edit);
           const writable = await handle.createWritable();
           await writable.write(binaryToBytes(next));
           await writable.close();
