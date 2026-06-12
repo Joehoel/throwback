@@ -31,8 +31,6 @@ const EXT_MIME: Record<string, string> = {
   avif: "image/avif",
 };
 
-const YEAR_SEGMENT = /^(?:19|20)\d{2}$/u;
-
 /** The file's MIME type, falling back to its extension when the browser leaves it blank. */
 const mimeOf = (file: File, name: string): string => {
   if (file.type !== "") {
@@ -98,16 +96,14 @@ function ingestFile(
     });
     if (prepared !== null) {
       const facts = yield* metadata.read(prepared.binary, prepared.mimeType);
-      const yearFromPath = pathSegments.find((segment) => YEAR_SEGMENT.test(segment));
-      const id = [...pathSegments, handle.name].join("/");
+      const id = [...pathSegments, handle.name].join("/"); // the registry key (= Photo id)
       yield* sink.emit(
         id,
         {
-          id,
           name: handle.name,
-          folderId: pathSegments.join("/"),
+          pathSegments,
           mimeType: prepared.mimeType,
-          year: yearFromPath === undefined ? facts.year : Number(yearFromPath),
+          exifYear: facts.year,
           description: facts.description,
           location: facts.location,
         },
