@@ -226,6 +226,6 @@ class SyncEngine(
         const val REFRESH_INTERVAL_MS = 10 * 60 * 1000L
         const val GEOCODE_POLL_MS = 2_000L
         // Bump to force one full re-crawl per folder on next start.
-        const val RECONCILE_TAG = "v6-exif-bytes-utf8"
+        const val RECONCILE_TAG = "v7-xp-tags"
     }
 }

@@ -1,20 +1,20 @@
 package fyi.kuijper.throwback.onedrive
 
 /**
- * Resolves a photo's Beschrijving via the fixed fallback chain (ADR-0004): first the typed
- * `driveItem.description` field; if empty, the *embedded* photo metadata (EXIF `ImageDescription` ->
- * XMP `dc:description`/`dc:title`, via [ExifCaption]).
+ * Resolves a photo's Beschrijving via the fixed fallback chain (ADR-0019): first the typed
+ * `driveItem.description` field; if empty, the *embedded* photo metadata (XMP `dc:description`/`dc:title`
+ * -> Windows `XP*` tags -> EXIF `ImageDescription`, via [ExifCaption]).
  *
  * The embedded metadata is read from the *front* of the file over a Range-GET, never the whole photo.
- * The tricky part is sizing that read: `ExifInterface` walks every header segment and aborts if the
- * slice cuts one off, only stopping at the start-of-scan — and camera JPEGs push the EXIF `APP1`
+ * The tricky part is sizing that read: the parser walks every header segment up to the start-of-scan,
+ * and a segment the slice cuts off is dropped — and camera JPEGs push the EXIF `APP1`
  * (thumbnail inside) up to its ~64 KB limit with XMP + ICC after it. So we fetch [initialBytes]
  * (enough to reach the scan in one request for an ordinary photo), then — only if [JpegSegments]
  * reports the headers run past what we fetched (large metadata, Extended XMP, big ICC) — widen to
  * cover them, bounded by [maxBytes] so a pathological file can't run away.
  *
  * The byte source ([fetchBytes], a Range-GET of the first N bytes) and the parser ([parseEmbedded])
- * are injectable, so the whole chain is unit-testable apart from Graph and Android's ExifInterface.
+ * are injectable, so the whole chain is unit-testable apart from Graph.
  */
 class DescriptionResolver(
     private val fetchBytes: suspend (photoId: String, byteCount: Int) -> ByteArray?,
@@ -26,7 +26,7 @@ class DescriptionResolver(
     suspend fun resolve(typed: String?, photoId: String): String? {
         if (!typed.isNullOrBlank()) return typed
         var bytes = fetch(photoId, initialBytes) ?: return typed
-        // Widen until the slice reaches the start-of-scan, i.e. holds every header segment ExifInterface
+        // Widen until the slice reaches the start-of-scan, i.e. holds every header segment the parser
         // will touch. [JpegSegments.headerEnd] returns ≤ size once complete, or a larger "need this much"
         // value otherwise. Each widen grows geometrically (and at least one SLACK_BYTES past the segment
         // we stopped on), so even headers that run to several hundred KB — Extended XMP, a big ICC — are

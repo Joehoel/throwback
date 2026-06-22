@@ -1,7 +1,9 @@
 package fyi.kuijper.throwback.onedrive
 
-import androidx.exifinterface.media.ExifInterface
-import org.apache.commons.text.StringEscapeUtils
+import com.drew.imaging.ImageMetadataReader
+import com.drew.metadata.Metadata
+import com.drew.metadata.exif.ExifIFD0Directory
+import com.drew.metadata.xmp.XmpDirectory
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import java.nio.ByteBuffer
@@ -10,47 +12,65 @@ import java.nio.charset.CodingErrorAction
 /**
  * Reads the caption from *embedded* photo metadata (EXIF/XMP). Needed since OneDrive's new storage
  * backend (item ids with `!s…`) stops returning the caption as `driveItem.description` even though it
- * is in the file — Windows writes it (Details tab: Title/Subject/Comments) to `ImageDescription` and
- * XMP `dc:description`/`dc:title`.
+ * is in the file — Windows writes it (Verkenner Details tab: Titel/Onderwerp/Opmerkingen) to the XMP
+ * `dc:description`/`dc:title`, the Windows `XP*` tags (UTF-16), and EXIF `ImageDescription`.
+ *
+ * Parsing is delegated to **metadata-extractor** (Drew Noakes): it reads every format the mixed library
+ * holds (JPEG/PNG/HEIC/TIFF), decodes the Windows `XP*` tags as UTF-16LE, and parses XMP via xmpcore —
+ * all the byte-level work we used to hand-roll. Crucially it is pure-JVM, so this whole path now unit-
+ * tests without an instrumented device (unlike `androidx.exifinterface`, which it replaced).
  *
  * The caller passes a slice from the front of the file ([DescriptionResolver] sizes it via
- * [JpegSegments]). That slice must cover the *entire* EXIF APP1 segment: camera JPEGs embed a
- * thumbnail there, pushing it up to its 64 KB single-marker limit, and [ExifInterface] returns
- * nothing from a truncated segment. The XMP APP1 follows EXIF, so it sits even further in. The
- * Android [ExifInterface] read lives here; the text extraction below it ([cleanCaption]/
- * [captionFromXmp]) is pure and Android-free, so it stays unit-testable on its own.
+ * [JpegSegments]); that slice must cover the EXIF + XMP `APP1` segments. We keep only the source
+ * *order* ([pickCaption]) and text *clean-up* ([cleanCaption]) here, both pure and Android-free.
  */
 object ExifCaption {
 
     fun parse(bytes: ByteArray): String? = parse(ByteArrayInputStream(bytes))
 
     fun parse(input: InputStream): String? {
-        val exif = runCatching { ExifInterface(input) }.getOrNull() ?: return null
-        // Read the *raw bytes*, not getAttribute's String: ExifInterface decodes string tags byte-by-byte
-        // and replaces every non-ASCII byte with '?', wrecking any UTF-8 caption. Preference order: the
-        // ImageDescription field (where Windows also writes Title/Subject), then XMP dc:description/dc:title.
-        captionFromExifBytes(exif.getAttributeBytes(ExifInterface.TAG_IMAGE_DESCRIPTION))?.let { return it }
-        return captionFromXmp(exif.getAttributeBytes(ExifInterface.TAG_XMP)?.let(::decodeUtf8OrLatin1))
+        val metadata = runCatching { ImageMetadataReader.readMetadata(input) }.getOrNull() ?: return null
+        val exif = metadata.getFirstDirectoryOfType(ExifIFD0Directory::class.java)
+        return pickCaption(
+            xmp = xmpCaption(metadata),
+            // getDescription decodes the Windows XP* tags as UTF-16LE (accent-safe) and strips the NUL.
+            xpTitle = exif?.getDescription(ExifIFD0Directory.TAG_WIN_TITLE),
+            xpSubject = exif?.getDescription(ExifIFD0Directory.TAG_WIN_SUBJECT),
+            xpComment = exif?.getDescription(ExifIFD0Directory.TAG_WIN_COMMENT),
+            imageDescription = exif?.getDescription(ExifIFD0Directory.TAG_IMAGE_DESCRIPTION),
+        )
+    }
+
+    /** XMP `dc:description`, else `dc:title`. Lang-alt values serialize as `dc:description[1]`. */
+    private fun xmpCaption(metadata: Metadata): String? {
+        val props = metadata.getFirstDirectoryOfType(XmpDirectory::class.java)?.xmpProperties ?: return null
+        fun first(key: String) = props[key] ?: props["$key[1]"]
+        return first("dc:description") ?: first("dc:title")
     }
 }
 
 /**
- * Decode a raw EXIF string-attribute (e.g. ImageDescription), then clean it. We take the *bytes*
- * (getAttributeBytes), not getAttribute's String, because ExifInterface decodes IFD_FORMAT_STRING
- * byte-by-byte and turns every non-ASCII byte into a literal '?' — destroying any UTF-8 caption
- * (Windows writes the Details-tab text here as UTF-8). Decode UTF-8 ourselves.
+ * Choose the caption from the places Windows writes it, in the order ADR-0019 mandates: the clean,
+ * cross-format XMP first, then the accent-safe UTF-16 Windows XP tags (Titel/Onderwerp/Opmerkingen),
+ * and only as a last resort the EXIF `ImageDescription` — which is mojibake for Dutch accents.
+ *
+ * This is why Windows-authored captions went missing on the TV before: the old reader looked only at
+ * `ImageDescription` + XMP (and `androidx.exifinterface` cannot read the XP tags at all), so a caption
+ * typed into the Verkenner XP fields was invisible, and a photo that had both showed the mojibake EXIF
+ * value instead of the clean one. Each candidate is cleaned; the first non-blank wins.
  */
-internal fun captionFromExifBytes(bytes: ByteArray?): String? =
-    bytes?.let { cleanCaption(decodeUtf8OrLatin1(it)) }
-
-/** UTF-8 if the bytes are valid UTF-8 (the common case Windows writes), else Latin-1 so nothing is lost. */
-private fun decodeUtf8OrLatin1(bytes: ByteArray): String = runCatching {
-    Charsets.UTF_8.newDecoder()
-        .onMalformedInput(CodingErrorAction.REPORT)
-        .onUnmappableCharacter(CodingErrorAction.REPORT)
-        .decode(ByteBuffer.wrap(bytes))
-        .toString()
-}.getOrElse { String(bytes, Charsets.ISO_8859_1) }
+internal fun pickCaption(
+    xmp: String?,
+    xpTitle: String?,
+    xpSubject: String?,
+    xpComment: String?,
+    imageDescription: String?,
+): String? =
+    cleanCaption(xmp)
+        ?: cleanCaption(xpTitle)
+        ?: cleanCaption(xpSubject)
+        ?: cleanCaption(xpComment)
+        ?: cleanCaption(imageDescription)
 
 /** Strip control/NUL chars (incl. the UTF-16 null terminator), normalize whitespace; null if empty. */
 internal fun cleanCaption(value: String?): String? = value
@@ -62,10 +82,11 @@ internal fun cleanCaption(value: String?): String? = value
 
 /**
  * Secondary net: undo "UTF-8 bytes decoded as Latin-1" mojibake (a trema "Joël" arriving as "JoÃ«l").
- * The EXIF path already decodes its raw bytes correctly ([decodeUtf8OrLatin1]); this only catches a
- * caption that reaches us *already* stringified that way from elsewhere. We re-interpret the chars as
- * their raw bytes and decode strictly as UTF-8; only a string that *is* exactly such a misread succeeds,
- * so correct text (incl. an already-right "Joël", whose bytes aren't valid UTF-8) and real Unicode pass through.
+ * metadata-extractor decodes XMP (UTF-8) and the XP tags (UTF-16) correctly; this only catches the
+ * last-resort EXIF `ImageDescription`, which it may hand back already stringified that way. We re-
+ * interpret the chars as their raw bytes and decode strictly as UTF-8; only a string that *is* exactly
+ * such a misread succeeds, so correct text (incl. an already-right "Joël", whose bytes aren't valid
+ * UTF-8) and real Unicode pass through.
  */
 private fun repairLatin1Utf8(s: String): String {
     if (s.none { it.code in 0xC2..0xF4 }) return s // no UTF-8 lead-byte → nothing to repair
@@ -78,17 +99,4 @@ private fun repairLatin1Utf8(s: String): String {
             .decode(ByteBuffer.wrap(bytes))
             .toString()
     }.getOrDefault(s)
-}
-
-internal fun captionFromXmp(xmp: String?): String? {
-    if (xmp.isNullOrBlank()) return null
-    for (tag in arrayOf("dc:description", "dc:title")) {
-        val block = Regex("<$tag[^>]*>(.*?)</$tag>", setOf(RegexOption.DOT_MATCHES_ALL))
-            .find(xmp)?.groupValues?.get(1) ?: continue
-        // Value is often wrapped in rdf:Alt/rdf:li; strip all tags, decode XML entities (&amp;, &#235;,
-        // …, like the typed-description path does), then normalize.
-        val text = StringEscapeUtils.unescapeHtml4(block.replace(Regex("<[^>]+>"), " "))
-        cleanCaption(text)?.let { return it }
-    }
-    return null
 }
