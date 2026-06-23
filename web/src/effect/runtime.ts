@@ -3,10 +3,17 @@ import type { Effect } from "effect";
 import { Observability } from "./observability.ts";
 
 /**
+ * One `MemoMap` shared across every app runtime built here, so any common layer
+ * (e.g. the `Observability` tracer) is constructed once and reused rather than
+ * rebuilt per runtime. Per-bundle: the client and Worker get their own.
+ */
+const memoMap = Layer.makeMemoMapUnsafe();
+
+/**
  * A lazy `ManagedRuntime` for an app layer, with the `Observability` layer merged
  * in so the app's `Effect.fn` spans export once tracing is wired (ADR-0007). The
- * runtime builds on first use and is reused after. (Adapted from anomalyco/opencode
- * `core/src/effect/runtime.ts`.)
+ * runtime builds on first use (sharing the `memoMap`) and is reused after; `dispose`
+ * releases it. (Adapted from anomalyco/opencode `core/src/effect/runtime.ts`.)
  *
  * Run programs that require the layer's services:
  * `rt.runPromise(OneDriveClient.use((s) => s.method(args)))`.
@@ -14,7 +21,7 @@ import { Observability } from "./observability.ts";
 export function makeRuntime<RIn, E>(layer: Layer.Layer<RIn, E>) {
   let rt: ManagedRuntime.ManagedRuntime<RIn, E> | undefined;
   const runtime = (): ManagedRuntime.ManagedRuntime<RIn, E> =>
-    (rt ??= ManagedRuntime.make(Layer.provideMerge(layer, Observability.layer)));
+    (rt ??= ManagedRuntime.make(Layer.provideMerge(layer, Observability.layer), { memoMap }));
 
   return {
     runtime,
@@ -23,5 +30,6 @@ export function makeRuntime<RIn, E>(layer: Layer.Layer<RIn, E>) {
     runPromiseExit: <A, Err>(effect: Effect.Effect<A, Err, RIn>, options?: Effect.RunOptions) =>
       runtime().runPromiseExit(effect, options),
     runFork: <A, Err>(effect: Effect.Effect<A, Err, RIn>) => runtime().runFork(effect),
+    dispose: (): Promise<void> => (rt === undefined ? Promise.resolve() : rt.dispose()),
   };
 }

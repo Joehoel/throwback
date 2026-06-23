@@ -15,7 +15,7 @@ orgJson = "20260522"
 coil = "3.4.0"
 zxing = "3.5.4"
 commonsText = "1.15.0"
-exifinterface = "1.4.2"
+metadataExtractor = "2.19.0"
 ksp = "2.3.9"
 room = "2.8.4"
 sentry = "8.43.0"
@@ -45,7 +45,7 @@ coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref 
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 commons-text = { group = "org.apache.commons", name = "commons-text", version.ref = "commonsText" }
-androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
+metadata-extractor = { group = "com.drewnoakes", name = "metadata-extractor", version.ref = "metadataExtractor" }
 androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
 androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
 androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }

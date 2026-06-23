@@ -1,12 +1,10 @@
 import { Button, Loader } from "@cloudflare/kumo";
 import { FolderIcon } from "@phosphor-icons/react";
 import { ClientOnly, createFileRoute } from "@tanstack/react-router";
-import { Effect } from "effect";
 import { useState } from "react";
+import { describeError, ingestFolder } from "#/domains/curation/components/local/actions.ts";
 import { Centered, FolderBrowser } from "#/domains/curation/components/local/folder-browser.tsx";
-import { PhotoSource } from "#/domains/local/source.ts";
 import type { IngestResult } from "#/domains/local/source.ts";
-import { LocalRuntime } from "#/effect/client-runtime.ts";
 
 /**
  * Local-folder curation harness. Pick a downloaded folder via the File System
@@ -17,11 +15,6 @@ import { LocalRuntime } from "#/effect/client-runtime.ts";
  */
 
 const supportsFsa = (): boolean => typeof globalThis.showDirectoryPicker === "function";
-
-// Crawl a picked directory on the client runtime. (Effect.flatMap on the service
-// tag rather than `.use`, which the react-hooks lint mistakes for React's `use`.)
-const ingestFolder = (handle: FileSystemDirectoryHandle): Promise<IngestResult> =>
-  LocalRuntime.runPromise(Effect.flatMap(PhotoSource, (source) => source.ingest(handle)));
 
 function CurateApp(): React.ReactNode {
   const [result, setResult] = useState<IngestResult | null>(null);
@@ -39,14 +32,14 @@ function CurateApp(): React.ReactNode {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
-      setErrorMessage(String(error));
+      setErrorMessage(describeError(error));
       return;
     }
     setBusy(true);
     try {
       setResult(await ingestFolder(handle));
     } catch (error) {
-      setErrorMessage(String(error));
+      setErrorMessage(describeError(error));
     } finally {
       setBusy(false);
     }

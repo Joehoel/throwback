@@ -2,7 +2,7 @@ import { load } from "exifreader";
 import type { ExpandedTags } from "exifreader";
 import { Effect, Layer } from "effect";
 import { binaryToBytes } from "./binary.ts";
-import { Exif, PhotoMetadataLive, Xmp } from "./codec.ts";
+import { Exif, ExifReadError, PhotoMetadataLive, Xmp } from "./codec.ts";
 import { EMPTY } from "./reader.ts";
 import type { RawExif, RawGps, Rational3 } from "./reader.ts";
 
@@ -29,11 +29,11 @@ import type { RawExif, RawGps, Rational3 } from "./reader.ts";
  * will not recognise as XMP. Tracked separately; this reader is correct.
  */
 
-/** Parse the JPEG into exifreader's expanded tag tree; unrecognised data fails to `null`. */
-const loadTags = (jpegBinary: string): Effect.Effect<ExpandedTags, null> =>
+/** Parse the JPEG into exifreader's expanded tag tree; unrecognised data fails typed. */
+const loadTags = (jpegBinary: string): Effect.Effect<ExpandedTags, ExifReadError> =>
   Effect.try({
     try: () => load(binaryToBytes(jpegBinary).buffer, { expanded: true }),
-    catch: () => null,
+    catch: (cause) => new ExifReadError({ message: String(cause) }),
   });
 
 /** Build our raw GPS (DMS rationals + N/S/E/W refs) from exifreader's EXIF tags. */
@@ -81,10 +81,15 @@ const toXmpDescription = (tags: ExpandedTags): string | null => {
 
 // --- Effect-shaped reads (the seams used by the layers) ---
 
-/** Read EXIF via exifreader; non-image / parse error degrades to `EMPTY`. */
+/** Read EXIF via exifreader; non-image / parse error is observed, then degrades to `EMPTY`. */
 const readExif = (jpegBinary: string): Effect.Effect<RawExif> =>
   loadTags(jpegBinary).pipe(
     Effect.map(toRawExif),
+    Effect.tapError((error) =>
+      Effect.logWarning("EXIF read failed; degrading to no metadata").pipe(
+        Effect.annotateLogs("cause", error.message),
+      ),
+    ),
     Effect.orElseSucceed(() => EMPTY),
   );
 
@@ -100,11 +105,8 @@ const readXmpDescription = (jpegBinary: string): Effect.Effect<string | null> =>
 /** `Exif`, read via exifreader (drop-in for `ExifLive`). */
 export const ExifReaderLive = Layer.succeed(Exif, Exif.of({ read: readExif }));
 
-/** `Xmp`, read via exifreader (drop-in for `XmpLive`). The interface is sync, so we run the read. */
-export const XmpReaderLive = Layer.succeed(
-  Xmp,
-  Xmp.of({ readDescription: (jpegBinary) => Effect.runSync(readXmpDescription(jpegBinary)) }),
-);
+/** `Xmp`, read via exifreader (drop-in for `XmpLive`) — Effect-shaped, no runtime mid-service. */
+export const XmpReaderLive = Layer.succeed(Xmp, Xmp.of({ readDescription: readXmpDescription }));
 
 /** Both readers, exifreader-backed — provide to `PhotoMetadataLive` in place of the defaults. */
 export const ExifReaderBackend = Layer.mergeAll(ExifReaderLive, XmpReaderLive);

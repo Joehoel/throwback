@@ -17,31 +17,31 @@ export const ReviewRow = Schema.Struct({
 }).pipe(Schema.encodeKeys({ reviewStatus: "review_status" }));
 
 /** Upsert the review state for a local path. */
-export const setReviewStatus = (path: string, status: ReviewStatus) =>
-  Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient;
-    yield* sql`
-      INSERT INTO local_review (path, review_status) VALUES (${path}, ${status})
-      ON CONFLICT(path) DO UPDATE SET review_status = excluded.review_status
-    `;
-  });
+export const setReviewStatus = Effect.fn("review.setReviewStatus")(function* (
+  path: string,
+  status: ReviewStatus,
+) {
+  const sql = yield* SqlClient.SqlClient;
+  yield* sql`
+    INSERT INTO local_review (path, review_status) VALUES (${path}, ${status})
+    ON CONFLICT(path) DO UPDATE SET review_status = excluded.review_status
+  `;
+});
 
 /** The review state for a local path; `needs_review` when not yet recorded. */
-export const getReviewStatus = (path: string) =>
-  Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient;
-    const rows = yield* sql`SELECT * FROM local_review WHERE path = ${path}`;
-    if (rows.length === 0) {
-      return "needs_review" as const;
-    }
-    const row = yield* Schema.decodeUnknownEffect(ReviewRow)(rows[0]);
-    return row.reviewStatus;
-  });
+export const getReviewStatus = Effect.fn("review.getReviewStatus")(function* (path: string) {
+  const sql = yield* SqlClient.SqlClient;
+  const rows = yield* sql`SELECT * FROM local_review WHERE path = ${path}`;
+  if (rows.length === 0) {
+    return "needs_review" as const;
+  }
+  const row = yield* Schema.decodeUnknownEffect(ReviewRow)(rows[0]);
+  return row.reviewStatus;
+});
 
 /** Every recorded review state — for the curation to hydrate the crawled photos. */
-export const reviewStatuses = () =>
-  Effect.gen(function* () {
-    const sql = yield* SqlClient.SqlClient;
-    const rows = yield* sql`SELECT * FROM local_review`;
-    return yield* Schema.decodeUnknownEffect(Schema.Array(ReviewRow))(rows);
-  });
+export const reviewStatuses = Effect.fn("review.reviewStatuses")(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  const rows = yield* sql`SELECT * FROM local_review`;
+  return yield* Schema.decodeUnknownEffect(Schema.Array(ReviewRow))(rows);
+});
