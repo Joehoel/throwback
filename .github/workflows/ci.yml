@@ -25,7 +25,7 @@ jobs:
           java-version: '21'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6
+        uses: gradle/actions/setup-gradle@v6.2.0
         with:
           # Only main writes the cache; PR/feature branches read it. Stops every branch
           # from saving its own near-duplicate entry and evicting main's from the 10 GB budget.
