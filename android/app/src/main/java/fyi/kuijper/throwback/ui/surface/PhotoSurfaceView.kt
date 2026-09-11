@@ -6,8 +6,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
-import android.os.Handler
-import android.os.HandlerThread
 import android.os.SystemClock
 import android.util.AttributeSet
 import android.util.Log
@@ -63,9 +61,7 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
     private val paint = Paint(Paint.FILTER_BITMAP_FLAG)
     private val matrix = Matrix()
 
-    private var renderThread: HandlerThread? = null
-    private var renderHandler: Handler? = null
-    @Volatile private var rendering = false
+    private val renderLoop = RenderLoop(FRAME_MS)
     private var bufferW = 0
     private var bufferH = 0
 
@@ -112,33 +108,17 @@ class PhotoSurfaceView @JvmOverloads constructor(context: Context, attrs: Attrib
     }
 
     override fun surfaceDestroyed(h: SurfaceHolder) {
-        stopRenderLoop()
+        // Blocks until the render thread has finished any in-flight frame, so nothing locks/posts the
+        // canvas after this returns and the surface is released — the alternative aborts natively (SIGABRT
+        // on the graphics buffer) when the screensaver/show is dismissed mid-frame. See [RenderLoop.stop].
+        renderLoop.stop()
     }
 
     // --- render loop -----------------------------------------------------------------------------
 
     private fun startRenderLoop() {
-        if (rendering) return
-        rendering = true
         lastFrameUptime = SystemClock.uptimeMillis()
-        val thread = HandlerThread("photo-surface-render").also { it.start() }
-        val handler = Handler(thread.looper)
-        renderThread = thread
-        renderHandler = handler
-        handler.post(object : Runnable {
-            override fun run() {
-                if (!rendering) return
-                drawFrame()
-                handler.postDelayed(this, FRAME_MS)
-            }
-        })
-    }
-
-    private fun stopRenderLoop() {
-        rendering = false
-        renderThread?.quitSafely()
-        renderThread = null
-        renderHandler = null
+        renderLoop.start { drawFrame() }
     }
 
     private fun drawFrame() {

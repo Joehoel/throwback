@@ -38,6 +38,11 @@ class ThrowbackApp : Application() {
             options.isDebug = BuildConfig.DEBUG
             options.isSendDefaultPii = false
 
+            // A native crash during teardown (the SurfaceView abort we hit) can't always be reported in the
+            // same process, so also pick up tombstones written on a previous run at next startup. Pairs with
+            // the io.sentry.tombstone.* manifest flags.
+            options.isReportHistoricalTombstones = true
+
             options.beforeBreadcrumb = SentryOptions.BeforeBreadcrumbCallback { crumb, _ ->
                 (crumb.data["url"] as? String)?.let { url ->
                     if (TOKEN_BEARING_HOSTS.any { it in url }) crumb.setData("url", url.substringBefore('?'))

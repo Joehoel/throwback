@@ -32,6 +32,13 @@
              crashes the process before onCreate. -->
         <meta-data android:name="io.sentry.auto-init" android:value="false" />
 
+        <!-- Capture native crashes (e.g. the SurfaceView render thread aborting with SIGABRT) via the OS
+             tombstone. Android 12+ reads the platform tombstone directly; on older devices the bundled NDK
+             integration is the fallback. attach-raw ships the raw tombstone protobuf so the native stack is
+             readable in Sentry instead of "abort in unknown file". (Manual init still reads this metadata.) -->
+        <meta-data android:name="io.sentry.tombstone.enable" android:value="true" />
+        <meta-data android:name="io.sentry.tombstone.attach-raw" android:value="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

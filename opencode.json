@@ -1,0 +1,10 @@
+{
+  "mcp": {
+    "servers": {
+      "sentry-dnp": {
+        "type": "remote",
+        "url": "https://mcp.sentry.dev/mcp"
+      }
+    }
+  }
+}
