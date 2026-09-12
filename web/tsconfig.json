@@ -1,15 +1,6 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": [
-    "node_modules",
-    "spike",
-    "tools/oxlint/anti-slop",
-    "src/routes/api.$.ts",
-    "src/routes/api.rpc.$.ts",
-    "src/routes/api/drive.ts",
-    "src/routes/curate.tsx",
-    "src/routes/prototypes"
-  ],
+  "exclude": ["node_modules", "tools/oxlint/anti-slop"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",
@@ -18,12 +9,7 @@
       "#/*": ["./src/*"]
     },
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": [
-      "node",
-      "vite/client",
-      "@cloudflare/workers-types",
-      "@cloudflare/vitest-pool-workers/types"
-    ],
+    "types": ["node", "vite/client"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",

@@ -73,4 +73,20 @@ test("mounts the Effect contract with build compatibility", async ({ request }) 
 
   expect(openapi.status()).toBe(200);
   expect(await openapi.json()).toHaveProperty("openapi", "3.1.0");
+
+  const docs = await request.get("/api/docs");
+
+  expect(docs.status()).toBe(200);
+  expect(await docs.text()).toContain("api-reference-container");
+
+  const shadowDocs = await request.get("/api/domain/docs", {
+    headers: { "x-throwback-build-id": "e2e" },
+  });
+
+  expect(shadowDocs.status()).toBe(404);
+
+  const auth = await request.get("/api/auth/session");
+
+  expect(auth.status()).toBe(501);
+  expect(await auth.json()).toHaveProperty("_tag", "AuthNotConfigured");
 });

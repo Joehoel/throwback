@@ -14,12 +14,7 @@ const config = defineConfig({
   plugins: [
     devtools(),
     tailwindcss(),
-    tanstackStart({
-      router: {
-        routeFileIgnorePattern:
-          "^(?:api\\.\\$\\.ts|api\\.rpc\\.\\$\\.ts|curate\\.tsx|drive\\.ts|prototypes)$",
-      },
-    }),
+    tanstackStart(),
     viteReact(),
     babel({ presets: [reactCompilerPreset()] }),
   ],

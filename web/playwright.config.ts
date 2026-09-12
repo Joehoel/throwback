@@ -32,10 +32,6 @@ export default defineConfig({
   webServer: {
     command: "bun run dev",
     env: {
-      BETTER_AUTH_SECRET: "e2e-only-placeholder-secret-at-least-32-characters",
-      GEMINI_API_KEY: "e2e-placeholder",
-      MICROSOFT_CLIENT_ID: "e2e-placeholder",
-      MICROSOFT_CLIENT_SECRET: "e2e-placeholder",
       THROWBACK_BUILD_ID: "e2e",
     },
     url: `${baseURL}/api/openapi.json`,

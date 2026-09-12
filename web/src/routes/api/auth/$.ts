@@ -1,19 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { auth } from "#/lib/auth-server";
+import { handleUnconfiguredAuthRequest } from "#/server/auth/unconfigured-handler.ts";
 
 export const Route = createFileRoute("/api/auth/$")({
   server: {
     handlers: {
-      GET: async ({ request }) => {
-        const response = await auth.handler(request);
-
-        return response;
-      },
-      POST: async ({ request }) => {
-        const response = await auth.handler(request);
-
-        return response;
-      },
+      DELETE: handleUnconfiguredAuthRequest,
+      GET: handleUnconfiguredAuthRequest,
+      PATCH: handleUnconfiguredAuthRequest,
+      POST: handleUnconfiguredAuthRequest,
+      PUT: handleUnconfiguredAuthRequest,
     },
   },
 });

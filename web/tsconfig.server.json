@@ -1,9 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "include": ["src/server/**/*.ts", "tools/generate-openapi.ts"],
-  "exclude": ["node_modules", "spike", "src/client", "tools/oxlint/anti-slop"],
+  "exclude": ["node_modules", "src/client", "tools/oxlint/anti-slop"],
   "compilerOptions": {
     "exactOptionalPropertyTypes": true,
-    "types": ["node", "vite/client", "@cloudflare/workers-types"]
+    "types": ["node", "vite/client"]
   }
 }

@@ -205,43 +205,10 @@
       }
     },
     {
-      "files": [
-        "src/domains/curation/machine/**",
-        "src/domains/curation/data.ts",
-        "src/domains/curation/events-query.ts"
-      ],
-      "rules": {
-        "typescript/no-unsafe-type-assertion": "off",
-        "typescript/prefer-nullish-coalescing": "off",
-        "typescript/strict-boolean-expressions": "off",
-        "typescript/strict-void-return": "off",
-        "promise/prefer-await-to-then": "off",
-        "promise/always-return": "off",
-        "promise/avoid-new": "off",
-        "promise/param-names": "off",
-        "eslint/no-promise-executor-return": "off",
-        "eslint/no-empty-function": "off",
-        "eslint/no-continue": "off",
-        "eslint/max-params": "off",
-        "eslint/max-lines": "off",
-        "unicorn/no-array-for-each": "off",
-        "oxc/no-map-spread": "off",
-        "vitest/no-conditional-in-test": "off",
-        "vitest/prefer-to-be-truthy": "off",
-        "vitest/prefer-to-be-falsy": "off"
-      }
-    },
-    {
-      "files": ["src/env.ts"],
-      "rules": {
-        "import/no-namespace": "off",
-        "typescript/no-unsafe-type-assertion": "off"
-      }
-    },
-    {
       "files": ["tools/**"],
       "rules": {
-        "node/no-top-level-await": "off"
+        "node/no-top-level-await": "off",
+        "vitest/require-hook": "off"
       }
     },
     {
@@ -263,11 +230,6 @@
     ".roo/**",
     ".windsurf/**",
     "src/client/generated/**",
-    "src/routes/api.$.ts",
-    "src/routes/api.rpc.$.ts",
-    "src/routes/api/drive.ts",
-    "src/routes/curate.tsx",
-    "src/orpc/**",
     "node_modules/**",
     ".context/**",
     ".claude/**",
@@ -276,14 +238,9 @@
     ".vinxi/**",
     ".output/**",
     "alchemy.run.ts",
-    "infra/**",
-    "spike/**",
-    "src/prototypes/**",
-    "src/routes/prototypes/**",
     "src/routeTree.gen.ts",
     "worker-configuration.d.ts",
     "src/types/**",
-    "drizzle/meta/**",
     "tools/oxlint/anti-slop/**"
   ]
 }

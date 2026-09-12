@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi";
 import { BuildCompatibilityLive } from "./build-compatibility.ts";
 import { SignInRequired, ThrowbackApi } from "./contract.ts";
 
@@ -19,14 +19,30 @@ const ApiRoutes = HttpApiBuilder.layer(ThrowbackApi).pipe(
   Layer.provide(HttpServer.layerServices),
 );
 
-const { handler } = HttpRouter.toWebHandler(ApiRoutes);
+const DocsRoute = HttpApiScalar.layer(ThrowbackApi, { path: "/docs" }).pipe(
+  Layer.provide(HttpServer.layerServices),
+);
+
+const { handler: domainHandler } = HttpRouter.toWebHandler(ApiRoutes);
+
+const { handler: docsHandler } = HttpRouter.toWebHandler(DocsRoute);
 
 const domainMount = "/api/domain";
 
-export function handleDomainRequest(request: Request): Promise<Response> {
+const apiMount = "/api";
+
+function rerouteRequest(request: Request, mount: string): Request {
   const url = new URL(request.url);
 
-  url.pathname = url.pathname.slice(domainMount.length) || "/";
+  url.pathname = url.pathname.slice(mount.length) || "/";
 
-  return handler(new Request(url, request));
+  return new Request(url, request);
+}
+
+export function handleDomainRequest(request: Request): Promise<Response> {
+  return domainHandler(rerouteRequest(request, domainMount));
+}
+
+export function handleDocsRequest(request: Request): Promise<Response> {
+  return docsHandler(rerouteRequest(request, apiMount));
 }
