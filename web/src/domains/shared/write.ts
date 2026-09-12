@@ -9,12 +9,15 @@ import { Description, Location } from "./photo.ts";
 
 /** EXIF Orientation flag (1–8) — the literal value piexifjs writes; 1 = upright (ADR-0008). */
 export const Orientation = Schema.Literals([1, 2, 3, 4, 5, 6, 7, 8]);
+
 export type Orientation = typeof Orientation.Type;
 
 export const WriteKind = Schema.Literals(["description", "location_orientation"]);
+
 export type WriteKind = typeof WriteKind.Type;
 
 export const WriteStatus = Schema.Literals(["pending", "running", "succeeded", "failed"]);
+
 export type WriteStatus = typeof WriteStatus.Type;
 
 /**
@@ -30,6 +33,7 @@ export const WritePayload = Schema.Union([
     orientation: Schema.optionalKey(Orientation),
   }),
 ]);
+
 export type WritePayload = typeof WritePayload.Type;
 
 export const WriteJob = Schema.Struct({
@@ -40,4 +44,5 @@ export const WriteJob = Schema.Struct({
   workflowInstanceId: Schema.NullOr(WorkflowInstanceId), // null until a location_orientation workflow starts
   error: Schema.NullOr(Schema.String), // null unless the last attempt failed
 });
+
 export type WriteJob = typeof WriteJob.Type;

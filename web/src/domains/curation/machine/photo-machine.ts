@@ -9,6 +9,7 @@
  * Location. `Suggestion` is a separate concept from the approved `Description`
  * (ADR-0002) — applying it just copies it into the draft.
  */
+import { Schema } from "effect";
 import { assign, fromCallback, setup } from "xstate";
 import type { LatLng, Photo } from "../data";
 
@@ -64,11 +65,18 @@ export type PhotoEvent =
  * or an AI error) it falls back to the canned `aiDescription`, so the prototype
  * keeps working without a key. `sendBack` delivers events to the photoMachine.
  */
-interface SuggestInput {
+export interface SuggestInput {
   photo: Photo;
   eventName: string;
   period: string;
 }
+
+const SuggestionResponse = Schema.Struct({
+  description: Schema.optionalKey(Schema.String),
+  place: Schema.optionalKey(Schema.NullOr(Schema.String)),
+});
+
+const decodeSuggestionResponse = Schema.decodeUnknownSync(SuggestionResponse);
 
 const streamSuggestion = fromCallback<PhotoEvent, SuggestInput>(({ input, sendBack }) => {
   let handle: ReturnType<typeof setInterval> | undefined;
@@ -78,10 +86,12 @@ const streamSuggestion = fromCallback<PhotoEvent, SuggestInput>(({ input, sendBa
     if (cancelled) {
       return;
     }
+
     const words = full.split(" ");
     let i = 0;
     handle = setInterval(() => {
       i += 1;
+
       if (i >= words.length) {
         clearInterval(handle);
         sendBack({ type: "suggestion.complete", text: full });
@@ -102,10 +112,12 @@ const streamSuggestion = fromCallback<PhotoEvent, SuggestInput>(({ input, sendBa
     }),
   })
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-    .then((d: { description?: string; place?: string | null }) => {
+    .then(decodeSuggestionResponse)
+    .then((d) => {
       if (cancelled) {
         return;
       }
+
       // Gemini's place-name guess (name only; the client geocodes it).
       sendBack({ type: "location.suggested", place: d.place ?? null });
       animate(d.description?.trim() || input.photo.aiDescription);
@@ -116,6 +128,7 @@ const streamSuggestion = fromCallback<PhotoEvent, SuggestInput>(({ input, sendBa
 
   return () => {
     cancelled = true;
+
     if (handle) {
       clearInterval(handle);
     }
@@ -124,9 +137,13 @@ const streamSuggestion = fromCallback<PhotoEvent, SuggestInput>(({ input, sendBa
 
 export const photoMachine = setup({
   types: {
+    // SAFETY: XState uses these empty values only as compile-time type declarations.
     context: {} as PhotoContext,
+    // SAFETY: XState uses these empty values only as compile-time type declarations.
     events: {} as PhotoEvent,
+    // SAFETY: XState uses these empty values only as compile-time type declarations.
     input: {} as PhotoInput,
+    // SAFETY: XState uses these empty values only as compile-time type declarations.
     output: {} as PhotoOutput,
   },
   actors: { streamSuggestion },

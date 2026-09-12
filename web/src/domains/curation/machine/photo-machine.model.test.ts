@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createActor, fromCallback } from "xstate";
 import type { Photo } from "../data";
 import { photoMachine } from "./photo-machine";
-import type { PhotoEvent } from "./photo-machine";
+import type { PhotoEvent, SuggestInput } from "./photo-machine";
 
 /**
  * Model-based tests for photoMachine (@xstate/graph). Where photoMachine.test.ts
@@ -16,7 +16,8 @@ import type { PhotoEvent } from "./photo-machine";
  * the graph drives `suggestion.complete` itself from the events list below.
  */
 
-const noopSuggestion = fromCallback(() => () => {});
+const noopSuggestion = fromCallback<PhotoEvent, SuggestInput>(() => () => {});
+
 const offline = photoMachine.provide({ actors: { streamSuggestion: noopSuggestion } });
 
 const makePhoto = (over: Partial<Photo> = {}): Photo => ({
@@ -62,6 +63,7 @@ describe("photoMachine (model-based)", () => {
     const terminals = new Set(
       paths.filter((p) => p.state.status === "done").map((p) => JSON.stringify(p.state.value)),
     );
+
     expect(terminals).toContain(JSON.stringify("approved"));
     expect(terminals).toContain(JSON.stringify("skipped"));
   });
@@ -72,6 +74,7 @@ describe("photoMachine (model-based)", () => {
         .flatMap((p) => p.steps.map((s) => s.event.type))
         .filter((t) => !t.startsWith("xstate.")),
     );
+
     for (const event of events) expect(seen).toContain(event.type);
   });
 
@@ -79,10 +82,12 @@ describe("photoMachine (model-based)", () => {
     "path %i replays to the model's predicted state",
     (_i, path) => {
       const actor = createActor(offline, { input }).start();
+
       for (const step of path.steps) {
         if (step.event.type.startsWith("xstate.")) continue; // init is implied by .start()
         actor.send(step.event);
       }
+
       const snapshot = actor.getSnapshot();
       expect(snapshot.value).toEqual(path.state.value);
       expect(snapshot.status).toBe(path.state.status);

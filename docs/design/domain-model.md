@@ -1,5 +1,9 @@
 # Curation webapp — domain model in `effect/Schema`
 
+> **Historical prototype model:** `docs/CONTEXT.md` and ADR-0019 through ADR-0026 supersede this file's
+> oRPC, local `PhotoSource`, split-write, and prototype persistence shapes. Do not use its TypeScript
+> examples as production contracts.
+
 > **Status:** design (2026-06-06), build not yet started. A *design artifact*: ready to lift into
 > `src/domain/` once the Alchemy session installs deps (ADR-0010 owns `package.json`). Nothing compiles
 > here yet (deps not installed).

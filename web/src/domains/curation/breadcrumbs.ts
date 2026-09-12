@@ -39,6 +39,7 @@ export const buildCrumbs = (
   active: ThrowbackEvent,
 ): readonly Crumb[] => {
   const segments = fullPath(active);
+
   return pipe(
     segments,
     Arr.map((label, depth) => ({
@@ -49,12 +50,14 @@ export const buildCrumbs = (
         // events that share the parent prefix and reach at least this depth
         Arr.filter((e) => {
           const fp = fullPath(e);
+
           return fp.length > depth && sharePrefix(segments, fp, depth);
         }),
         // one entry per distinct folder name at this depth — first match wins (= first leaf below it)
         Arr.dedupeWith((a, b) => fullPath(a)[depth] === fullPath(b)[depth]),
         Arr.map((e) => {
           const value = fullPath(e)[depth];
+
           return { label: value, targetEventId: value === label ? active.id : e.id };
         }),
       ),

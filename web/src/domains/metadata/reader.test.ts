@@ -22,6 +22,7 @@ function littleEndianOrientation(value: number): string {
   const tiff = `49492a000800000001001201030001000000${valueField}00000000`;
   const exif = `457869660000${tiff}`; // "Exif\0\0" + TIFF
   const length = (exif.length / 2 + 2).toString(16).padStart(4, "0");
+
   return hexToBinary(`ffd8ffe1${length}${exif}ffd9`); // SOI + APP1(len) + payload + EOI
 }
 
@@ -40,6 +41,7 @@ describe("readExif", () => {
         description: "Aan het meer",
       }),
     );
+
     expect(raw.description).toBe("Aan het meer");
     expect(raw.captureDate).toBe("2021:07:01 10:00:00");
     expect(raw.orientation).toBe(6);

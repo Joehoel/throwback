@@ -64,6 +64,7 @@ const make = OneDriveHttp.pipe(
     // One page of a children collection at the given path.
     const fetchPage = Effect.fn("onedrive.fetchPage")(function* (path: string) {
       const response = yield* http.execute(HttpClientRequest.get(path));
+
       return yield* decodeJson(GraphChildrenPage)(response);
     });
 
@@ -76,6 +77,7 @@ const make = OneDriveHttp.pipe(
             const next = Option.fromNullishOr(page["@odata.nextLink"]).pipe(
               Option.map((link) => link.replace(GRAPH_BASE, "")),
             );
+
             return [page.value, next] as const;
           }),
         ),
@@ -104,6 +106,7 @@ const make = OneDriveHttp.pipe(
           description: text,
         }),
       );
+
       yield* http.execute(request);
     });
 
@@ -111,6 +114,7 @@ const make = OneDriveHttp.pipe(
       const response = yield* http.execute(
         HttpClientRequest.get(`/drive/items/${photoId}/content`),
       );
+
       return yield* bytesOf(response);
     });
 
@@ -123,6 +127,7 @@ const make = OneDriveHttp.pipe(
         bytes,
         "image/jpeg",
       );
+
       yield* http.execute(request);
     });
 
@@ -130,7 +135,9 @@ const make = OneDriveHttp.pipe(
       const response = yield* http.execute(
         HttpClientRequest.get(`/drive/items/${photoId}?$select=location`),
       );
+
       const envelope = yield* decodeJson(GraphLocationEnvelope)(response);
+
       return envelope.location ?? null;
     });
 

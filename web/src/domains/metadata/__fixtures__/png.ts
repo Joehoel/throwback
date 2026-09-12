@@ -15,5 +15,6 @@ const chunk = (type: string, data: string): string =>
 export function pngBinary(): string {
   // IHDR: width=1, height=1, bitDepth=8, colorType=2 (RGB), compression/filter/interlace=0.
   const ihdr = String.fromCodePoint(0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0);
+
   return SIGNATURE + chunk("IHDR", ihdr) + chunk("IEND", "");
 }

@@ -37,6 +37,7 @@ export const enqueue = (job: WriteJob) =>
 export const pending = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const rows = yield* sql`SELECT * FROM write_jobs WHERE status = 'pending' ORDER BY photo_id`;
+
   return yield* Effect.forEach(rows, (row) => Schema.decodeUnknownEffect(WriteJobFromRow)(row));
 });
 
@@ -45,9 +46,11 @@ export const get = (photoId: DriveItemId) =>
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const rows = yield* sql`SELECT * FROM write_jobs WHERE photo_id = ${photoId} LIMIT 1`;
+
     if (rows.length === 0) {
       return null;
     }
+
     return yield* Schema.decodeUnknownEffect(WriteJobFromRow)(rows[0]);
   });
 

@@ -57,6 +57,7 @@ export function FolderGrid({
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {folder.photoIds.map((id) => {
               const photo = photosById.get(id);
+
               return photo === undefined ? null : (
                 <li key={id}>
                   <PhotoCard

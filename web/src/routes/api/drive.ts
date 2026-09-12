@@ -11,6 +11,7 @@ export const Route = createFileRoute("/api/drive")({
     handlers: {
       GET: async ({ request }) => {
         const session = await auth.api.getSession({ headers: request.headers });
+
         if (!session) {
           return Response.json({ error: "not logged in" }, { status: 401 });
         }
@@ -19,7 +20,9 @@ export const Route = createFileRoute("/api/drive")({
           body: { providerId: "microsoft" },
           headers: request.headers,
         });
+
         const { accessToken } = token;
+
         if (accessToken === "") {
           return Response.json({ error: "no access token", tokenResult: token }, { status: 500 });
         }
@@ -28,7 +31,9 @@ export const Route = createFileRoute("/api/drive")({
           "https://graph.microsoft.com/v1.0/me/drive/root?$select=id,name,webUrl,folder",
           { headers: { Authorization: `Bearer ${accessToken}` } },
         );
+
         const drive = await res.json();
+
         return Response.json({ drive, graphStatus: res.status });
       },
     },

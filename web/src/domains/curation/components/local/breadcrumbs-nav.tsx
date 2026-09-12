@@ -18,6 +18,7 @@ export function BreadcrumbsNav({
         {folder.path.map((segment, depth) => {
           const id = DriveItemId.make(folder.path.slice(0, depth + 1).join("/"));
           const isCurrent = depth === folder.path.length - 1;
+
           return (
             <li key={id} className="flex shrink-0 items-center gap-1">
               {depth > 0 ? (

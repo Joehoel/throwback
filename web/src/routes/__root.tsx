@@ -1,9 +1,6 @@
 import { HeadContent, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { TanStackDevtools } from "@tanstack/react-devtools";
-
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
-
+import { AppErrorShell } from "#/client/components/app-error-shell.tsx";
+import { NotFoundShell } from "#/client/components/not-found-shell.tsx";
 import appCss from "../styles.css?url";
 
 import type { QueryClient } from "@tanstack/react-query";
@@ -14,24 +11,12 @@ interface MyRouterContext {
 
 function RootDocument({ children }: { children: React.ReactNode }): React.ReactNode {
   return (
-    <html lang="en">
+    <html lang="nl">
       <head>
         <HeadContent />
       </head>
       <body>
         {children}
-        <TanStackDevtools
-          config={{
-            position: "bottom-right",
-          }}
-          plugins={[
-            {
-              name: "Tanstack Router",
-              render: <TanStackRouterDevtoolsPanel />,
-            },
-            TanStackQueryDevtools,
-          ]}
-        />
         <Scripts />
       </body>
     </html>
@@ -39,6 +24,7 @@ function RootDocument({ children }: { children: React.ReactNode }): React.ReactN
 }
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
+  errorComponent: AppErrorShell,
   head: () => ({
     links: [
       {
@@ -55,9 +41,11 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: "width=device-width, initial-scale=1",
       },
       {
-        title: "Throwback",
+        title: "Throwback · Beheer-webapp",
       },
     ],
   }),
+  notFoundComponent: NotFoundShell,
   shellComponent: RootDocument,
+  ssr: false,
 });

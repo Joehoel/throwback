@@ -15,3 +15,4 @@ worker-configuration.d.ts
 __unconfig*
 todos.json
 .alchemy/
+test-results/

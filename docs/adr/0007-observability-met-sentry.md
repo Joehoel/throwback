@@ -1,5 +1,8 @@
 # Observability via Sentry, privacy-bewust
 
+> **Webapp update:** ADR-0025 keeps Sentry and this privacy posture, and defines the Curation webapp's
+> random incident correlation, content redaction, diagnostic retention, event, and alert policy.
+
 De app draait op het TV-kastje van de vader — buiten ons zicht. Als het indexeren vastloopt, een
 token verloopt of thumbnails niet laden, zien we dat nu alleen als hij belt. Fouten worden bovendien
 ingeslikt: `SyncEngine` zet ze in `State.lastError` (alleen zichtbaar in Instellingen) en de Fotoshow

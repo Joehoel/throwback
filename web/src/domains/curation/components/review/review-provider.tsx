@@ -57,9 +57,11 @@ const ReviewContext = createContext<ReviewContextValue | null>(null);
 /** Read the review context; throws if used outside `Review.Provider`. */
 export function useReview(): ReviewContextValue {
   const ctx = use(ReviewContext);
+
   if (!ctx) {
     throw new Error("Review.* components must be rendered inside <Review.Provider>");
   }
+
   return ctx;
 }
 
@@ -121,15 +123,18 @@ export function ReviewProvider({
   // no re-fire on unrelated prop changes. Forwarding an actor's final `output`
   // to the orchestrator is the standard @xstate/react integration (the photo
   // machine is the source of truth; the commit it triggers navigates, which
-  // remounts this provider anyway) — react-doctor's effect→parent heuristic
-  // doesn't model state-machine actors, so it's disabled for this one line.
+  // remounts this provider anyway).
   const commit = useEffectEvent(() => {
     if (snapshot.status === "done") {
       onCommit(snapshot.output);
     }
   });
+
   useEffect(() => {
-    // eslint-disable-next-line react-doctor/no-pass-data-to-parent
+    if (snapshot.status !== "done") {
+      return;
+    }
+
     commit();
   }, [snapshot.status]);
 
@@ -139,7 +144,7 @@ export function ReviewProvider({
     { hotkey: "]", callback: onEventNext, options: { enabled: !helpOpen } },
     { hotkey: "[", callback: onEventPrev, options: { enabled: !helpOpen } },
     {
-      hotkey: "r",
+      hotkey: "R",
       callback: () => {
         if (photo.needsRotation) {
           send({ type: "rotation.toggled" });
@@ -155,17 +160,18 @@ export function ReviewProvider({
       options: { enabled: !helpOpen },
     },
     {
-      hotkey: "a",
+      hotkey: "A",
       callback: () => {
         send({ type: "suggestion.applied" });
       },
       options: { enabled: !helpOpen },
     },
-    { hotkey: "Shift+/", callback: onToggleHelp },
+    { hotkey: { key: "?", shift: true }, callback: onToggleHelp },
   ]);
 
   const { description, suggestion, place, coords, orientationFixed, aiPlaceSuggestion } =
     snapshot.context;
+
   const { done, total } = eventProgress(event);
 
   const value: ReviewContextValue = {

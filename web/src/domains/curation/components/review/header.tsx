@@ -7,11 +7,10 @@ import { useReview } from "#/domains/curation/components/review/review-provider.
 /** Top bar: folder path, progress, save status (announced), and the help toggle. */
 export function Header(): React.ReactNode {
   const { event, done, total, runningWrites, savedWrites, toggleHelp } = useReview();
+
   return (
     <header className="flex items-center justify-between gap-4 border-b border-kumo-hairline px-6 py-2">
-      <Text as="h1" className="sr-only">
-        Foto&apos;s nakijken — {event.name}
-      </Text>
+      <h1 className="sr-only">Foto&apos;s nakijken — {event.name}</h1>
       <PathBar />
       <div className="flex items-center gap-3">
         <Text variant="secondary" size="sm">

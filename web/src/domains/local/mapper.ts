@@ -22,12 +22,15 @@ export const LocalFileSource = Schema.Struct({
   description: Schema.NullOr(Description),
   location: Schema.NullOr(Location),
 });
+
 export type LocalFileSource = typeof LocalFileSource.Type;
 
 /** A 4-digit year folder (19xx/20xx). The path year wins over EXIF when present. */
 const YEAR_SEGMENT = /^(?:19|20)\d{2}$/u;
+
 const yearFor = (segments: readonly string[], exifYear: number | null): number | null => {
   const fromPath = segments.find((segment) => YEAR_SEGMENT.test(segment));
+
   return fromPath === undefined ? exifYear : Number(fromPath);
 };
 

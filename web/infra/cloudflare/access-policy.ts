@@ -66,7 +66,7 @@ export const AccessPolicyProvider = () =>
   Provider.effect(
     AccessPolicy,
     Effect.gen(function* () {
-      const { accountId } = yield* CloudflareEnvironment;
+      const { accountId } = yield* yield* CloudflareEnvironment;
       const create = yield* zeroTrust.createAccessPolicy;
       const get = yield* zeroTrust.getAccessPolicy;
       const update = yield* zeroTrust.updateAccessPolicy;

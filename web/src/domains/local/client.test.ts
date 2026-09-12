@@ -16,13 +16,17 @@ import { PhotoSource } from "./source.ts";
  * internals.
  */
 
-const fileHandle = (name: string, file: File): FileSystemFileHandle =>
-  ({ kind: "file", name, getFile: () => Promise.resolve(file) }) as unknown as FileSystemFileHandle;
+const fileHandle = (name: string, file: File): FileSystemFileHandle => {
+  // SAFETY: This test double implements every FileSystemFileHandle member exercised by PhotoSource.
+  return { kind: "file", name, getFile: () => Promise.resolve(file) } as FileSystemFileHandle;
+};
 
 // A file handle whose bytes are mutable: `createWritable` replaces them, so a
 // write followed by `getFile` observes the new bytes (an in-memory FSA stand-in).
 const writableHandle = (name: string, initial: File): FileSystemFileHandle => {
   let current = initial;
+
+  // SAFETY: This in-memory test double implements the handle operations exercised by PhotoSource.
   return {
     kind: "file",
     name,
@@ -31,18 +35,20 @@ const writableHandle = (name: string, initial: File): FileSystemFileHandle => {
       Promise.resolve({
         write: (data: BufferSource) => {
           current = new File([data], name, { type: initial.type });
+
           return Promise.resolve();
         },
         close: () => Promise.resolve(),
       }),
-  } as unknown as FileSystemFileHandle;
+  } as FileSystemFileHandle;
 };
 
 const dirHandle = (
   name: string,
   entries: ReadonlyArray<FileSystemFileHandle | FileSystemDirectoryHandle>,
-): FileSystemDirectoryHandle =>
-  ({
+): FileSystemDirectoryHandle => {
+  // SAFETY: This test double implements every directory operation exercised by PhotoSource.
+  return {
     kind: "directory",
     name,
     async *values() {
@@ -50,7 +56,8 @@ const dirHandle = (
     },
     queryPermission: () => Promise.resolve("granted"),
     requestPermission: () => Promise.resolve("granted"),
-  }) as unknown as FileSystemDirectoryHandle;
+  } as FileSystemDirectoryHandle;
+};
 
 // A picked "Vakantie" folder: a top-level PNG, a non-image (ignored), a year
 // subfolder, and a non-year subfolder.
@@ -65,12 +72,15 @@ const lake = fileFromBinary(
   }),
   "image/jpeg",
 );
+
 const beach = fileFromBinary(
   "beach.jpg",
   jpegBinaryWithExif({ dateTimeOriginal: "2018:05:01 09:00:00" }),
   "image/jpeg",
 );
+
 const top = fileFromBinary("top.png", "PNG\r\n not a real png", "image/png");
+
 const notes = fileFromBinary("notes.txt", "hello", "text/plain");
 
 const root = dirHandle("Vakantie", [
@@ -138,9 +148,11 @@ layer(LocalPhotoSourceLive.pipe(Layer.provide(PhotoMetadataDefault)))("LocalPhot
   it.effect("getFile returns the original file for a crawled photo", () =>
     Effect.gen(function* () {
       yield* PhotoSource.use((s) => s.ingest(root));
+
       const file = yield* PhotoSource.use((s) =>
         s.getFile(DriveItemId.make("Vakantie/2019/lake.jpg")),
       );
+
       expect(file.name).toBe("lake.jpg");
     }),
   );
@@ -148,9 +160,11 @@ layer(LocalPhotoSourceLive.pipe(Layer.provide(PhotoMetadataDefault)))("LocalPhot
   it.effect("getFile fails with LocalSourceError for an unknown photo", () =>
     Effect.gen(function* () {
       yield* PhotoSource.use((s) => s.ingest(root));
+
       const error = yield* Effect.flip(
         PhotoSource.use((s) => s.getFile(DriveItemId.make("Vakantie/ghost.jpg"))),
       );
+
       expect(error._tag).toBe("LocalSourceError");
     }),
   );
@@ -165,6 +179,7 @@ layer(LocalPhotoSourceLive.pipe(Layer.provide(PhotoMetadataDefault)))("LocalPhot
           "image/jpeg",
         ),
       );
+
       const album = dirHandle("Album", [scan]);
       yield* PhotoSource.use((s) => s.ingest(album));
 

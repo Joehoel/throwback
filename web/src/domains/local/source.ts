@@ -16,13 +16,10 @@ import type { FolderNode } from "./folder-tree.ts";
  */
 
 /** Anything the local source can't do — crawl/permission/decode/file-read failures. */
-export class LocalSourceError extends Schema.TaggedErrorClass<LocalSourceError>()(
-  "LocalSourceError",
-  {
-    operation: Schema.String,
-    message: Schema.String,
-  },
-) {}
+export class LocalSourceError extends Schema.TaggedError<LocalSourceError>()("LocalSourceError", {
+  operation: Schema.String,
+  message: Schema.String,
+}) {}
 
 /** The crawl result: the navigable folder tree plus every photo it found. */
 export interface IngestResult {

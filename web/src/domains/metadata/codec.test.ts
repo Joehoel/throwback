@@ -5,6 +5,7 @@ import { pngBinary } from "./__fixtures__/png.ts";
 import { PhotoMetadata, PhotoMetadataDefault } from "./codec.ts";
 
 const JPEG = "image/jpeg";
+
 const PNG = "image/png";
 
 /**
@@ -21,6 +22,7 @@ layer(PhotoMetadataDefault)("PhotoMetadata", (it) => {
         orientation: 6,
         description: "exif-tekst",
       });
+
       const jpeg = jpegWithXmp(exifPart, "xmp-tekst");
 
       const metadata = yield* PhotoMetadata;
@@ -43,11 +45,13 @@ layer(PhotoMetadataDefault)("PhotoMetadata", (it) => {
   it.effect("writes JPEG description + location, then reads them back", () =>
     Effect.gen(function* () {
       const metadata = yield* PhotoMetadata;
+
       const written = yield* metadata.write(jpegBinaryWithExif(), JPEG, {
         description: "Joël aan het meer",
         location: { latitude: 52.1, longitude: 5.2 },
         orientation: 6,
       });
+
       const facts = yield* metadata.read(written, JPEG);
       expect(facts.description).toBe("Joël aan het meer");
       expect(facts.location?.latitude).toBeCloseTo(52.1, 3);
@@ -58,11 +62,13 @@ layer(PhotoMetadataDefault)("PhotoMetadata", (it) => {
   it.effect("round-trips a PNG description through XMP", () =>
     Effect.gen(function* () {
       const metadata = yield* PhotoMetadata;
+
       const written = yield* metadata.write(pngBinary(), PNG, {
         description: "Joël in de tuin",
         location: null,
         orientation: null,
       });
+
       const facts = yield* metadata.read(written, PNG);
       expect(facts.description).toBe("Joël in de tuin");
     }),

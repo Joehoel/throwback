@@ -1,7 +1,7 @@
 import { Layer } from "effect";
 
 /**
- * Observability seam merged into every runtime (see `makeRuntime`). The `Effect.fn`
+ * Observability seam merged into every runtime (see `createManagedRuntime`). The `Effect.fn`
  * spans across the app flow through whatever Tracer this layer provides — so this
  * is the single place tracing gets turned on (ADR-0007: observability via Sentry).
  *

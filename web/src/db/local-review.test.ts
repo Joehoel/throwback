@@ -1,6 +1,6 @@
 import { D1Client } from "@effect/sql-d1";
 import { applyD1Migrations, env } from "cloudflare:test";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import type { SqlClient } from "effect/unstable/sql";
 import { beforeAll, expect, it } from "vitest";
 import * as Review from "#/db/local-review.ts";
@@ -11,8 +11,15 @@ import * as Review from "#/db/local-review.ts";
  * vitest.config.ts. Exercises the default, upsert, and the hydrate-all query.
  */
 
-const migrations = (env as unknown as { TEST_MIGRATIONS: Parameters<typeof applyD1Migrations>[1] })
-  .TEST_MIGRATIONS;
+const TestEnvironment = Schema.Struct({
+  TEST_MIGRATIONS: Schema.Array(
+    Schema.Struct({ name: Schema.String, queries: Schema.Array(Schema.String) }),
+  ),
+});
+
+const decodedMigrations = Schema.decodeUnknownSync(TestEnvironment)(env).TEST_MIGRATIONS;
+
+const migrations = decodedMigrations.map(({ name, queries }) => ({ name, queries: [...queries] }));
 
 beforeAll(async () => {
   await applyD1Migrations(env.DB, migrations);

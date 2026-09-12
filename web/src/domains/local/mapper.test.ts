@@ -14,6 +14,7 @@ describe("PhotoFromLocalFile", () => {
       description: "Hoi",
       location: { latitude: 52.1, longitude: 5.2 },
     });
+
     expect(photo.id).toBe("Vakantie/2019/a.jpg");
     expect(photo.folderId).toBe("Vakantie/2019");
     expect(photo.reviewStatus).toBe("needs_review");
@@ -31,6 +32,7 @@ describe("PhotoFromLocalFile", () => {
       description: null,
       location: null,
     });
+
     expect(photo.year).toBe(2018);
     expect(photo.description).toBeNull();
     expect(photo.location).toBeNull();
@@ -45,6 +47,7 @@ describe("PhotoFromLocalFile", () => {
       description: null,
       location: null,
     });
+
     expect(photo.year).toBeNull();
   });
 
@@ -57,6 +60,9 @@ describe("PhotoFromLocalFile", () => {
       description: "Hoi",
       location: null,
     });
-    expect(() => Schema.encodeSync(PhotoFromLocalFile)(photo)).toThrow();
+
+    expect(() => Schema.encodeSync(PhotoFromLocalFile)(photo)).toThrow(
+      "Local ingest is decode-only",
+    );
   });
 });

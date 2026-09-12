@@ -53,6 +53,7 @@ const withBearer = Effect.fnUntraced(function* (request: HttpClientRequest.HttpC
   const userId = yield* CurrentUser;
   const token = yield* GraphToken;
   const accessToken = yield* token.forUser(userId);
+
   return HttpClientRequest.bearerToken(request, accessToken);
 });
 

@@ -23,3 +23,7 @@ De **Beheer-webapp** voegt ontbrekende **Locatie** toe door lat/lon in de **EXIF
 - Locatie + Oriëntatie reizen in één re-upload mee; het origineel is byte-identiek terug te zetten.
 
 **Nog open:** HEIC en PNG — niet getest (piexif is JPEG/TIFF; PNG kent geen standaard EXIF GPS-IFD). Blijven buiten v1 tenzij een lossless in-place EXIF-route blijkt te bestaan; v1 schrijft locatie/oriëntatie dus alleen naar JPEG, andere formaten worden in de lus overgeslagen voor locatie (Beschrijving blijft voor alle formaten via `PATCH`).
+
+> **Noot (2026-09-11):** ADR-0022 vervangt de losse Graph-`description`-PATCH en specificeert voor
+> productie één conditionele JPEG-metadatatransactie voor Beschrijving, Locatie en Oriëntatie. De keuze
+> voor EXIF GPS en een ongewijzigde beeldcodestroom blijft staan.

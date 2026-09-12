@@ -15,7 +15,7 @@ pre-commit:
         - "web/src/types/**"
         - "web/alchemy.run.ts"
         - "web/infra/**"
-      run: PATH=./web/node_modules/.bin:$PATH ./web/node_modules/.bin/oxlint -c web/.oxlintrc.json --fix {staged_files}
+      run: PATH=./web/node_modules/.bin:$PATH ./web/node_modules/.bin/oxlint -c web/.oxlintrc.json --threads=4 --format=unix --fix {staged_files}
       stage_fixed: true
 
     - name: oxfmt format

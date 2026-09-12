@@ -1,12 +1,13 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 
-import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { getContext } from "./integrations/tanstack-query/root-provider";
 
 // `createTanStackRouter`'s own `ReturnType` collapses the route tree to
 // `AnyRoute`; binding `typeof routeTree` recovers the precise, type-safe router.
 const createAppRouter = createTanStackRouter<typeof routeTree>;
+
 type AppRouter = ReturnType<typeof createAppRouter>;
 
 export function getRouter(): AppRouter {
@@ -18,9 +19,10 @@ export function getRouter(): AppRouter {
     defaultPreloadStaleTime: 0,
     routeTree,
     scrollRestoration: true,
+    Wrap: ({ children }) => (
+      <QueryClientProvider client={context.queryClient}>{children}</QueryClientProvider>
+    ),
   });
-
-  setupRouterSsrQueryIntegration({ queryClient: context.queryClient, router });
 
   return router;
 }

@@ -58,7 +58,7 @@ export const Route = createFileRoute("/prototypes/api/suggest")({
       POST: async ({ request }) => {
         // Empty string when GEMINI_API_KEY is unset in .env.local (the source
         // alchemy resolves via Config.redacted) → fall back to the simulation.
-        const key = (env as Record<string, string | undefined>).GEMINI_API_KEY;
+        const key = env.GEMINI_API_KEY;
         if (!key) return Response.json({ error: "no_key" }, { status: 503 });
 
         let body: { seed?: string; orientation?: string; eventName?: string; period?: string };

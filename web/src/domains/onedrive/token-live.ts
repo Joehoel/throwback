@@ -14,7 +14,18 @@ export const GraphTokenLive: Layer.Layer<GraphToken> = Layer.succeed(
   GraphToken.of({
     forUser: (userId: UserId) =>
       Effect.tryPromise({
-        try: () => auth.api.getAccessToken({ body: { providerId: "microsoft", userId } }),
+        try: async () => {
+          const { internalAdapter } = await auth.$context;
+          const accounts = await internalAdapter.findAccounts(userId);
+
+          const microsoftAccount = accounts.find((account) => account.providerId === "microsoft");
+
+          if (microsoftAccount === undefined) {
+            throw new Error("Microsoft account not found");
+          }
+
+          return auth.api.getAccessToken({ body: { accountId: microsoftAccount.id, userId } });
+        },
         catch: () => new TokenUnavailable({ userId }),
       }).pipe(
         Effect.flatMap((res) =>

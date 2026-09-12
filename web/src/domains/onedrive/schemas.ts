@@ -12,6 +12,7 @@ export const GraphChildrenPage = Schema.Struct({
   value: Schema.Array(GraphDriveItem),
   "@odata.nextLink": Schema.optionalKey(Schema.String),
 });
+
 export type GraphChildrenPage = typeof GraphChildrenPage.Type;
 
 /**
@@ -22,4 +23,5 @@ export type GraphChildrenPage = typeof GraphChildrenPage.Type;
 export const GraphLocationEnvelope = Schema.Struct({
   location: Schema.optionalKey(LocationFromFacet),
 });
+
 export type GraphLocationEnvelope = typeof GraphLocationEnvelope.Type;

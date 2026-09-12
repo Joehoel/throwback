@@ -16,9 +16,15 @@ import { PhotoFromGraphItem } from "#/domains/shared/graph.ts";
  * and the write-queue lifecycle (ADR-0009/0011, domain-model.md §4–5).
  */
 
-// `TEST_MIGRATIONS` is a test-only binding (see vitest.config.ts); not in the app's Env.
-const migrations = (env as unknown as { TEST_MIGRATIONS: Parameters<typeof applyD1Migrations>[1] })
-  .TEST_MIGRATIONS;
+const TestEnvironment = Schema.Struct({
+  TEST_MIGRATIONS: Schema.Array(
+    Schema.Struct({ name: Schema.String, queries: Schema.Array(Schema.String) }),
+  ),
+});
+
+const decodedMigrations = Schema.decodeUnknownSync(TestEnvironment)(env).TEST_MIGRATIONS;
+
+const migrations = decodedMigrations.map(({ name, queries }) => ({ name, queries: [...queries] }));
 
 beforeAll(async () => {
   await applyD1Migrations(env.DB, migrations);
@@ -38,6 +44,7 @@ it("photo-index + write-queue round-trip against D1", async () => {
     description: "Holiday",
     location: { latitude: 50, longitude: 14 },
   });
+
   const bare = Schema.decodeUnknownSync(PhotoFromGraphItem)({
     id: "p2",
     name: "b.png",

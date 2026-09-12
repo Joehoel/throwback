@@ -2,12 +2,12 @@ import { Schema } from "effect";
 import { DriveItemId, UserId } from "./ids.ts";
 
 /**
- * Tagged-error taxonomy (ADR-0012/0013). `Schema.TaggedErrorClass` yields a real
+ * Tagged-error taxonomy (ADR-0012/0013). `Schema.TaggedError` yields a real
  * Error, a Schema (serializable over oRPC), and a `_tag` for `Effect.catchTag`.
  * See docs/design/domain-model.md §7.
  */
 
-export class GraphRequestError extends Schema.TaggedErrorClass<GraphRequestError>()(
+export class GraphRequestError extends Schema.TaggedError<GraphRequestError>()(
   "GraphRequestError",
   {
     status: Schema.Number,
@@ -15,14 +15,11 @@ export class GraphRequestError extends Schema.TaggedErrorClass<GraphRequestError
   },
 ) {}
 
-export class TokenUnavailable extends Schema.TaggedErrorClass<TokenUnavailable>()(
-  "TokenUnavailable",
-  {
-    userId: UserId,
-  },
-) {}
+export class TokenUnavailable extends Schema.TaggedError<TokenUnavailable>()("TokenUnavailable", {
+  userId: UserId,
+}) {}
 
-export class UnsupportedFormat extends Schema.TaggedErrorClass<UnsupportedFormat>()(
+export class UnsupportedFormat extends Schema.TaggedError<UnsupportedFormat>()(
   "UnsupportedFormat",
   {
     photoId: DriveItemId,
@@ -30,11 +27,11 @@ export class UnsupportedFormat extends Schema.TaggedErrorClass<UnsupportedFormat
   },
 ) {}
 
-export class LocationVerifyTimeout extends Schema.TaggedErrorClass<LocationVerifyTimeout>()(
+export class LocationVerifyTimeout extends Schema.TaggedError<LocationVerifyTimeout>()(
   "LocationVerifyTimeout",
   {
     photoId: DriveItemId, // Graph extracts the facet async ~6–9s (ADR-0011)
   },
 ) {}
 
-export class IndexNotReady extends Schema.TaggedErrorClass<IndexNotReady>()("IndexNotReady", {}) {}
+export class IndexNotReady extends Schema.TaggedError<IndexNotReady>()("IndexNotReady", {}) {}
