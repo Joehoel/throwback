@@ -24,3 +24,12 @@ pointer-noot in de oude). Scope: **TV** = de Fotoshow (Android TV-app), **Web** 
 | [0016](0016-ui-met-cloudflare-kumo-splitscreen-richting.md) | UI met Cloudflare Kumo; Splitscreen als gekozen reviewscherm-richting | Web |
 | [0017](0017-kaart-ui-via-vis-gl-react-google-maps.md) | Kaart-UI via `@vis.gl/react-google-maps`; geocoding-key-strategie | Web |
 | [0018](0018-tanstack-ai-in-workerd-suggestie-en-locatie.md) | TanStack AI (Gemini) in workerd geverifieerd; locatie-gok zonder custom model | Web |
+| [0019](0019-bestandsmetadata-als-bron-van-waarheid.md) | Bestandsmetadata is de bron van waarheid voor Beschrijving en Locatie | Beide |
+| [0020](0020-oxfmt-is-de-formatteer-autoriteit.md) | Oxfmt is de formatteerautoriteit | Beide |
+| [0021](0021-authentication-and-access-boundaries.md) | Authentication and access boundaries for the Curation webapp | Web |
+| [0022](0022-verified-conditional-jpeg-metadata-transaction.md) | Verified conditional JPEG metadata transaction | Web |
+| [0023](0023-effect-httpapi-generated-browser-contract.md) | Effect HttpApi with a generated browser contract | Web |
+| [0024](0024-server-authoritative-sync-and-client-state.md) | Server-authoritative synchronization and client state | Web |
+| [0025](0025-recoverable-failures-and-privacy-safe-diagnostics.md) | Recoverable failures and privacy-safe diagnostics | Web |
+| [0026](0026-clean-rebuild-and-atomic-production-cutover.md) | Clean rebuild and atomic production cutover | Web |
+| [0027](0027-proportional-v1-release-evidence.md) | Proportional v1 release evidence | Web |

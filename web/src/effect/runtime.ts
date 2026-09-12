@@ -18,8 +18,9 @@ const memoMap = Layer.makeMemoMapUnsafe();
  * Run programs that require the layer's services:
  * `rt.runPromise(OneDriveClient.use((s) => s.method(args)))`.
  */
-export function makeRuntime<RIn, E>(layer: Layer.Layer<RIn, E>) {
+export function createManagedRuntime<RIn, E>(layer: Layer.Layer<RIn, E>) {
   let rt: ManagedRuntime.ManagedRuntime<RIn, E> | undefined;
+
   const runtime = (): ManagedRuntime.ManagedRuntime<RIn, E> =>
     (rt ??= ManagedRuntime.make(Layer.provideMerge(layer, Observability.layer), { memoMap }));
 

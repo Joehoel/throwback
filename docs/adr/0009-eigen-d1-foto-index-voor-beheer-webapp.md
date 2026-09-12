@@ -1,5 +1,9 @@
 # Beheer-webapp houdt een eigen foto-index in D1
 
+> **Sync update:** ADR-0024 keeps the rebuildable D1 Foto projection but supersedes the initial
+> `children` crawl, manual-only refresh, and combined pending-write wording with documented drive-root
+> delta, staged projection generations, and separate durable command/outbox state.
+
 De **Beheer-webapp** bouwt z'n eigen foto-index in Cloudflare D1 (per foto: id, map, jaar, heeft-Beschrijving, heeft-Locatie, review-status), gevuld via een children-crawl van de gekozen **Hoofdmap** — los van de Room-index die de TV-app (**Fotoshow**) op het kastje bijhoudt. De Room-index leeft op het Android-apparaat en is niet bereikbaar vanuit de webapp; een gedeelde index zou een nieuwe web↔TV-koppeling vergen die we niet willen.
 
 ## Considered Options

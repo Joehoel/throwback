@@ -14,7 +14,7 @@ import type { IngestResult } from "#/domains/local/source.ts";
  * review status in D1 (ADR-0019) — no OneDrive, no Worker round-trip for the crawl.
  */
 
-const supportsFsa = (): boolean => typeof globalThis.showDirectoryPicker === "function";
+const supportsFsa = (): boolean => "showDirectoryPicker" in globalThis;
 
 function CurateApp(): React.ReactNode {
   const [result, setResult] = useState<IngestResult | null>(null);
@@ -24,6 +24,7 @@ function CurateApp(): React.ReactNode {
   const pickFolder = async (): Promise<void> => {
     setErrorMessage(null);
     let handle: FileSystemDirectoryHandle;
+
     try {
       // Must run inside the click handler — picking requires a user gesture.
       handle = await globalThis.showDirectoryPicker({ mode: "readwrite" });
@@ -32,10 +33,14 @@ function CurateApp(): React.ReactNode {
       if (error instanceof DOMException && error.name === "AbortError") {
         return;
       }
+
       setErrorMessage(describeError(error));
+
       return;
     }
+
     setBusy(true);
+
     try {
       setResult(await ingestFolder(handle));
     } catch (error) {

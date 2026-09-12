@@ -1,5 +1,9 @@
 # XState als orkestratielaag voor het reviewscherm (grens met TanStack Query en TanStack AI)
 
+> **Superseded:** ADR-0026 removes XState and the browser write-queue actor. TanStack Router owns resource
+> identity, TanStack Query owns server and mutation state, and one route-scoped TanStack Store owns only
+> transient review buffers and presentation state.
+
 Het reviewscherm van de **Beheer-webapp** wordt gemodelleerd als een **XState v5-statechart**, met een
 expliciete eigenaarschapsgrens tussen drie lagen. Besloten en geprototypet op `Splitscreen` (de gekozen
 richting, ADR-0014): `web/src/prototypes/machine/{reviewMachine,photoMachine}.ts`.

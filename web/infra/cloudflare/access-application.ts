@@ -65,7 +65,7 @@ export const AccessApplicationProvider = () =>
   Provider.effect(
     AccessApplication,
     Effect.gen(function* () {
-      const { accountId } = yield* CloudflareEnvironment;
+      const { accountId } = yield* yield* CloudflareEnvironment;
       const create = yield* zeroTrust.createAccessApplicationForAccount;
       const get = yield* zeroTrust.getAccessApplicationForAccount;
       const update = yield* zeroTrust.updateAccessApplicationForAccount;

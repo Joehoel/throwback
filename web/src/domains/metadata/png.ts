@@ -11,9 +11,13 @@ import { buildXmpPacket, descriptionFromXml } from "./xmp.ts";
  */
 
 const NUL = String.fromCodePoint(0);
+
 const XMP_KEYWORD = "XML:com.adobe.xmp";
+
 const SIGNATURE_LENGTH = 8;
+
 const IEND = "IEND";
+
 const ITXT = "iTXt";
 
 interface Chunk {
@@ -28,15 +32,19 @@ interface Chunk {
 function listChunks(png: string): readonly Chunk[] {
   const chunks: Chunk[] = [];
   let pos = SIGNATURE_LENGTH;
+
   while (pos + 8 <= png.length) {
     const length = readU32(png, pos, false);
     const type = png.slice(pos + 4, pos + 8);
     chunks.push({ start: pos, end: pos + 12 + length, type, dataStart: pos + 8, length });
+
     if (type === IEND) {
       break;
     }
+
     pos += 12 + length;
   }
+
   return chunks;
 }
 
@@ -46,17 +54,21 @@ const isXmpChunk = (png: string, chunk: Chunk): boolean =>
 /** The Beschrijving from a PNG's XMP `iTXt` chunk; null if absent. */
 export function readPngDescription(png: string): string | null {
   const chunk = listChunks(png).find((candidate) => isXmpChunk(png, candidate));
+
   if (chunk === undefined) {
     return null;
   }
+
   const data = png.slice(chunk.dataStart, chunk.dataStart + chunk.length);
   // iTXt data: keyword \0 | compFlag | compMethod | langTag \0 | translatedKeyword \0 | text
   const keywordEnd = data.indexOf(NUL);
   const langEnd = data.indexOf(NUL, keywordEnd + 3); // skip the NUL + compFlag + compMethod
   const textStart = data.indexOf(NUL, langEnd + 1) + 1; // after the translated-keyword NUL
+
   if (keywordEnd === -1 || langEnd === -1 || textStart === 0) {
     return null;
   }
+
   return descriptionFromXml(binaryToUtf8(data.slice(textStart)));
 }
 
@@ -67,6 +79,7 @@ const makeChunk = (type: string, data: string): string =>
 /** Drop any existing XMP `iTXt` chunk so we never end up with two. */
 function removeXmpChunk(png: string): string {
   const chunk = listChunks(png).find((candidate) => isXmpChunk(png, candidate));
+
   return chunk === undefined ? png : png.slice(0, chunk.start) + png.slice(chunk.end);
 }
 
@@ -82,5 +95,6 @@ export function writePngDescription(png: string, description: string): string {
   const without = removeXmpChunk(png);
   const ihdr = listChunks(without).at(0);
   const insertAt = ihdr === undefined ? SIGNATURE_LENGTH : ihdr.end;
+
   return without.slice(0, insertAt) + makeChunk(ITXT, data) + without.slice(insertAt);
 }

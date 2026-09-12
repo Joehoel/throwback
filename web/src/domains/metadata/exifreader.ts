@@ -4,7 +4,7 @@ import { Effect, Layer } from "effect";
 import { binaryToBytes } from "./binary.ts";
 import { Exif, ExifReadError, PhotoMetadataLive, Xmp } from "./codec.ts";
 import { EMPTY } from "./reader.ts";
-import type { RawExif, RawGps, Rational3 } from "./reader.ts";
+import type { RawExif, RawGps } from "./reader.ts";
 
 /**
  * A *parallel* backend for the `Exif` and `Xmp` services (`codec.ts`), built on the
@@ -42,13 +42,15 @@ const toRawGps = (exif: NonNullable<ExpandedTags["exif"]>): RawGps | null => {
   const lon = exif.GPSLongitude;
   const latRef = exif.GPSLatitudeRef;
   const lonRef = exif.GPSLongitudeRef;
+
   if (lat === undefined || lon === undefined || latRef === undefined || lonRef === undefined) {
     return null;
   }
+
   return {
-    lat: lat.value as Rational3,
+    lat: lat.value,
     latRef: latRef.value[0] ?? "",
-    lon: lon.value as Rational3,
+    lon: lon.value,
     lonRef: lonRef.value[0] ?? "",
   };
 };
@@ -56,9 +58,11 @@ const toRawGps = (exif: NonNullable<ExpandedTags["exif"]>): RawGps | null => {
 /** Map exifreader's EXIF tags to our `RawExif` (pure; absent EXIF → `EMPTY`). */
 const toRawExif = (tags: ExpandedTags): RawExif => {
   const { exif } = tags;
+
   if (exif === undefined) {
     return EMPTY;
   }
+
   return {
     description: exif.ImageDescription?.description ?? null,
     captureDate: exif.DateTimeOriginal?.description ?? null,
@@ -70,12 +74,14 @@ const toRawExif = (tags: ExpandedTags): RawExif => {
 /** An XMP tag's readable text (exifreader resolves the `rdf:Alt` to `.description`); blank → null. */
 const xmpText = (tag: { description?: string } | undefined): string | null => {
   const text = tag?.description?.trim();
+
   return text === undefined || text === "" ? null : text;
 };
 
 /** The XMP `Beschrijving`: `dc:description`, falling back to `dc:title` (pure). */
 const toXmpDescription = (tags: ExpandedTags): string | null => {
   const { xmp } = tags;
+
   return xmp === undefined ? null : (xmpText(xmp.description) ?? xmpText(xmp.title));
 };
 

@@ -1,5 +1,9 @@
 # TanStack AI (Gemini) in workerd geverifieerd; suggestie + locatie-gok zonder custom model
 
+> **Production update:** ADR-0026 removes TanStack AI and all prototype provider adapters. The accepted
+> paid, stateless Gemini lifecycle remains defined by the corresponding Wayfinder decision and must pass
+> ADR-0027's exact-profile enablement gate before production AI is turned on.
+
 De AI-suggestie van het reviewscherm draait **server-side in een Worker-route** via **`@tanstack/ai` +
 `@tanstack/ai-gemini`** (model `gemini-2.5-flash`), met de key uit `GEMINI_API_KEY`. Eén call levert zowel
 een **Beschrijving** als een **Locatie-plaatsnaam** op. Deze ADR legt drie dingen vast die deze sessie

@@ -1,5 +1,9 @@
 # Web code conventions: English, branded identifiers, mappers in Schema transforms, Schema.TaggedError
 
+> **Transport update:** ADR-0023 carries tagged errors over Effect HttpApi/OpenAPI instead of oRPC and
+> generates Effect-free browser identifier brands from explicit wire formats. The remaining conventions
+> in this ADR still apply.
+
 The **Curation webapp** (`web/`) follows four cross-cutting code conventions, captured here so they are
 discoverable in one place rather than scattered through the design docs. They build on ADR-0012 (Effect
 v4 smol) and apply to all `web/` application code.

@@ -26,17 +26,18 @@ import { readXmpDescription, writeXmpDescription } from "./xmp.ts";
  */
 
 /** A throwing EXIF read (non-image / corrupt) — observed, then degraded to EMPTY (ADR-0013). */
-export class ExifReadError extends Schema.TaggedErrorClass<ExifReadError>()("ExifReadError", {
+export class ExifReadError extends Schema.TaggedError<ExifReadError>()("ExifReadError", {
   message: Schema.String,
 }) {}
 
 /** A failed metadata write-back (ADR-0013) — the codec owns it, the consumer re-wraps it. */
-export class MetadataWriteError extends Schema.TaggedErrorClass<MetadataWriteError>()(
+export class MetadataWriteError extends Schema.TaggedError<MetadataWriteError>()(
   "MetadataWriteError",
   { mimeType: Schema.String, message: Schema.String },
 ) {}
 
 const isPng = (mimeType: string): boolean => mimeType === "image/png";
+
 const isJpeg = (mimeType: string): boolean => mimeType === "image/jpeg";
 
 const NOTHING: RawMetadata = {
@@ -51,6 +52,7 @@ const NOTHING: RawMetadata = {
 export interface ExifApi {
   readonly read: (jpegBinary: string) => Effect.Effect<RawExif>;
 }
+
 export class Exif extends Context.Service<Exif, ExifApi>()("Exif") {}
 
 export const ExifLive = Layer.succeed(
@@ -80,7 +82,9 @@ export const ExifFake = (raw: RawExif): Layer.Layer<Exif> =>
 export interface XmpApi {
   readonly readDescription: (jpegBinary: string) => Effect.Effect<string | null>;
 }
+
 export class Xmp extends Context.Service<Xmp, XmpApi>()("Xmp") {}
+
 export const XmpLive = Layer.succeed(
   Xmp,
   Xmp.of({ readDescription: (jpegBinary) => Effect.succeed(readXmpDescription(jpegBinary)) }),
@@ -105,6 +109,7 @@ export interface PhotoMetadataApi {
     edit: MetadataEdit,
   ) => Effect.Effect<string, MetadataWriteError>;
 }
+
 export class PhotoMetadata extends Context.Service<PhotoMetadata, PhotoMetadataApi>()(
   "PhotoMetadata",
 ) {}
@@ -114,14 +119,17 @@ const writeBytes = (binary: string, mimeType: string, edit: MetadataEdit): strin
   if (isPng(mimeType)) {
     return edit.description === null ? binary : writePngDescription(binary, edit.description);
   }
+
   if (isJpeg(mimeType)) {
     const withExif = writeExif(binary, {
       orientation: edit.orientation,
       location: edit.location,
       description: edit.description,
     });
+
     return edit.description === null ? withExif : writeXmpDescription(withExif, edit.description);
   }
+
   return binary; // formats we don't manage (gif/webp/avif) pass through untouched
 };
 
@@ -140,7 +148,9 @@ const make = Effect.all([Exif, Xmp]).pipe(
           ),
         );
       }
+
       const description = isPng(mimeType) ? readPngDescription(binary) : null;
+
       return Effect.succeed(
         decodeMetadata({ ...NOTHING, description: { xmp: description, exif: null } }),
       );

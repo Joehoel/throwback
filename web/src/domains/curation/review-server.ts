@@ -15,11 +15,12 @@ import { ReviewStatus } from "#/domains/shared/photo.ts";
  */
 
 const SetInput = Schema.Struct({ path: Schema.String, status: ReviewStatus });
+
 const decodeSetInput = Schema.decodeUnknownSync(SetInput);
 
 /** Persist a photo's review status (needs_review / handled / skipped), keyed by local path. */
 export const setReviewStatus = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => decodeSetInput(data))
+  .validator(decodeSetInput)
   .handler(({ data }) => DbRuntime.runPromise(persistStatus(data.path, data.status)));
 
 /** Every recorded review status — to hydrate the crawled photos with their D1 state. */

@@ -8,10 +8,12 @@ import { useReview } from "#/domains/curation/components/review/review-provider.
 export function Filmstrip(): React.ReactNode {
   const { event, photo, pickPhoto } = useReview();
   const { photos } = event;
+
   return (
     <div className="flex shrink-0 gap-2 overflow-x-auto border-t border-kumo-hairline bg-kumo-elevated p-2">
       {photos.map((p, i) => {
         const done = photoDone(p);
+
         return (
           <button
             key={p.id}

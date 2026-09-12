@@ -30,14 +30,18 @@ function AiLocationSuggestion({
   onChange: (place: string, coords: LatLng) => void;
 }): React.ReactNode {
   const geocodingLib = useMapsLibrary("geocoding");
+
   const apply = (): void => {
     if (!geocodingLib) {
       onChange(suggestion, coords);
+
       return;
     }
+
     const geocoder = new geocodingLib.Geocoder();
     void geocoder.geocode({ address: suggestion }, (results, status) => {
       const first = results?.[0];
+
       if (status === "OK" && first !== undefined) {
         const loc = first.geometry.location;
         onChange(first.formatted_address, { lat: loc.lat(), lng: loc.lng() });
@@ -46,6 +50,7 @@ function AiLocationSuggestion({
       }
     });
   };
+
   return <AiPlaceChip label={suggestion} onApply={apply} />;
 }
 
@@ -65,6 +70,7 @@ function MapRecenter({ coords }: { coords: LatLng }): React.ReactNode {
       map.panTo(coords);
     }
   }, [map, coords]);
+
   return null;
 }
 
@@ -89,7 +95,9 @@ function LocationMap({
     if (!map || !onViewport) {
       return;
     }
+
     const c = map.getCenter();
+
     if (c) {
       onViewport({ lat: c.lat(), lng: c.lng(), z: map.getZoom() ?? 9 });
     }
@@ -97,15 +105,20 @@ function LocationMap({
 
   const handleDragEnd = (e: google.maps.MapMouseEvent): void => {
     const ll = e.latLng;
+
     if (!ll) {
       return;
     }
+
     const next: LatLng = { lat: ll.lat(), lng: ll.lng() };
     const fallback = `${next.lat.toFixed(4)}, ${next.lng.toFixed(4)}`;
+
     if (!geocodingLib) {
       onChange(fallback, next);
+
       return;
     }
+
     const geocoder = new geocodingLib.Geocoder();
     void geocoder.geocode({ location: next }, (results, status) => {
       const first = results?.[0];
@@ -144,6 +157,7 @@ function AutocompleteInput({
 }): React.ReactNode {
   const places = useMapsLibrary("places");
   const wrapRef = useRef<HTMLDivElement>(null);
+
   // Latest onChange without re-binding the widget each render (which would stack
   // listeners and duplicate the suggestions dropdown).
   const onPick = useEffectEvent((label: string, next: LatLng) => {
@@ -153,6 +167,7 @@ function AutocompleteInput({
   useEffect(() => {
     let listener: google.maps.MapsEventListener | undefined;
     const input = wrapRef.current?.querySelector("input");
+
     if (places && input) {
       // Classic Autocomplete widget bound to the Kumo input — keeps the styled
       // field while Google handles suggestions. (Prod may move to the newer
@@ -160,15 +175,18 @@ function AutocompleteInput({
       const ac = new places.Autocomplete(input, {
         fields: ["geometry", "formatted_address", "name"],
       });
+
       listener = ac.addListener("place_changed", () => {
         const p = ac.getPlace();
         const loc = p.geometry?.location;
         const label = p.formatted_address ?? p.name ?? input.value;
+
         if (loc) {
           onPick(label, { lat: loc.lat(), lng: loc.lng() });
         }
       });
     }
+
     return () => {
       listener?.remove();
     };
@@ -212,7 +230,8 @@ export default function LocationMapPanel({
   viewport,
   onViewport,
 }: PanelProps): React.ReactNode {
-  const showAi = typeof aiPlace === "string" && aiPlace !== "" && aiPlace !== place;
+  const showAi = aiPlace !== undefined && aiPlace !== null && aiPlace !== "" && aiPlace !== place;
+
   return (
     <APIProvider apiKey={apiKey}>
       {showAi ? (

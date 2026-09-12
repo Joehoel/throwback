@@ -30,6 +30,7 @@ describe("Photo", () => {
       location: { latitude: 50, longitude: 14 },
       reviewStatus: "needs_review",
     });
+
     expect(p.id).toBe("p1");
     expect(p.year).toBe(2019);
     expect(p.location?.latitude).toBe(50);
@@ -46,6 +47,7 @@ describe("Photo", () => {
       location: null,
       reviewStatus: "skipped",
     });
+
     expect(p.description).toBeNull();
     expect(p.location).toBeNull();
     expect(p.year).toBeNull();
@@ -70,6 +72,7 @@ describe("GraphDriveItem", () => {
       description: "hi",
       location: { latitude: 50, longitude: 14 },
     });
+
     expect(String(it_.lastModifiedDateTime)).toContain("2020-01-01");
   });
 });
@@ -85,6 +88,7 @@ describe("PhotoFromGraphItem", () => {
       description: "Holiday",
       location: { latitude: 50, longitude: 14 },
     });
+
     expect(p.folderId).toBe("f1");
     expect(p.year).toBe(2019);
     expect(p.description).toBe("Holiday");
@@ -99,6 +103,7 @@ describe("PhotoFromGraphItem", () => {
       lastModifiedDateTime: "2020-01-01T00:00:00Z",
       parentReference: { id: "f1", path: "/drive/root:/Fam/scans/old" },
     });
+
     expect(p.year).toBeNull();
     expect(p.description).toBeNull();
     expect(p.location).toBeNull();
@@ -119,6 +124,7 @@ describe("WritePayload / WriteJob", () => {
       location: { latitude: 1, longitude: 2 },
       orientation: 6,
     });
+
     expect(payload).toMatchObject({ kind: "location_orientation", orientation: 6 });
   });
 
@@ -131,6 +137,7 @@ describe("WritePayload / WriteJob", () => {
       workflowInstanceId: null,
       error: null,
     });
+
     expect(job.photoId).toBe("p1");
     expect(job.status).toBe("pending");
   });

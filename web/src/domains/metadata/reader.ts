@@ -19,6 +19,7 @@ import { findExifSegment } from "./segments.ts";
 
 /** A single EXIF RATIONAL: `[numerator, denominator]`. */
 export type Rational = readonly [number, number];
+
 /** GPS degrees/minutes/seconds as three rationals (the EXIF GPSLatitude shape). */
 export type Rational3 = readonly [Rational, Rational, Rational];
 
@@ -75,6 +76,7 @@ interface Entry {
 /** Locate the APP1 Exif segment's TIFF block + byte order, or null. */
 function findTiff(jpeg: string): Tiff | null {
   const seg = findExifSegment(jpeg);
+
   return seg === null ? null : { data: seg.tiff, le: seg.le };
 }
 
@@ -82,6 +84,7 @@ function findTiff(jpeg: string): Tiff | null {
 function readIfd(tiff: Tiff, pointer: number): ReadonlyMap<number, Entry> {
   const entries = new Map<number, Entry>();
   const count = readU16(tiff.data, pointer, tiff.le);
+
   for (let i = 0; i < count; i += 1) {
     const base = pointer + 2 + 12 * i;
     entries.set(readU16(tiff.data, base, tiff.le), {
@@ -90,12 +93,14 @@ function readIfd(tiff: Tiff, pointer: number): ReadonlyMap<number, Entry> {
       field: base + 8,
     });
   }
+
   return entries;
 }
 
 /** ASCII string value (trailing NUL dropped); inline when it fits the 4-byte field. */
 const ascii = (tiff: Tiff, entry: Entry): string => {
   const start = entry.count > 4 ? readU32(tiff.data, entry.field, tiff.le) : entry.field;
+
   return tiff.data.slice(start, start + Math.max(entry.count - 1, 0));
 };
 
@@ -105,10 +110,12 @@ const short = (tiff: Tiff, entry: Entry): number => readU16(tiff.data, entry.fie
 /** Three RATIONALs (GPS lat/lon), always stored at an offset. */
 const rational3 = (tiff: Tiff, entry: Entry): Rational3 => {
   const base = readU32(tiff.data, entry.field, tiff.le);
+
   const at = (k: number): Rational => [
     readU32(tiff.data, base + k * 8, tiff.le),
     readU32(tiff.data, base + k * 8 + 4, tiff.le),
   ];
+
   return [at(0), at(1), at(2)];
 };
 
@@ -121,9 +128,11 @@ function readGps(gps: ReadonlyMap<number, Entry>, tiff: Tiff): RawGps | null {
   const lon = gps.get(TAG.gpsLon);
   const latRef = gps.get(TAG.gpsLatRef);
   const lonRef = gps.get(TAG.gpsLonRef);
+
   if (lat === undefined || lon === undefined || latRef === undefined || lonRef === undefined) {
     return null;
   }
+
   return {
     lat: rational3(tiff, lat),
     latRef: ascii(tiff, latRef),
@@ -135,9 +144,11 @@ function readGps(gps: ReadonlyMap<number, Entry>, tiff: Tiff): RawGps | null {
 /** Read the raw EXIF tags from a JPEG binary string. Non-JPEG / EXIF-less → `EMPTY`. */
 export function readExif(jpeg: string): RawExif {
   const tiff = findTiff(jpeg);
+
   if (tiff === null) {
     return EMPTY;
   }
+
   const ifd0 = readIfd(tiff, readU32(tiff.data, 4, tiff.le));
 
   const description = ifd0.get(TAG.description);

@@ -25,6 +25,7 @@ export const GraphDriveItem = Schema.Struct({
   folder: Schema.optionalKey(Schema.Struct({ childCount: Schema.Number })),
   location: Schema.optionalKey(GraphLocationFacet), // derived GPS facet — never raw EXIF
 });
+
 export type GraphDriveItem = typeof GraphDriveItem.Type;
 
 // --- Named value mappers (rule #5: logic lives in transforms, not an imperative body) ---
@@ -49,14 +50,15 @@ export const LocationFromFacet = GraphLocationFacet.pipe(
   Schema.decodeTo(
     Schema.NullOr(Location),
     SchemaTransformation.transform({
-      decode: (f) =>
-        f.latitude !== undefined && f.longitude !== undefined
-          ? {
-              latitude: f.latitude,
-              longitude: f.longitude,
-              ...(f.altitude === undefined ? {} : { altitude: f.altitude }),
-            }
-          : null,
+      decode: (f) => {
+        if (f.latitude === undefined || f.longitude === undefined) {
+          return null;
+        }
+
+        return f.altitude === undefined
+          ? { latitude: f.latitude, longitude: f.longitude }
+          : { latitude: f.latitude, longitude: f.longitude, altitude: f.altitude };
+      },
       encode: (l) => l ?? {},
     }),
   ),
@@ -69,6 +71,7 @@ const YearFromPath = Schema.String.pipe(
     SchemaTransformation.transform({
       decode: (path) => {
         const seg = path.split("/").find((s) => /^(?:19|20)\d{2}$/u.test(s));
+
         return seg === undefined ? null : Number(seg);
       },
       encode: () => "",

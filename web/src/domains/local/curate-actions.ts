@@ -1,3 +1,4 @@
+import { Option, Schema } from "effect";
 import type { DriveItemId } from "#/domains/shared/ids.ts";
 import type { ReviewStatus } from "#/domains/shared/photo.ts";
 
@@ -14,6 +15,10 @@ export interface ReviewRecord {
   readonly reviewStatus: ReviewStatus;
 }
 
+const ErrorMessage = Schema.Struct({ message: Schema.NonEmptyString });
+
+const decodeErrorMessage = Schema.decodeUnknownOption(ErrorMessage);
+
 interface Reviewable {
   readonly id: DriveItemId;
   readonly reviewStatus: ReviewStatus;
@@ -25,6 +30,7 @@ export const mergeReviewStatuses = (
   recorded: readonly ReviewRecord[],
 ): ReadonlyMap<DriveItemId, ReviewStatus> => {
   const byPath = new Map(recorded.map((record) => [record.path, record.reviewStatus]));
+
   return new Map(photos.map((photo) => [photo.id, byPath.get(photo.id) ?? photo.reviewStatus]));
 };
 
@@ -33,11 +39,8 @@ export const mergeReviewStatuses = (
  * tagged error (`LocalSourceError`, …) that carries its own `message`; surface that
  * rather than `String(error)` (which leaks the error's internals into the UI).
  */
-export const describeError = (error: unknown): string =>
-  typeof error === "object" &&
-  error !== null &&
-  "message" in error &&
-  typeof error.message === "string" &&
-  error.message !== ""
-    ? error.message
-    : "Er ging iets mis";
+export const describeError = (cause: unknown): string =>
+  Option.match(decodeErrorMessage(cause), {
+    onNone: () => "Er ging iets mis",
+    onSome: ({ message }) => message,
+  });

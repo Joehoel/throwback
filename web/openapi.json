@@ -1,0 +1,179 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Throwback Beheer-webapp API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/bootstrap": {
+      "get": {
+        "tags": ["bootstrap"],
+        "operationId": "getBootstrap",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "BootstrapState",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapState"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BuildUpgradeRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildUpgradeRequiredEncoded"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SignInRequired": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["SignInRequired"]
+          }
+        },
+        "required": ["_tag"],
+        "additionalProperties": false
+      },
+      "CuratorClaimRequired": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["CuratorClaimRequired"]
+          }
+        },
+        "required": ["_tag"],
+        "additionalProperties": false
+      },
+      "GraphConnectionRequired": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["GraphConnectionRequired"]
+          }
+        },
+        "required": ["_tag"],
+        "additionalProperties": false
+      },
+      "LibrarySelectionRequired": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["LibrarySelectionRequired"]
+          }
+        },
+        "required": ["_tag"],
+        "additionalProperties": false
+      },
+      "LibraryIndexing": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["LibraryIndexing"]
+          },
+          "discoveredPhotos": {
+            "type": "number"
+          }
+        },
+        "required": ["_tag", "discoveredPhotos"],
+        "additionalProperties": false
+      },
+      "LibraryId": {
+        "type": "string",
+        "format": "throwback-library-id"
+      },
+      "EventId": {
+        "type": "string",
+        "format": "throwback-event-id"
+      },
+      "PhotoId": {
+        "type": "string",
+        "format": "throwback-photo-id"
+      },
+      "ReviewReady": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["ReviewReady"]
+          },
+          "libraryId": {
+            "$ref": "#/components/schemas/LibraryId"
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/EventId"
+          },
+          "photoId": {
+            "$ref": "#/components/schemas/PhotoId"
+          }
+        },
+        "required": ["_tag", "libraryId", "eventId", "photoId"],
+        "additionalProperties": false
+      },
+      "BootstrapState": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SignInRequired"
+          },
+          {
+            "$ref": "#/components/schemas/CuratorClaimRequired"
+          },
+          {
+            "$ref": "#/components/schemas/GraphConnectionRequired"
+          },
+          {
+            "$ref": "#/components/schemas/LibrarySelectionRequired"
+          },
+          {
+            "$ref": "#/components/schemas/LibraryIndexing"
+          },
+          {
+            "$ref": "#/components/schemas/ReviewReady"
+          }
+        ]
+      },
+      "BuildUpgradeRequiredEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["BuildUpgradeRequired"]
+          },
+          "currentBuildId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "currentBuildId", "message"],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {}
+  },
+  "security": [],
+  "tags": [
+    {
+      "name": "bootstrap"
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import { useReview } from "#/domains/curation/components/review/review-provider.
 /** The photo itself, the rotate-fix control, and the skip / approve action bar. */
 export function Stage(): React.ReactNode {
   const { photo, orientationFixed, hasNext, toggleRotation, skip, approve } = useReview();
+
   return (
     <div className="relative flex min-h-0 flex-1 bg-kumo-base p-3">
       <PhotoView photo={photo} rotated={orientationFixed} className="h-full w-full" />

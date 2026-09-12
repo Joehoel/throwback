@@ -35,8 +35,10 @@ function freezeNode(node: MutableNode): FolderNode {
   const children = [...node.children.values()]
     .toSorted((a, b) => a.name.localeCompare(b.name))
     .map((child) => freezeNode(child));
+
   const photoCount =
     node.photoIds.length + children.reduce((sum, child) => sum + child.photoCount, 0);
+
   return {
     id: DriveItemId.make(node.id),
     name: node.name,
@@ -64,16 +66,20 @@ export function buildFolderTree(photos: readonly Photo[], rootName: string): Fol
   // Walk a photo's folder segments, creating any missing ancestor nodes.
   const ensure = (segments: readonly string[]): MutableNode => {
     let node = root; // segments[0] is the root name — start there, descend the rest
+
     for (let depth = 1; depth < segments.length; depth += 1) {
       const name = segments[depth];
       let child = node.children.get(name);
+
       if (child === undefined) {
         const path = segments.slice(0, depth + 1);
         child = { id: path.join("/"), name, path, children: new Map(), photoIds: [] };
         node.children.set(name, child);
       }
+
       node = child;
     }
+
     return node;
   };
 
@@ -89,11 +95,14 @@ export function findFolder(root: FolderNode, id: DriveItemId): FolderNode | null
   if (root.id === id) {
     return root;
   }
+
   for (const child of root.children) {
     const hit = findFolder(child, id);
+
     if (hit !== null) {
       return hit;
     }
   }
+
   return null;
 }

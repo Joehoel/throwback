@@ -8,7 +8,7 @@ import type { D1Database } from "@cloudflare/workers-types";
  *
  * better-auth detects a `D1Database` and uses its built-in Kysely D1 dialect
  * (verified in `web/spike/sql-d1/` Part D). The auth tables live as plain SQL in
- * `./drizzle/*.sql`, applied to D1 by Alchemy (`alchemy.run.ts` `migrationsDir`).
+ * `./drizzle/*.sql`, applied to D1 by Alchemy (`alchemy.run.ts` `migrations`).
  * Regenerate that SQL when the better-auth schema changes via `getMigrations()`
  * (`better-auth/db/migration`) against a local/miniflare D1 — see the spike.
  *

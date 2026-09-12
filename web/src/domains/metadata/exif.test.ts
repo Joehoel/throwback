@@ -20,6 +20,7 @@ describe("writeExif", () => {
       ...NONE,
       location: { latitude: 52.1, longitude: 5.2 },
     });
+
     const gps = readExif(jpeg).gps;
     expect(piexif.GPSHelper.dmsRationalToDeg(gps?.lat, gps?.latRef)).toBeCloseTo(52.1, 3);
     expect(piexif.GPSHelper.dmsRationalToDeg(gps?.lon, gps?.lonRef)).toBeCloseTo(5.2, 3);
@@ -32,6 +33,7 @@ describe("writeExif", () => {
       ...NONE,
       location: { latitude: -33.9, longitude: -70.6 },
     });
+
     const gps = readExif(jpeg).gps;
     expect(gps?.latRef).toBe("S");
     expect(gps?.lonRef).toBe("W");
@@ -43,11 +45,13 @@ describe("writeExif", () => {
       orientation: 3,
       dateTimeOriginal: "2019:01:01 00:00:00",
     });
+
     const jpeg = writeExif(original, {
       ...NONE,
       orientation: 6,
       location: { latitude: 1, longitude: 2 },
     });
+
     const raw = readExif(jpeg);
     expect(raw.captureDate).toBe("2019:01:01 00:00:00"); // preserved
     expect(raw.orientation).toBe(6); // updated
@@ -74,13 +78,16 @@ describe("writeExif", () => {
       orientation: 6,
       location: { latitude: 52.1, longitude: 5.2 },
     });
+
     const dict = piexif.load(jpeg);
     expect(dict["0th"]?.[piexif.ImageIFD.Orientation]).toBe(6);
     expect(dict.GPS?.[piexif.GPSIFD.GPSLatitudeRef]).toBe("N");
+
     const lat = piexif.GPSHelper.dmsRationalToDeg(
       dict.GPS?.[piexif.GPSIFD.GPSLatitude],
       dict.GPS?.[piexif.GPSIFD.GPSLatitudeRef],
     );
+
     expect(lat).toBeCloseTo(52.1, 3);
   });
 

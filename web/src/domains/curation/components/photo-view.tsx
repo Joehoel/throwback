@@ -32,6 +32,7 @@ export function PhotoView({
   const tilted = photo.needsRotation && !rotated;
   // Never ship an alt-less image (WCAG 1.1.1); fall back when the AI caption is blank.
   const alt = photo.aiDescription.trim().length > 0 ? photo.aiDescription : "Foto";
+
   return (
     <div className={cn(frame(), className)}>
       <img src={photoSrc(photo, longEdge)} alt={alt} className={image({ tilted })} />

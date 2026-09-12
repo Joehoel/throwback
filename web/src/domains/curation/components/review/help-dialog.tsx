@@ -31,6 +31,7 @@ const SHORTCUTS: { keys: React.ReactNode; label: string }[] = [
 /** Keyboard-shortcut reference (ADR-0014), toggled with `?`. */
 export function HelpDialog(): React.ReactNode {
   const { helpOpen, closeHelp } = useReview();
+
   return (
     <Dialog.Root
       open={helpOpen}

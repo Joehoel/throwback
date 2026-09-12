@@ -17,6 +17,14 @@
     {
       "name": "react-doctor",
       "specifier": "oxlint-plugin-react-doctor"
+    },
+    {
+      "name": "anti-slop",
+      "specifier": "./tools/oxlint/anti-slop/index.ts"
+    },
+    {
+      "name": "anti-slop-effect",
+      "specifier": "./tools/oxlint/anti-slop/effect/index.ts"
     }
   ],
   "env": {
@@ -46,6 +54,29 @@
     "reportUnusedDisableDirectives": "error"
   },
   "rules": {
+    "anti-slop/no-array-filter-map": "error",
+    "anti-slop/no-reduce-accumulator-copy": "error",
+    "anti-slop/no-chained-type-assertions": "error",
+    "anti-slop/no-conditional-empty-object-spread": "error",
+    "anti-slop/no-known-value-widening": "error",
+    "anti-slop/no-module-mocking": "error",
+    "anti-slop/no-object-parameters": "error",
+    "anti-slop/no-reflect-apply": "error",
+    "anti-slop/no-reflect-get": "error",
+    "anti-slop/no-runtime-typeof": "error",
+    "anti-slop/no-shape-in-symbol-names": "error",
+    "anti-slop/no-unknown-parameters": "error",
+    "anti-slop/no-unknown-returns": "error",
+    "anti-slop/no-unknown-type-aliases": "error",
+    "anti-slop/no-unsafe-dictionary-type": "error",
+    "anti-slop/no-widen-then-assert": "error",
+    "anti-slop/require-readable-spacing": "error",
+    "anti-slop/require-safety-comment-for-type-assertion": "error",
+    "anti-slop-effect/no-manual-effect-error-tag": "error",
+    "anti-slop-effect/no-manual-tag-comparison": "error",
+    "anti-slop-effect/no-manual-tagged-construction": "error",
+    "anti-slop-effect/no-service-constructor-imports": "error",
+    "anti-slop-effect/prefer-effect-match": "error",
     "eslint/func-style": "off",
     "eslint/no-duplicate-imports": "off",
     "eslint/no-magic-numbers": "off",
@@ -71,8 +102,8 @@
     "react-doctor/no-derived-state": "error",
     "react-doctor/no-event-handler": "error",
     "react-doctor/no-initialize-state": "error",
-    "react-doctor/no-pass-data-to-parent": "error",
-    "react-doctor/no-pass-live-state-to-parent": "error",
+    "react-doctor/no-pass-data-to-parent": "off",
+    "react-doctor/no-pass-live-state-to-parent": "off",
     "react-doctor/no-reset-all-state-on-prop-change": "error",
     "react/jsx-filename-extension": "off",
     "react/jsx-max-depth": "off",
@@ -94,16 +125,24 @@
     "eslint/new-cap": "off",
     "eslint/func-names": "off",
     "eslint/id-length": "off",
+    "eslint/no-redeclare": "off",
     "eslint/capitalized-comments": "off",
     "eslint/no-inline-comments": "off",
     "eslint/max-classes-per-file": "off",
+    "eslint/max-lines": ["error", { "max": 300, "skipBlankLines": true }],
     "eslint/max-lines-per-function": "off",
     "eslint/max-statements": "off",
+    "eslint/one-var": "off",
+    "node/no-sync": "off",
     "oxc/no-barrel-file": "off",
+    "react/jsx-no-literals": "off",
+    "react/todo": "off",
     "unicorn/no-array-method-this-argument": "off",
     "eslint/init-declarations": "off",
     "unicorn/filename-case": ["error", { "case": "kebabCase" }],
-    "unicorn/number-literal-case": "off"
+    "unicorn/max-nested-calls": "off",
+    "unicorn/number-literal-case": "off",
+    "unicorn/throw-new-error": "off"
   },
   "overrides": [
     {
@@ -123,9 +162,13 @@
         "vitest/no-importing-vitest-globals": "off",
         "vitest/prefer-importing-vitest-globals": "off",
         "vitest/no-hooks": "off",
+        "vitest/no-standalone-expect": "off",
         "vitest/require-top-level-describe": "off",
         "vitest/max-expects": "off",
         "vitest/consistent-test-it": "off",
+        "vitest/prefer-to-be-falsy": "off",
+        "vitest/prefer-to-be-truthy": "off",
+        "vitest/prefer-to-contain": "off",
         "typescript/no-deprecated": "off",
         "eslint/no-shadow": "off",
         "eslint/no-console": "off",
@@ -189,6 +232,19 @@
       }
     },
     {
+      "files": ["src/env.ts"],
+      "rules": {
+        "import/no-namespace": "off",
+        "typescript/no-unsafe-type-assertion": "off"
+      }
+    },
+    {
+      "files": ["tools/**"],
+      "rules": {
+        "node/no-top-level-await": "off"
+      }
+    },
+    {
       "files": ["**/*.ts"],
       "rules": {
         "react-hooks/rules-of-hooks": "off"
@@ -196,6 +252,22 @@
     }
   ],
   "ignorePatterns": [
+    ".agent/**",
+    ".agents/**",
+    ".codex/**",
+    ".continue/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".pi/**",
+    ".roo/**",
+    ".windsurf/**",
+    "src/client/generated/**",
+    "src/routes/api.$.ts",
+    "src/routes/api.rpc.$.ts",
+    "src/routes/api/drive.ts",
+    "src/routes/curate.tsx",
+    "src/orpc/**",
     "node_modules/**",
     ".context/**",
     ".claude/**",
@@ -211,6 +283,7 @@
     "src/routeTree.gen.ts",
     "worker-configuration.d.ts",
     "src/types/**",
-    "drizzle/meta/**"
+    "drizzle/meta/**",
+    "tools/oxlint/anti-slop/**"
   ]
 }

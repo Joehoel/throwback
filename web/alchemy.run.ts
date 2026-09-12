@@ -11,15 +11,15 @@ import { accessProviders } from "./infra/cloudflare/providers.ts";
 
 config({ path: ".env.local" });
 
-export const DB = Cloudflare.D1Database("DB", {
+export const DB = Cloudflare.D1.Database("DB", {
   name: "throwback-web",
-  migrationsDir: "./drizzle",
+  migrations: "./drizzle",
 });
 
 /** Production hostname. The `kuijper.fyi` zone must already exist in the account. */
 const DOMAIN = "throwback.kuijper.fyi";
 
-export class Website extends Cloudflare.Vite<Website>()(
+export class Website extends Cloudflare.Website.Vite<Website>()(
   "Website",
   Effect.gen(function* () {
     // `alchemy dev` sets this; deploy leaves it false. Drives the auth base URL
@@ -38,10 +38,10 @@ export class Website extends Cloudflare.Vite<Website>()(
         MICROSOFT_CLIENT_ID: Config.redacted("MICROSOFT_CLIENT_ID"),
         MICROSOFT_CLIENT_SECRET: Config.redacted("MICROSOFT_CLIENT_SECRET"),
         BETTER_AUTH_SECRET: Config.redacted("BETTER_AUTH_SECRET"),
-        BETTER_AUTH_URL: dev ? "http://localhost:3000" : `https://${DOMAIN}`,
+        BETTER_AUTH_URL: dev ? "http://127.0.0.1:3000" : `https://${DOMAIN}`,
         GEMINI_API_KEY: Config.redacted("GEMINI_API_KEY"),
       },
-      dev: { port: 3000 },
+      dev: { host: "127.0.0.1", port: 3000, strictPort: true },
     };
   }),
 ) {}
@@ -54,9 +54,7 @@ export default Alchemy.Stack(
     // Compose our custom Access resources on top of the Cloudflare catalog.
     // `provideMerge` hands Cloudflare's credentials/environment/retry to the
     // Access providers, and both collections end up in the stack context.
-    providers: accessProviders().pipe(
-      Layer.provideMerge(Cloudflare.providers()),
-    ),
+    providers: accessProviders().pipe(Layer.provideMerge(Cloudflare.providers())),
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
@@ -67,9 +65,7 @@ export default Alchemy.Stack(
     // app. Access challenges every visitor with a one-time PIN emailed to the
     // address they enter and only admits listed addresses. Unset = no Access
     // app provisioned. Identity-based, so it works from any network/IP.
-    const allowedEmailsCsv = yield* Config.string("ACCESS_ALLOWED_EMAILS").pipe(
-      Config.option,
-    );
+    const allowedEmailsCsv = yield* Config.string("ACCESS_ALLOWED_EMAILS").pipe(Config.option);
     if (Option.isSome(allowedEmailsCsv)) {
       const emails = allowedEmailsCsv.value
         .split(",")

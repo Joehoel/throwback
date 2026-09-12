@@ -32,10 +32,13 @@ export const setReviewStatus = Effect.fn("review.setReviewStatus")(function* (
 export const getReviewStatus = Effect.fn("review.getReviewStatus")(function* (path: string) {
   const sql = yield* SqlClient.SqlClient;
   const rows = yield* sql`SELECT * FROM local_review WHERE path = ${path}`;
+
   if (rows.length === 0) {
     return "needs_review" as const;
   }
+
   const row = yield* Schema.decodeUnknownEffect(ReviewRow)(rows[0]);
+
   return row.reviewStatus;
 });
 
@@ -43,5 +46,6 @@ export const getReviewStatus = Effect.fn("review.getReviewStatus")(function* (pa
 export const reviewStatuses = Effect.fn("review.reviewStatuses")(function* () {
   const sql = yield* SqlClient.SqlClient;
   const rows = yield* sql`SELECT * FROM local_review`;
+
   return yield* Schema.decodeUnknownEffect(Schema.Array(ReviewRow))(rows);
 });
