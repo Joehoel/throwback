@@ -23,7 +23,9 @@ describe("bootstrap destination", () => {
       { to: "/setup/$step", params: { step: "library" } },
     ],
     [
-      JSON.parse('{"_tag":"LibraryIndexing","discoveredPhotos":42}'),
+      JSON.parse(
+        '{"_tag":"LibraryIndexing","libraryId":"00000000-0000-4000-8000-000000000043","rootFolder":{"name":"Familiefoto\u0027s","path":"OneDrive / Familiefoto\u0027s"},"discoveredPhotos":42}',
+      ),
       { to: "/setup/$step", params: { step: "indexing" } },
     ],
   ])("routes %o from server-confirmed state", (input, expected) => {
@@ -34,13 +36,17 @@ describe("bootstrap destination", () => {
     const state = parse(
       vBootstrapState,
       JSON.parse(
-        '{"_tag":"ReviewReady","libraryId":"library-1","eventId":"event-1","photoId":"photo-1"}',
+        '{"_tag":"ReviewReady","libraryId":"00000000-0000-4000-8000-000000000001","eventId":"event-1","photoId":"photo-1"}',
       ),
     );
 
     expect(bootstrapDestination(state)).toEqual({
       to: "/libraries/$libraryId/events/$eventId/photos/$photoId",
-      params: { libraryId: "library-1", eventId: "event-1", photoId: "photo-1" },
+      params: {
+        libraryId: "00000000-0000-4000-8000-000000000001",
+        eventId: "event-1",
+        photoId: "photo-1",
+      },
     });
   });
 });

@@ -3,6 +3,7 @@ import { ApplicationSession } from "../auth/application-session.ts";
 import {
   CuratorClaimRequired,
   GraphConnectionRequired,
+  LibraryIndexing,
   LibrarySelectionRequired,
   SignInRequired,
 } from "../api/contract.ts";
@@ -15,6 +16,7 @@ import {
 } from "./errors.ts";
 import type { SignedInMicrosoftAccount } from "./model.ts";
 import { BetterAuthUserId, CuratorIdentity } from "./model.ts";
+import { LibraryStore } from "../library/library-store.ts";
 
 /** Authentication and single-Curator authorization policy. */
 export interface CuratorAccessService {
@@ -48,18 +50,35 @@ function accountDisplay(account: SignedInMicrosoftAccount) {
   return account.display;
 }
 
-function nextSetupState(account: SignedInMicrosoftAccount): BootstrapState {
-  return account.hasGraphConnection
-    ? LibrarySelectionRequired.make({})
-    : GraphConnectionRequired.make({ account: accountDisplay(account) });
-}
-
 /** Build Curator access policy from its session and persistence authorities. */
 export const CuratorAccessLive = Layer.effect(
   CuratorAccess,
   Effect.gen(function* () {
     const sessions = yield* ApplicationSession;
     const store = yield* CuratorStore;
+    const libraries = yield* LibraryStore;
+
+    const nextSetupState = Effect.fn("CuratorAccess.nextSetupState")(function* (
+      account: SignedInMicrosoftAccount,
+    ): Effect.fn.Return<BootstrapState, CuratorAccessUnavailable> {
+      if (!account.hasGraphConnection) {
+        return GraphConnectionRequired.make({ account: accountDisplay(account) });
+      }
+
+      const library = yield* libraries
+        .getSelected(account.identity)
+        .pipe(Effect.mapError(unavailable));
+
+      return Option.match(library, {
+        onNone: () => LibrarySelectionRequired.make({}),
+        onSome: (selected) =>
+          LibraryIndexing.make({
+            libraryId: selected.id,
+            rootFolder: selected.root,
+            discoveredPhotos: 0,
+          }),
+      });
+    });
 
     const findSignedIn = Effect.fn("CuratorAccess.findSignedIn")(function* (headers: Headers) {
       const sessionOption = yield* sessions.get(headers).pipe(Effect.mapError(unavailable));
@@ -77,6 +96,7 @@ export const CuratorAccessLive = Layer.effect(
 
       return Option.some({
         userId,
+        betterAuthAccountId: account.value.betterAuthAccountId,
         identity: CuratorIdentity.make({
           providerId: "microsoft",
           providerAccountId: account.value.providerAccountId,
@@ -137,7 +157,7 @@ export const CuratorAccessLive = Layer.effect(
         return SignInRequired.make({ reason: "ownerMismatch" });
       }
 
-      return nextSetupState(account.value);
+      return yield* nextSetupState(account.value);
     });
 
     const claim = Effect.fn("CuratorAccess.claim")(function* (account: SignedInMicrosoftAccount) {
@@ -149,7 +169,7 @@ export const CuratorAccessLive = Layer.effect(
         });
       }
 
-      return nextSetupState(account);
+      return yield* nextSetupState(account);
     });
 
     return CuratorAccess.of({ bootstrap, claim, requireCurator, requireSignedIn });

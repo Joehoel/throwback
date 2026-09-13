@@ -6,6 +6,12 @@ export const BetterAuthUserId = Schema.NonEmptyString.pipe(Schema.brand("BetterA
 /** Better Auth's local identifier for a signed-in person. */
 export type BetterAuthUserId = typeof BetterAuthUserId.Type;
 
+/** Better Auth's local identifier for one linked provider account. */
+export const BetterAuthAccountId = Schema.NonEmptyString.pipe(Schema.brand("BetterAuthAccountId"));
+
+/** Better Auth's local identifier for one linked provider account. */
+export type BetterAuthAccountId = typeof BetterAuthAccountId.Type;
+
 /** Microsoft's stable, provider-owned account identifier (`oid`). */
 export const MicrosoftAccountId = Schema.NonEmptyString.pipe(Schema.brand("MicrosoftAccountId"));
 
@@ -34,6 +40,7 @@ export type MicrosoftAccountDisplay = typeof MicrosoftAccountDisplay.Type;
 /** A Better Auth session resolved to its Microsoft provider identity. */
 export interface SignedInMicrosoftAccount {
   readonly userId: BetterAuthUserId;
+  readonly betterAuthAccountId: BetterAuthAccountId;
   readonly identity: CuratorIdentity;
   readonly display: MicrosoftAccountDisplay;
   readonly hasGraphConnection: boolean;

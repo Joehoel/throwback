@@ -7,6 +7,12 @@ import {
   vBuildUpgradeRequiredEncoded,
   vCuratorAccessUnavailableEncoded,
   vCuratorOwnershipConflictEncoded,
+  vGraphReauthenticationRequiredEncoded,
+  vInvalidLibrarySelectionEncoded,
+  vLibraryAlreadySelectedEncoded,
+  vLibraryStoreUnavailableEncoded,
+  vOneDriveFolderNotFoundEncoded,
+  vOneDriveUnavailableEncoded,
 } from "../generated/valibot.gen.ts";
 import {
   MutationBlockedForUpgradeError,
@@ -23,6 +29,12 @@ const declaredDomainError = union([
   vBuildUpgradeRequiredEncoded,
   vCuratorAccessUnavailableEncoded,
   vCuratorOwnershipConflictEncoded,
+  vGraphReauthenticationRequiredEncoded,
+  vInvalidLibrarySelectionEncoded,
+  vLibraryAlreadySelectedEncoded,
+  vLibraryStoreUnavailableEncoded,
+  vOneDriveFolderNotFoundEncoded,
+  vOneDriveUnavailableEncoded,
 ]);
 
 export function configureDomainClient(client: Client): Client {

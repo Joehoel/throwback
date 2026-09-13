@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest";
 import { ApplicationSession } from "../auth/application-session.ts";
 import { CuratorAccess, CuratorAccessLive } from "./curator-access.ts";
 import { CuratorOwnershipConflict } from "./errors.ts";
-import { CuratorIdentity, MicrosoftAccountId } from "./model.ts";
+import { BetterAuthAccountId, CuratorIdentity, MicrosoftAccountId } from "./model.ts";
 import { CuratorStore } from "./curator-store.ts";
+import { LibraryStore } from "../library/library-store.ts";
 
 function accessLayer(accountId: string, ownerId: string): Layer.Layer<CuratorAccess> {
   const owner = CuratorIdentity.make({
@@ -28,11 +29,16 @@ function accessLayer(accountId: string, ownerId: string): Layer.Layer<CuratorAcc
           findMicrosoftAccount: () =>
             Effect.succeed(
               Option.some({
+                betterAuthAccountId: BetterAuthAccountId.make("account-user-a"),
                 providerAccountId: MicrosoftAccountId.make(accountId),
                 hasGraphConnection: true,
               }),
             ),
           getOwner: Effect.succeed(Option.some(owner)),
+        }),
+        Layer.succeed(LibraryStore, {
+          getSelected: () => Effect.succeed(Option.none()),
+          select: (selection) => Effect.succeed(selection),
         }),
       ),
     ),

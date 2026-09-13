@@ -4,7 +4,7 @@ import { ShellLayout } from "./shell-layout.tsx";
 export function NotFoundShell() {
   return (
     <ShellLayout eyebrow="404 · Niet gevonden">
-      <h1 className="font-display text-4xl leading-tight font-semibold text-balance sm:text-5xl">
+      <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">
         Deze pagina bestaat niet.
       </h1>
       <p className="mt-5 max-w-xl text-base leading-7 text-[#665d4d] sm:text-lg">

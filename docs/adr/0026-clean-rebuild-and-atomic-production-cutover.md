@@ -13,7 +13,8 @@ The final application has three explicit source boundaries:
   repositories, Graph and Gemini clients, delta ingest, dispatchers, Workflows, and the streaming JPEG
   codec. Browser modules cannot import this tree.
 - `src/client/**` owns React, TanStack Router/Query/Store integrations, the generated Fetch/Query/Valibot
-  client, Kumo UI, and browser-only presentation state. It cannot import Effect or server modules.
+  client, the shadcn/ui component sources selected by ADR-0028, and browser-only presentation state. It
+  cannot import Effect or server modules.
 - `src/routes/**` contains thin route composition. Page routes import client entry points; dedicated server
   routes mount auth, `HttpApi`, OpenAPI, and documentation handlers without exporting server domain types
   to the browser.
@@ -136,8 +137,8 @@ not part of the product rollback promise.
 
 - ADR-0015 is superseded. Router and Query retain their established ownership, but TanStack Store replaces
   XState and there is no browser write-queue actor.
-- ADR-0016's responsive Splitscreen and Kumo contract is confirmed; only its prototype implementation is
-  discarded and ported into production `Review.*` components.
+- ADR-0016's responsive Splitscreen contract is confirmed; ADR-0028 supersedes its Kumo choice. Only the
+  prototype implementation is discarded and ported into production `Review.*` components.
 - ADR-0023's atomic oRPC/`createServerFn` cutover and Effect-free browser boundary are confirmed and made
   concrete.
 - ADR-0019, ADR-0022, ADR-0024, and ADR-0025 define the new Graph projection, full-target JPEG write,

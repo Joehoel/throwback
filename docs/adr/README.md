@@ -33,3 +33,4 @@ pointer-noot in de oude). Scope: **TV** = de Fotoshow (Android TV-app), **Web** 
 | [0025](0025-recoverable-failures-and-privacy-safe-diagnostics.md) | Recoverable failures and privacy-safe diagnostics | Web |
 | [0026](0026-clean-rebuild-and-atomic-production-cutover.md) | Clean rebuild and atomic production cutover | Web |
 | [0027](0027-proportional-v1-release-evidence.md) | Proportional v1 release evidence | Web |
+| [0028](0028-shadcn-base-ui-component-library.md) | shadcn/ui Base Nova on Base UI replaces Cloudflare Kumo | Web |

@@ -3,7 +3,13 @@
 import { queryOptions, type UseMutationOptions } from "@tanstack/react-query";
 
 import { client } from "../client.gen";
-import { claimCurator, getBootstrap, type Options } from "../sdk.gen";
+import {
+  claimCurator,
+  getBootstrap,
+  listLibraryFolders,
+  type Options,
+  selectLibrary,
+} from "../sdk.gen";
 import type {
   ClaimCuratorData,
   ClaimCuratorError,
@@ -11,6 +17,12 @@ import type {
   GetBootstrapData,
   GetBootstrapError,
   GetBootstrapResponse,
+  ListLibraryFoldersData,
+  ListLibraryFoldersError,
+  ListLibraryFoldersResponse,
+  SelectLibraryData,
+  SelectLibraryError,
+  SelectLibraryResponse,
 } from "../types.gen";
 
 export type QueryKey<TOptions extends Options> = [
@@ -84,6 +96,48 @@ export const claimCuratorMutation = (
   > = {
     mutationFn: async (fnOptions) => {
       const { data } = await claimCurator({
+        ...options,
+        ...fnOptions,
+        throwOnError: true,
+      });
+      return data;
+    },
+  };
+  return mutationOptions;
+};
+
+export const listLibraryFoldersQueryKey = (options?: Options<ListLibraryFoldersData>) =>
+  createQueryKey("listLibraryFolders", options);
+
+export const listLibraryFoldersOptions = (options?: Options<ListLibraryFoldersData>) =>
+  queryOptions<
+    ListLibraryFoldersResponse,
+    ListLibraryFoldersError,
+    ListLibraryFoldersResponse,
+    ReturnType<typeof listLibraryFoldersQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await listLibraryFolders({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: listLibraryFoldersQueryKey(options),
+  });
+
+export const selectLibraryMutation = (
+  options?: Partial<Options<SelectLibraryData>>,
+): UseMutationOptions<SelectLibraryResponse, SelectLibraryError, Options<SelectLibraryData>> => {
+  const mutationOptions: UseMutationOptions<
+    SelectLibraryResponse,
+    SelectLibraryError,
+    Options<SelectLibraryData>
+  > = {
+    mutationFn: async (fnOptions) => {
+      const { data } = await selectLibrary({
         ...options,
         ...fnOptions,
         throwOnError: true,

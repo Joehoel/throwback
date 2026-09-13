@@ -1,11 +1,17 @@
 import { readFileSync } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
 import { fileURLToPath } from "node:url";
-import { Effect, Option, Schema } from "effect";
+import * as D1Client from "@effect/sql-d1/D1Client";
+import { Effect, Layer, Option } from "effect";
 import { describe, expect, it } from "vitest";
-import { makeD1CuratorStore } from "./curator-store.ts";
-import type { CuratorDatabase } from "./curator-store.ts";
-import { BetterAuthUserId, CuratorIdentity, MicrosoftAccountId } from "./model.ts";
+import { makeSqliteD1 } from "../test-support/sqlite-d1.ts";
+import { CuratorStore, CuratorStoreLive } from "./curator-store.ts";
+import {
+  BetterAuthAccountId,
+  BetterAuthUserId,
+  CuratorIdentity,
+  MicrosoftAccountId,
+} from "./model.ts";
 
 const migrationPath = fileURLToPath(
   new URL("../../../migrations/0001_auth_and_curator.sql", import.meta.url),
@@ -19,34 +25,8 @@ function makeMigratedDatabase(): DatabaseSync {
   return database;
 }
 
-function asCuratorDatabase(database: DatabaseSync): CuratorDatabase {
-  return {
-    prepare(query) {
-      const statement = database.prepare(query);
-
-      let parameters: readonly (string | number | null)[] = [];
-
-      const prepared = {
-        bind(...values: readonly (string | number | null)[]) {
-          parameters = values;
-
-          return prepared;
-        },
-        async first() {
-          return Schema.decodeUnknownSync(
-            Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
-          )(statement.get(...parameters) ?? null);
-        },
-        async run() {
-          const result = statement.run(...parameters);
-
-          return { meta: { changes: Number(result.changes) } };
-        },
-      };
-
-      return prepared;
-    },
-  };
+function storeLayer(database: DatabaseSync) {
+  return CuratorStoreLive.pipe(Layer.provide(D1Client.layer({ db: makeSqliteD1(database) })));
 }
 
 function insertMicrosoftAccount(
@@ -82,7 +62,7 @@ function insertMicrosoftAccount(
     );
 }
 
-describe("D1 Curator store", () => {
+describe("Effect SQL D1 Curator store", () => {
   it("migrates an empty database and resolves the stable Microsoft account", async () => {
     const database = makeMigratedDatabase();
     insertMicrosoftAccount(database, {
@@ -92,29 +72,36 @@ describe("D1 Curator store", () => {
       refreshToken: "encrypted-refresh-token",
       scope: "openid,email,Files.ReadWrite,offline_access",
     });
-    const store = makeD1CuratorStore(asCuratorDatabase(database));
 
     const account = await Effect.runPromise(
-      store.findMicrosoftAccount(BetterAuthUserId.make("user-a")),
+      CuratorStore.pipe(
+        Effect.flatMap((store) => store.findMicrosoftAccount(BetterAuthUserId.make("user-a"))),
+        Effect.provide(storeLayer(database)),
+      ),
     );
 
     expect(Option.getOrThrow(account)).toEqual({
+      betterAuthAccountId: BetterAuthAccountId.make("account-user-a"),
       providerAccountId: MicrosoftAccountId.make("oid-a"),
       hasGraphConnection: true,
     });
   });
 
-  it("does not call a scope-only account a durable Graph connection", async () => {
+  it("requires token custody and both delegated Graph scopes", async () => {
     const database = makeMigratedDatabase();
     insertMicrosoftAccount(database, {
       userId: "user-a",
       accountId: "oid-a",
-      scope: "Files.ReadWrite offline_access",
+      accessToken: "encrypted-access-token",
+      refreshToken: "encrypted-refresh-token",
+      scope: "Files.ReadWrite",
     });
-    const store = makeD1CuratorStore(asCuratorDatabase(database));
 
     const account = await Effect.runPromise(
-      store.findMicrosoftAccount(BetterAuthUserId.make("user-a")),
+      CuratorStore.pipe(
+        Effect.flatMap((store) => store.findMicrosoftAccount(BetterAuthUserId.make("user-a"))),
+        Effect.provide(storeLayer(database)),
+      ),
     );
 
     expect(Option.getOrThrow(account).hasGraphConnection).toBe(false);
@@ -122,7 +109,7 @@ describe("D1 Curator store", () => {
 
   it("lets only one of two concurrent Microsoft accounts claim the installation", async () => {
     const database = makeMigratedDatabase();
-    const store = makeD1CuratorStore(asCuratorDatabase(database));
+    const layer = storeLayer(database);
 
     const first = CuratorIdentity.make({
       providerId: "microsoft",
@@ -134,15 +121,23 @@ describe("D1 Curator store", () => {
       providerAccountId: MicrosoftAccountId.make("oid-b"),
     });
 
-    await Promise.all([
-      Effect.runPromise(store.claim(first)),
-      Effect.runPromise(store.claim(second)),
-    ]);
+    await Effect.runPromise(
+      CuratorStore.pipe(
+        Effect.flatMap((store) =>
+          Effect.all([store.claim(first), store.claim(second)], { concurrency: "unbounded" }),
+        ),
+        Effect.provide(layer),
+      ),
+    );
 
-    const owner = await Effect.runPromise(store.getOwner);
+    const owner = await Effect.runPromise(
+      CuratorStore.pipe(
+        Effect.flatMap((store) => store.getOwner),
+        Effect.provide(layer),
+      ),
+    );
 
     expect([first, second]).toContainEqual(Option.getOrThrow(owner));
-
     expect(database.prepare('SELECT COUNT(*) AS "count" FROM "curator_owner"').get()).toEqual({
       count: 1,
     });
@@ -150,14 +145,19 @@ describe("D1 Curator store", () => {
 
   it("makes a repeated claim by the owner idempotent", async () => {
     const database = makeMigratedDatabase();
-    const store = makeD1CuratorStore(asCuratorDatabase(database));
 
     const owner = CuratorIdentity.make({
       providerId: "microsoft",
       providerAccountId: MicrosoftAccountId.make("oid-a"),
     });
 
-    await Effect.runPromise(store.claim(owner));
-    await expect(Effect.runPromise(store.claim(owner))).resolves.toEqual(owner);
+    const repeated = await Effect.runPromise(
+      CuratorStore.pipe(
+        Effect.flatMap((store) => store.claim(owner).pipe(Effect.andThen(store.claim(owner)))),
+        Effect.provide(storeLayer(database)),
+      ),
+    );
+
+    expect(repeated).toEqual(owner);
   });
 });

@@ -121,6 +121,237 @@
           "required": true
         }
       }
+    },
+    "/library/folders": {
+      "get": {
+        "tags": ["library"],
+        "operationId": "listLibraryFolders",
+        "parameters": [
+          {
+            "name": "parentFolderId",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/DriveItemId"
+            },
+            "required": false
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "FolderBrowserState",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderBrowserState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "GraphReauthenticationRequired | AuthenticationRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/GraphReauthenticationRequiredEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthenticationRequiredEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CuratorOwnershipConflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratorOwnershipConflictEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "OneDriveFolderNotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OneDriveFolderNotFoundEncoded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "LibraryAlreadySelected | BuildUpgradeRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LibraryAlreadySelectedEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BuildUpgradeRequiredEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "OneDriveUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OneDriveUnavailableEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "LibraryStoreUnavailable | CuratorAccessUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LibraryStoreUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/library/selection": {
+      "post": {
+        "tags": ["library"],
+        "operationId": "selectLibrary",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "LibraryIndexing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LibraryIndexing"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "InvalidLibrarySelection",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvalidLibrarySelectionEncoded"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "GraphReauthenticationRequired | AuthenticationRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/GraphReauthenticationRequiredEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthenticationRequiredEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CuratorOwnershipConflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratorOwnershipConflictEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "OneDriveFolderNotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OneDriveFolderNotFoundEncoded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "LibraryAlreadySelected | BuildUpgradeRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LibraryAlreadySelectedEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BuildUpgradeRequiredEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "OneDriveUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OneDriveUnavailableEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "LibraryStoreUnavailable | CuratorAccessUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LibraryStoreUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectLibraryRequest"
+              }
+            }
+          },
+          "required": true
+        }
+      }
     }
   },
   "components": {
@@ -207,6 +438,30 @@
         "required": ["_tag"],
         "additionalProperties": false
       },
+      "LibraryId": {
+        "type": "string",
+        "allOf": [
+          {
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$",
+            "format": "throwback-library-id"
+          }
+        ]
+      },
+      "LibraryRootDisplay": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["name", "path"],
+        "additionalProperties": false
+      },
       "LibraryIndexing": {
         "type": "object",
         "properties": {
@@ -214,16 +469,18 @@
             "type": "string",
             "enum": ["LibraryIndexing"]
           },
+          "libraryId": {
+            "$ref": "#/components/schemas/LibraryId"
+          },
+          "rootFolder": {
+            "$ref": "#/components/schemas/LibraryRootDisplay"
+          },
           "discoveredPhotos": {
             "type": "number"
           }
         },
-        "required": ["_tag", "discoveredPhotos"],
+        "required": ["_tag", "libraryId", "rootFolder", "discoveredPhotos"],
         "additionalProperties": false
-      },
-      "LibraryId": {
-        "type": "string",
-        "format": "throwback-library-id"
       },
       "EventId": {
         "type": "string",
@@ -344,6 +601,170 @@
         },
         "required": ["_tag", "message"],
         "additionalProperties": false
+      },
+      "DriveItemId": {
+        "type": "string",
+        "allOf": [
+          {
+            "minLength": 1,
+            "format": "throwback-drive-item-id"
+          }
+        ]
+      },
+      "FolderLocation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/DriveItemId"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "isDriveRoot": {
+            "type": "boolean"
+          },
+          "parentFolderId": {
+            "$ref": "#/components/schemas/DriveItemId"
+          }
+        },
+        "required": ["id", "name", "path", "isDriveRoot"],
+        "additionalProperties": false
+      },
+      "SelectableFolder": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/DriveItemId"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "childCount": {
+            "type": "number"
+          }
+        },
+        "required": ["id", "name", "childCount"],
+        "additionalProperties": false
+      },
+      "FolderBrowserState": {
+        "type": "object",
+        "properties": {
+          "current": {
+            "$ref": "#/components/schemas/FolderLocation"
+          },
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SelectableFolder"
+            }
+          }
+        },
+        "required": ["current", "folders"],
+        "additionalProperties": false
+      },
+      "GraphReauthenticationRequiredEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["GraphReauthenticationRequired"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "LibraryAlreadySelectedEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["LibraryAlreadySelected"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "LibraryStoreUnavailableEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["LibraryStoreUnavailable"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "OneDriveFolderNotFoundEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["OneDriveFolderNotFound"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "OneDriveUnavailableEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["OneDriveUnavailable"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "SelectLibraryRequest": {
+        "type": "object",
+        "properties": {
+          "rootFolderId": {
+            "$ref": "#/components/schemas/DriveItemId"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "enum": [true]
+          }
+        },
+        "required": ["rootFolderId", "confirmed"],
+        "additionalProperties": false
+      },
+      "InvalidLibrarySelectionEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["InvalidLibrarySelection"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {}
@@ -355,6 +776,9 @@
     },
     {
       "name": "curator"
+    },
+    {
+      "name": "library"
     }
   ]
 }
