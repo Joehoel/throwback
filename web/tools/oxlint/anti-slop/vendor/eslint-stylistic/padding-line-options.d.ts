@@ -3,15 +3,12 @@
 /* @checksum: 3QCTtOH6rJM5_AGJ58rGpeEaBEfaJz17MSCxWB4X_PU */
 
 export type PaddingType = 'any' | 'never' | 'always'
-
 export type StatementOption =
   | StatementMatcher
   | [StatementMatcher, ...StatementMatcher[]]
-
 export type StatementMatcher =
   | StatementType
   | SelectorOption
-
 export type StatementType =
   | '*'
   | 'exports'
@@ -69,7 +66,6 @@ export type StatementType =
   | 'type'
   | 'singleline-type'
   | 'multiline-type'
-
 export type PaddingLineBetweenStatementsSchema0 = {
   blankLine: PaddingType
   prev: StatementOption
@@ -86,7 +82,6 @@ export type PaddingLineBetweenStatementsRuleOptions
 
 export type RuleOptions
   = PaddingLineBetweenStatementsRuleOptions
-
 export type MessageIds =
   | 'unexpectedBlankLine'
   | 'expectedBlankLine'

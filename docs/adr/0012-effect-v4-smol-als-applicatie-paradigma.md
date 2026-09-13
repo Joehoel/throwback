@@ -1,22 +1,22 @@
-# Effect v4 (smol) als applicatie-paradigma + package-selectie op de beta-lijn
+# Effect v4 (smol) als applicatie-paradigma + coherente prerelease-packages
 
 > **Transport update:** ADR-0023 keeps Effect v4 for backend and infrastructure code but supersedes
 > this ADR's whole-app wording and oRPC/Standard Schema transport with server-side `HttpApi`, OpenAPI,
 > and an Effect-free generated browser client.
 
-De **Beheer-webapp** is Effect-native gebouwd op **Effect v4 (smol)** — `effect@4.0.0-beta.x` — omdat de gekozen IaC (ADR-0010, Alchemy v2 = `alchemy@2.0.0-beta`) `effect: >=4.0.0-beta.78` pint. De hele app deelt dus één Effect-runtime. Bewust **beta-op-beta**: Effect v4 stabiel bestaat nog niet (v3 stabiel = 3.21.x), maar op v4 blijven houdt app en infra op dezelfde Effect-versie en voorkomt twee Effect-installaties naast elkaar.
+De server- en infrastructuurlagen van de **Beheer-webapp** zijn Effect-native op **Effect v4 (smol)**. De geïmplementeerde stack pint `effect` en alle directe `@effect/*`-packages coherent op `4.0.0-rc.112`; `alchemy@2.0.0-beta.76` accepteert Effect vanaf die versie. RC 112 is de nieuwste gezamenlijke lijn met `@cloudflare/vitest-pool-workers@0.22.0`: nieuwere Effect-RC's vereisen Vitest 5, terwijl de actuele Workers-pool Vitest 4 vereist. De browser blijft Effect-vrij volgens ADR-0023. Bewust **prerelease-op-beta**: exact pinnen houdt server, infra en testadapters coherent en maakt breaking upgrades expliciet.
 
 ## Regel op de smol-lijn
 
-Leun op de **core** `effect` (`Effect`, `Layer`, `Schema`, `Config`, `Data`, `Stream`, en `effect/unstable/{http,sql,ai}`) plus **drivers die op `4.0.0-beta.x` zijn gepubliceerd**. De v3-only meta-packages (`@effect/ai@0.36`, `@effect/sql@0.51`, `@effect/rpc`, `@effect/platform`, `@effect/ai-google@0.15`) zijn **niet bruikbaar** — ze zouden Effect v3 binnentrekken en de v4-invariant breken.
+Leun op de **core** `effect` (`Effect`, `Layer`, `Schema`, `Config`, `Data`, `Stream`, en `effect/unstable/{http,sql,ai}`) plus **drivers uit exact dezelfde v4-RC**. De v3-only meta-packages (`@effect/ai@0.36`, `@effect/sql@0.51`, `@effect/rpc`, `@effect/platform`, `@effect/ai-google@0.15`) zijn **niet bruikbaar** — ze zouden Effect v3 binnentrekken en de v4-invariant breken.
 
 ## Beslissingen
 
 - **Validatie/contracts = `effect/Schema`**, hergebruikt op de wire via **Standard Schema v1**. oRPC valideert op `~standard`; Effect Schema levert die vorm, dus dezelfde schema's gaan naar `.input()/.output()` én de domeinlaag. `@orpc/zod` vervalt voor app-contracts.
 - **Transport = oRPC + TanStack Query behouden**; de procedure-body draait een Effect-programma via een gedeelde `ManagedRuntime`/Layer. **`effect-orpc` afgewezen**: v3-only (peer `effect >=3.18.0`, geen v4-release) → zou de v4-invariant breken.
-- **D1 = Alchemy provisioned + bindt (`env.DB`); `@effect/sql-d1@4.0.0-beta` is de query-laag** (core `effect/unstable/sql` `SqlClient` als Layer). App-tabellen (foto-index, write-status) hierlangs; **drizzle blijft enkel voor better-auth**.
+- **D1 = Alchemy provisioned + bindt (`env.DB`); `@effect/sql-d1@4.0.0-rc.112` is de query-laag** (core `effect/unstable/sql` `SqlClient` als Layer). App-tabellen (foto-index, write-status) hierlangs; **drizzle blijft enkel voor better-auth**.
 - **AI = core `effect/unstable/ai` (`LanguageModel.generateObject`) + `@effect/ai-openai@4.0.0-beta`** tegen Gemini's OpenAI-compat endpoint, model `gemini-2.5-flash`. Geverifieerd: `@effect/ai-openai@4.0.0-beta.78` hangt enkel aan `effect@^4.0.0-beta.78` (zelf-consistent op v4). `@tanstack/ai-gemini` vervalt.
-- **Config = `effect/Config`** (redacted secrets, vervangt t3-env); **errors = `Data.TaggedError`**; **outbound HTTP = `effect/unstable/http` HttpClient** (Graph/Geocoding/Gemini); **tests = `@effect/vitest@4.0.0-beta`**.
+- **Config = `effect/Config`** (redacted secrets, vervangt t3-env); **errors = `Data.TaggedError`**; **outbound HTTP = `effect/unstable/http` HttpClient** (Graph/Geocoding/Gemini); **tests = `@effect/vitest@4.0.0-rc.112`**.
 
 ## Considered Options
 
@@ -26,13 +26,19 @@ Leun op de **core** `effect` (`Effect`, `Layer`, `Schema`, `Config`, `Data`, `St
 
 ## Consequences
 
-- **Beta-blootstelling:** breaking changes tussen `4.0.0-beta.x`-releases zijn mogelijk; pin exact en upgrade bewust. Mitigatie: de meeste oppervlakte is core-`effect`, dat het stabielst is binnen v4.
+- **Prerelease-blootstelling:** breaking changes tussen `4.0.0-rc.x`-releases zijn mogelijk; pin exact en upgrade bewust. Mitigatie: de meeste oppervlakte is core-`effect`, dat het stabielst is binnen v4.
 - **Zod + drizzle blijven** bestaan, maar afgegrensd tot de better-auth-grens (die hangt niet aan Effect, dus geen versieconflict).
 - **Verify-bij-bouw:** (1) Effect Schema's standard-schema-export aanwezig op smol; (2) vision-input + structured output overleven Gemini's OpenAI-compat-laag (anders die ene call hand-rollen op core HttpClient).
 
 ## Status
 
 **Geaccepteerd (2026-06-05), bouw nog te starten.** Versies geverifieerd via npm: `alchemy@2.0.0-beta.52` → `effect >=4.0.0-beta.78`; `@effect/sql-d1` + `@effect/ai-openai` + `@effect/vitest` bestaan op `4.0.0-beta.78`; `effect-orpc@0.2.2` is v3-only.
+
+> **Implementatie-update (2026-09-12):** de serverstack draait coherent op `4.0.0-rc.112`
+> (`effect`, `@effect/platform-bun`, `@effect/platform-node`, `@effect/sql-d1`, `@effect/vitest`).
+> Dit is de nieuwste lijn die tegelijk Alchemy beta.76, Effect's Vitest-adapter en Cloudflare's
+> Workers-pool ondersteunt. Het vervangt de oorspronkelijke beta-pins; de historische spike-resultaten
+> hieronder behouden hun toenmalige versies.
 
 > **Noot (2026-06-06):** de hierboven genoemde `errors = Data.TaggedError`-keuze is vervangen door
 > `Schema.TaggedError` (serialiseerbaar over de oRPC-grens). Zie ADR-0013, dat ook de overige

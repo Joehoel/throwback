@@ -9,17 +9,14 @@ function isTypeAssertionExpression(node: ESTree.Node): node is TypeAssertionExpr
 
 function unwrapParenthesizedExpression(expression: ESTree.Expression): ESTree.Expression {
   let current = expression;
-
   while (current.type === "ParenthesizedExpression") {
     current = current.expression;
   }
-
   return current;
 }
 
 function isConstAssertion(node: TypeAssertionExpression): boolean {
   const { typeAnnotation } = node;
-
   return (
     typeAnnotation.type === "TSTypeReference" &&
     typeAnnotation.typeName.type === "Identifier" &&
@@ -29,11 +26,11 @@ function isConstAssertion(node: TypeAssertionExpression): boolean {
 
 function isOutermostAssertionInChain(node: TypeAssertionExpression): boolean {
   let current: ESTree.Expression = node;
-  let {parent} = node;
+  let parent = node.parent;
 
   while (parent.type === "ParenthesizedExpression" && parent.expression === current) {
     current = parent;
-    ({ parent } = parent);
+    parent = parent.parent;
   }
 
   return !isTypeAssertionExpression(parent) || parent.expression !== current;
@@ -68,7 +65,7 @@ export const noChainedTypeAssertionsRule = defineRule({
   },
   createOnce(context) {
     const checkTypeAssertion = (node: TypeAssertionExpression) => {
-      if (!isOutermostAssertionInChain(node) || !isForbiddenAssertionChain(node)) {return;}
+      if (!isOutermostAssertionInChain(node) || !isForbiddenAssertionChain(node)) return;
       context.report({ node, messageId: "chained" });
     };
 

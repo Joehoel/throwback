@@ -14,26 +14,21 @@ function isRuntimeFunction(node: ESTree.Node): node is RuntimeFunction {
 
 function isInsideTypeGuard(node: ESTree.Node): boolean {
 	let current: ESTree.Node | null = node.parent;
-
 	while (current !== null && current.type !== "Program") {
 		if (isRuntimeFunction(current)) {
 			return current.returnType?.typeAnnotation.type === "TSTypePredicate";
 		}
-
 		current = current.parent;
 	}
-
 	return false;
 }
 
 /** Return whether typeof safely probes for the existence of a possibly absent binding. */
 function isExistenceProbe(node: ESTree.UnaryExpression): boolean {
-	const {parent} = node;
-
-	if (parent.type !== "BinaryExpression") {return false;}
-	if (!["===", "!==", "==", "!="].includes(parent.operator)) {return false;}
+	const parent = node.parent;
+	if (parent.type !== "BinaryExpression") return false;
+	if (!["===", "!==", "==", "!="].includes(parent.operator)) return false;
 	const other = parent.left === node ? parent.right : parent.left;
-
 	return other.type === "Literal" && other.value === "undefined";
 }
 
@@ -64,13 +59,11 @@ export const noRuntimeTypeofRule = defineRule({
 		return {
 			UnaryExpression(node) {
 				const option = context.options?.[0];
-
 				const allowInTypeGuards =
 					typeof option === "object" &&
 					option !== null &&
 					!Array.isArray(option) &&
 					option.allowInTypeGuards === true;
-
 				if (
 					node.operator === "typeof" &&
 					!isExistenceProbe(node) &&

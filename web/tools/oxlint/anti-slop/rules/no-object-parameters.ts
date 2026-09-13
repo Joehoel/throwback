@@ -6,8 +6,11 @@ import {
 	functionParameterBindingName,
 	functionParameterTypeAnnotation,
 } from "../shared/function-parameters.ts";
-import { createTypeAliasEnvironment, resolvedTypeMatches } from '../shared/type-alias-resolution.ts';
-import type { TypeAliasEnvironment } from '../shared/type-alias-resolution.ts';
+import {
+	createTypeAliasEnvironment,
+	resolvedTypeMatches,
+	type TypeAliasEnvironment,
+} from "../shared/type-alias-resolution.ts";
 type ParameterOwner =
 	| ESTree.ArrowFunctionExpression
 	| ESTree.Function
@@ -36,11 +39,10 @@ export const noObjectParametersRule = defineRule({
 		const resolvesToObject = (type: ESTree.TSType): boolean =>
 			environment !== null &&
 			resolvedTypeMatches(type, environment, (resolved, matches) => {
-				if (resolved.type === "TSObjectKeyword") {return true;}
+				if (resolved.type === "TSObjectKeyword") return true;
 				if (resolved.type === "TSParenthesizedType") {
 					return matches(resolved.typeAnnotation);
 				}
-
 				return (
 					resolved.type === "TSUnionType" && resolved.types.some(matches)
 				);
@@ -49,9 +51,8 @@ export const noObjectParametersRule = defineRule({
 		const checkParameters = (node: ParameterOwner) => {
 			for (const parameter of node.params) {
 				const annotation = functionParameterTypeAnnotation(parameter);
-
-				if (annotation === null || annotation === undefined) {continue;}
-				if (!resolvesToObject(annotation.typeAnnotation)) {continue;}
+				if (annotation === null || annotation === undefined) continue;
+				if (!resolvesToObject(annotation.typeAnnotation)) continue;
 				context.report({
 					node: annotation.typeAnnotation,
 					messageId: "objectParameter",

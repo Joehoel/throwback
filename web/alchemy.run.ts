@@ -1,47 +1,58 @@
 import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
-import { config } from "dotenv";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import { AccessApplication } from "./infra/cloudflare/access-application.ts";
-import { AccessPolicy } from "./infra/cloudflare/access-policy.ts";
-import { accessProviders } from "./infra/cloudflare/providers.ts";
 
-config({ path: ".env.local" });
+const PREVIEW_DOMAIN = "curation-preview.kuijper.fyi";
+const PREVIEW_URL = `https://${PREVIEW_DOMAIN}`;
+const LOCAL_URL = "http://localhost:3000";
 
-export const DB = Cloudflare.D1Database("DB", {
-  name: "throwback-web",
-  migrationsDir: "./drizzle",
+export const PreviewDB = Cloudflare.D1.Database("PreviewDB", {
+  name: "throwback-curation-preview",
+  jurisdiction: "eu",
+  migrations: "./migrations",
 });
 
-/** Production hostname. The `kuijper.fyi` zone must already exist in the account. */
-const DOMAIN = "throwback.kuijper.fyi";
+const PreviewBetterAuthSecret = Alchemy.makeRandom("PreviewBetterAuthSecret");
 
-export class Website extends Cloudflare.Vite<Website>()(
-  "Website",
+export class Website extends Cloudflare.Website.Vite<Website>()(
+  "PreviewWebsite",
   Effect.gen(function* () {
-    // `alchemy dev` sets this; deploy leaves it false. Drives the auth base URL
-    // so OAuth callbacks point at localhost locally and the real domain in prod.
     const { dev } = yield* Alchemy.AlchemyContext;
+    const baseUrl = dev ? LOCAL_URL : PREVIEW_URL;
+    const allowedEmail = dev
+      ? "local-preview@example.invalid"
+      : yield* Config.string("PREVIEW_ACCESS_ALLOWED_EMAIL").pipe(Effect.orDie);
 
     return {
-      name: "throwback-web",
-      domain: DOMAIN,
+      name: "throwback-curation-preview",
+      domain: PREVIEW_DOMAIN,
+      url: false,
+      access: {
+        name: "Throwback Curation preview",
+        sessionDuration: "720h",
+        policies: [
+          {
+            name: "Throwback Curation preview curator",
+            decision: "allow",
+            include: [{ email: allowedEmail }],
+          },
+        ],
+      },
       compatibility: {
         date: "2026-06-02",
         flags: ["nodejs_compat"],
       },
       env: {
-        DB,
-        MICROSOFT_CLIENT_ID: Config.redacted("MICROSOFT_CLIENT_ID"),
+        APP_ENVIRONMENT: "preview",
+        DB: PreviewDB,
+        BETTER_AUTH_SECRET: PreviewBetterAuthSecret,
+        BETTER_AUTH_URL: baseUrl,
+        MICROSOFT_CLIENT_ID: "0bb9b8c8-a9e6-475d-b44f-74521e46aaf1",
         MICROSOFT_CLIENT_SECRET: Config.redacted("MICROSOFT_CLIENT_SECRET"),
-        BETTER_AUTH_SECRET: Config.redacted("BETTER_AUTH_SECRET"),
-        BETTER_AUTH_URL: dev ? "http://localhost:3000" : `https://${DOMAIN}`,
-        GEMINI_API_KEY: Config.redacted("GEMINI_API_KEY"),
+        MICROSOFT_CALLBACK_URL: `${baseUrl}/api/auth/callback/microsoft`,
       },
-      dev: { port: 3000 },
+      dev: { host: "localhost", port: 3000, strictPort: true },
     };
   }),
 ) {}
@@ -49,41 +60,13 @@ export class Website extends Cloudflare.Vite<Website>()(
 export type WebsiteEnv = Cloudflare.InferEnv<typeof Website>;
 
 export default Alchemy.Stack(
-  "ThrowbackWeb",
+  "ThrowbackCurationPreview",
   {
-    // Compose our custom Access resources on top of the Cloudflare catalog.
-    // `provideMerge` hands Cloudflare's credentials/environment/retry to the
-    // Access providers, and both collections end up in the stack context.
-    providers: accessProviders().pipe(Layer.provideMerge(Cloudflare.providers())),
+    providers: Cloudflare.providers(),
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
     const website = yield* Website;
-
-    // Optional edge lock-down: when `ACCESS_ALLOWED_EMAILS` is set (a
-    // comma-separated allowlist), gate the domain behind a Cloudflare Access
-    // app. Access challenges every visitor with a one-time PIN emailed to the
-    // address they enter and only admits listed addresses. Unset = no Access
-    // app provisioned. Identity-based, so it works from any network/IP.
-    const allowedEmailsCsv = yield* Config.string("ACCESS_ALLOWED_EMAILS").pipe(Config.option);
-    if (Option.isSome(allowedEmailsCsv)) {
-      const emails = allowedEmailsCsv.value
-        .split(",")
-        .map((email) => email.trim())
-        .filter((email) => email.length > 0);
-      if (emails.length > 0) {
-        const allowed = yield* AccessPolicy("AllowedPeople", {
-          name: "Allowed people",
-          decision: "allow",
-          include: emails.map((email) => ({ email: { email } })),
-        });
-        yield* AccessApplication("Lock", {
-          name: "Throwback (email-locked)",
-          domain: DOMAIN,
-          policyIds: [allowed.policyId],
-        });
-      }
-    }
 
     return {
       url: website.url.as<string>(),

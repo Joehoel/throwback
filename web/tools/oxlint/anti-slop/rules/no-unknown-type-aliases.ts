@@ -2,8 +2,11 @@ import { defineRule } from "@oxlint/plugins";
 
 import type { ESTree } from "@oxlint/plugins";
 
-import { createTypeAliasEnvironment, resolvedTypeMatches } from '../shared/type-alias-resolution.ts';
-import type { TypeAliasEnvironment } from '../shared/type-alias-resolution.ts';
+import {
+	createTypeAliasEnvironment,
+	resolvedTypeMatches,
+	type TypeAliasEnvironment,
+} from "../shared/type-alias-resolution.ts";
 
 /** Ban named aliases that merely conceal TypeScript's unknown top type. */
 export const noUnknownTypeAliasesRule = defineRule({
@@ -24,11 +27,10 @@ export const noUnknownTypeAliasesRule = defineRule({
 		const resolvesToUnknown = (type: ESTree.TSType): boolean =>
 			environment !== null &&
 			resolvedTypeMatches(type, environment, (resolved, matches) => {
-				if (resolved.type === "TSUnknownKeyword") {return true;}
+				if (resolved.type === "TSUnknownKeyword") return true;
 				if (resolved.type === "TSParenthesizedType") {
 					return matches(resolved.typeAnnotation);
 				}
-
 				return resolved.type === "TSUnionType" && resolved.types.some(matches);
 			});
 
@@ -40,7 +42,7 @@ export const noUnknownTypeAliasesRule = defineRule({
 				);
 			},
 			TSTypeAliasDeclaration(node) {
-				if (!resolvesToUnknown(node.typeAnnotation)) {return;}
+				if (!resolvesToUnknown(node.typeAnnotation)) return;
 				context.report({
 					node: node.id,
 					messageId: "unknownAlias",

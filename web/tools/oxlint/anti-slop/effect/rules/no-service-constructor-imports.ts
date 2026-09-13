@@ -3,7 +3,6 @@ import { defineRule } from "@oxlint/plugins";
 import type { ESTree } from "@oxlint/plugins";
 
 const SERVICE_CONSTRUCTOR_NAME = /^make[A-Z]/u;
-
 const TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 
 function isProjectLocalImport(source: string): boolean {
@@ -11,7 +10,7 @@ function isProjectLocalImport(source: string): boolean {
 }
 
 function getImportedName(specifier: ESTree.ImportSpecifier): string {
-	if (specifier.imported.type === "Identifier") {return specifier.imported.name;}
+	if (specifier.imported.type === "Identifier") return specifier.imported.name;
 	return specifier.imported.value;
 }
 
@@ -33,14 +32,13 @@ export const noServiceConstructorImportsRule = defineRule({
 
 		return {
 			ImportDeclaration(node) {
-				if (isTestFile || !isProjectLocalImport(node.source.value)) {return;}
+				if (isTestFile || !isProjectLocalImport(node.source.value)) return;
 
 				for (const specifier of node.specifiers) {
-					if (specifier.type !== "ImportSpecifier") {continue;}
+					if (specifier.type !== "ImportSpecifier") continue;
 
 					const importedName = getImportedName(specifier);
-
-					if (!SERVICE_CONSTRUCTOR_NAME.test(importedName)) {continue;}
+					if (!SERVICE_CONSTRUCTOR_NAME.test(importedName)) continue;
 
 					context.report({
 						node: specifier,

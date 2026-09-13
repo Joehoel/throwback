@@ -1,6 +1,6 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "spike", "tools/oxlint/anti-slop"],
+  "exclude": ["node_modules", "tools/oxlint/anti-slop"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",
@@ -9,7 +9,7 @@
       "#/*": ["./src/*"]
     },
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "@cloudflare/workers-types", "@cloudflare/vitest-pool-workers/types"],
+    "types": ["node", "vite/client", "@cloudflare/workers-types"],
 
     /* Bundler mode */
     "moduleResolution": "bundler",
@@ -20,6 +20,7 @@
     /* Linting */
     "skipLibCheck": true,
     "strict": true,
+    "exactOptionalPropertyTypes": false,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,

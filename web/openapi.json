@@ -1,0 +1,360 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Throwback Beheer-webapp API",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/bootstrap": {
+      "get": {
+        "tags": ["bootstrap"],
+        "operationId": "getBootstrap",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "BootstrapState",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapState"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BuildUpgradeRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildUpgradeRequiredEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CuratorAccessUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/curator/claim": {
+      "post": {
+        "tags": ["curator"],
+        "operationId": "claimCurator",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "BootstrapState",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AuthenticationRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationRequiredEncoded"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CuratorOwnershipConflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratorOwnershipConflictEncoded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BuildUpgradeRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildUpgradeRequiredEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CuratorAccessUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmCuratorClaim"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "SignInRequired": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["SignInRequired"]
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["signedOut", "ownerMismatch"]
+          }
+        },
+        "required": ["_tag", "reason"],
+        "additionalProperties": false
+      },
+      "CuratorClaimRequired": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["CuratorClaimRequired"]
+          },
+          "account": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": ["microsoft"]
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": ["provider", "name", "email"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["_tag", "account"],
+        "additionalProperties": false
+      },
+      "GraphConnectionRequired": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["GraphConnectionRequired"]
+          },
+          "account": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": ["microsoft"]
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": ["provider", "name", "email"],
+            "additionalProperties": false
+          }
+        },
+        "required": ["_tag", "account"],
+        "additionalProperties": false
+      },
+      "LibrarySelectionRequired": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["LibrarySelectionRequired"]
+          }
+        },
+        "required": ["_tag"],
+        "additionalProperties": false
+      },
+      "LibraryIndexing": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["LibraryIndexing"]
+          },
+          "discoveredPhotos": {
+            "type": "number"
+          }
+        },
+        "required": ["_tag", "discoveredPhotos"],
+        "additionalProperties": false
+      },
+      "LibraryId": {
+        "type": "string",
+        "format": "throwback-library-id"
+      },
+      "EventId": {
+        "type": "string",
+        "format": "throwback-event-id"
+      },
+      "PhotoId": {
+        "type": "string",
+        "format": "throwback-photo-id"
+      },
+      "ReviewReady": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["ReviewReady"]
+          },
+          "libraryId": {
+            "$ref": "#/components/schemas/LibraryId"
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/EventId"
+          },
+          "photoId": {
+            "$ref": "#/components/schemas/PhotoId"
+          }
+        },
+        "required": ["_tag", "libraryId", "eventId", "photoId"],
+        "additionalProperties": false
+      },
+      "BootstrapState": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/SignInRequired"
+          },
+          {
+            "$ref": "#/components/schemas/CuratorClaimRequired"
+          },
+          {
+            "$ref": "#/components/schemas/GraphConnectionRequired"
+          },
+          {
+            "$ref": "#/components/schemas/LibrarySelectionRequired"
+          },
+          {
+            "$ref": "#/components/schemas/LibraryIndexing"
+          },
+          {
+            "$ref": "#/components/schemas/ReviewReady"
+          }
+        ]
+      },
+      "CuratorAccessUnavailableEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["CuratorAccessUnavailable"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "BuildUpgradeRequiredEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["BuildUpgradeRequired"]
+          },
+          "currentBuildId": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "currentBuildId", "message"],
+        "additionalProperties": false
+      },
+      "ConfirmCuratorClaim": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "enum": [true]
+          }
+        },
+        "required": ["confirmed"],
+        "additionalProperties": false
+      },
+      "CuratorOwnershipConflictEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["CuratorOwnershipConflict"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "AuthenticationRequiredEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["AuthenticationRequired"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {}
+  },
+  "security": [],
+  "tags": [
+    {
+      "name": "bootstrap"
+    },
+    {
+      "name": "curator"
+    }
+  ]
+}

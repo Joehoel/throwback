@@ -29,10 +29,9 @@
     "build/**",
     ".vinxi/**",
     ".output/**",
-    "spike/**",
+    "test-results/**",
     "src/routeTree.gen.ts",
     "worker-configuration.d.ts",
-    "drizzle/meta/**",
     "package-lock.json",
     "tools/oxlint/anti-slop/**"
   ]

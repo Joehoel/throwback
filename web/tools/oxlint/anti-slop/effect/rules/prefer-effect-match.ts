@@ -1,5 +1,4 @@
-import { defineRule } from '@oxlint/plugins';
-import type { ESTree } from '@oxlint/plugins';
+import { defineRule, type ESTree } from "@oxlint/plugins";
 
 const equalityOperators = new Set(["==", "===", "!=", "!=="]);
 
@@ -27,26 +26,23 @@ export const preferEffectMatchRule = defineRule({
 			) {
 				return undefined;
 			}
-
-			if (isLiteral(node.left)) {return context.sourceCode.getText(node.right);}
-			if (isLiteral(node.right)) {return context.sourceCode.getText(node.left);}
+			if (isLiteral(node.left)) return context.sourceCode.getText(node.right);
+			if (isLiteral(node.right)) return context.sourceCode.getText(node.left);
 			return undefined;
 		};
 
 		return {
 			ConditionalExpression(node) {
-				if (node.parent?.type === "ConditionalExpression") {return;}
+				if (node.parent?.type === "ConditionalExpression") return;
 				const value = comparedValue(node.test);
+				if (value === undefined) return;
 
-				if (value === undefined) {return;}
-
-				let {alternate} = node;
+				let alternate = node.alternate;
 				let literalChecks = 1;
-
 				while (alternate.type === "ConditionalExpression") {
-					if (comparedValue(alternate.test) !== value) {return;}
+					if (comparedValue(alternate.test) !== value) return;
 					literalChecks += 1;
-					({ alternate } = alternate);
+					alternate = alternate.alternate;
 				}
 
 				if (literalChecks > 1) {

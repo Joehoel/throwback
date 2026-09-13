@@ -29,7 +29,6 @@ export const noManualTagComparisonRule = defineRule({
 				) {
 					return;
 				}
-
 				context.report({ node, messageId: "manualComparison" });
 			},
 			SwitchStatement(node) {
@@ -39,7 +38,6 @@ export const noManualTagComparisonRule = defineRule({
 				) {
 					return;
 				}
-
 				context.report({ node, messageId: "manualSwitch" });
 			},
 		};

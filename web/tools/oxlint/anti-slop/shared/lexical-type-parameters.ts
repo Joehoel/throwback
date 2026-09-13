@@ -16,20 +16,17 @@ function collectInferTypeParameterNames(
 	visitorKeys: VisitorKeys,
 	names: Set<string>,
 ): void {
-	if (node.type === "TSInferType") {names.add(node.typeParameter.name.name);}
+	if (node.type === "TSInferType") names.add(node.typeParameter.name.name);
 	const record = node as unknown as Readonly<Record<string, unknown>>;
-
 	for (const key of visitorKeys[node.type] ?? []) {
 		const value = record[key];
-
 		if (isNode(value)) {
 			collectInferTypeParameterNames(value, visitorKeys, names);
 			continue;
 		}
-
-		if (!Array.isArray(value)) {continue;}
+		if (!Array.isArray(value)) continue;
 		for (const child of value) {
-			if (isNode(child)) {collectInferTypeParameterNames(child, visitorKeys, names);}
+			if (isNode(child)) collectInferTypeParameterNames(child, visitorKeys, names);
 		}
 	}
 }
@@ -42,28 +39,23 @@ export function lexicalTypeParameterNames(
 	const names = new Set<string>();
 	let descendant: ESTree.Node = node;
 	let current: ESTree.Node | null = node;
-
 	while (current !== null && current.type !== "Program") {
 		if ("typeParameters" in current) {
 			for (const parameter of current.typeParameters?.params ?? []) {
 				names.add(parameter.name.name);
 			}
 		}
-
 		if (
 			current.type === "TSMappedType" &&
 			(descendant === current.nameType || descendant === current.typeAnnotation)
 		) {
 			names.add(current.key.name);
 		}
-
 		if (current.type === "TSConditionalType" && descendant === current.trueType) {
 			collectInferTypeParameterNames(current.extendsType, visitorKeys, names);
 		}
-
 		descendant = current;
 		current = current.parent;
 	}
-
 	return names;
 }

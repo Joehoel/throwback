@@ -1,10 +1,7 @@
 // Vendored from ESLint Stylistic; see UPSTREAM.md and LICENSE in this directory.
 import type { ESTree, Context as RuleContext, SourceCode, Token as SyntaxToken, Comment, CreateRule, Location } from '@oxlint/plugins'
-
 type ASTNode = ESTree.Node
-
 type Token = SyntaxToken | Comment
-
 import type {
   RuleOptions,
   SelectorOption,
@@ -24,7 +21,6 @@ import {
 } from './padding-line-ast.ts'
 
 const CJS_EXPORT = /^(?:module\s*\.\s*)?exports(?:\s*\.|\s*\[|$)/u
-
 const CJS_IMPORT = /^require\(/u
 
 /**
@@ -50,8 +46,7 @@ interface NodeTestObject {
   test: NodeTest
 }
 
-const LT = `[${[...LINEBREAKS].join('')}]`
-
+const LT = `[${Array.from(LINEBREAKS).join('')}]`
 const PADDING_LINE_SEQUENCE = new RegExp(
   String.raw`^(\s*?${LT})\s*${LT}(\s*;?)$`,
   'u',
@@ -75,7 +70,6 @@ function newKeywordTester(
   return {
     test(node, sourceCode): boolean {
       const isSameKeyword = sourceCode.getFirstToken(node)?.value === keyword
-
       const isSameType = Array.isArray(type)
         ? type.includes(node.type)
         : type === node.type
@@ -106,25 +100,21 @@ function newNodeTypeTester(type: string): NodeTestObject {
 function isIIFEStatement(node: ASTNode): boolean {
   if (node.type === 'ExpressionStatement') {
     let expression = skipChainExpression(node.expression)
-
     if (expression.type === 'UnaryExpression')
-      {expression = skipChainExpression(expression.argument)}
+      expression = skipChainExpression(expression.argument)
 
     if (expression.type === 'CallExpression') {
       let node: ASTNode = expression.callee
-
       while (node.type === 'SequenceExpression') {
         const lastExpression = node.expressions.at(-1)
-
         if (lastExpression === undefined)
-          {throw new Error('Padding rule invariant: sequence expression is empty')}
+          throw new Error('Padding rule invariant: sequence expression is empty')
         node = lastExpression
       }
 
       return isFunction(node)
     }
   }
-
   return false
 }
 
@@ -137,12 +127,10 @@ function isIIFEStatement(node: ASTNode): boolean {
 function isCJSRequire(node: ASTNode): boolean {
   if (node.type === 'VariableDeclaration') {
     const declaration = node.declarations[0]
-
     if (declaration?.init) {
       let call = declaration?.init
-
       while (call.type === 'MemberExpression')
-        {call = call.object}
+        call = call.object
 
       if (
         call.type === 'CallExpression'
@@ -152,7 +140,6 @@ function isCJSRequire(node: ASTNode): boolean {
       }
     }
   }
-
   return false
 }
 
@@ -181,18 +168,17 @@ function isBlockLikeStatement(
    * JSCS#disallowPaddingNewLinesAfterBlocks.
    */
   if (isIIFEStatement(node))
-    {return true}
+    return true
 
   // Checks the last token is a closing brace of blocks.
   const lastToken = sourceCode.getLastToken(node, isNotSemicolonToken)
-
   const belongingNode
     = lastToken && isClosingBraceToken(lastToken)
       ? sourceCode.getNodeByRangeIndex(lastToken.range[0])
       : null
 
   return (
-    Boolean(belongingNode)
+    !!belongingNode
     && (belongingNode.type === 'BlockStatement'
       || belongingNode.type === 'SwitchStatement')
   )
@@ -234,15 +220,13 @@ function isDirectivePrologue(
   ) {
     for (const sibling of node.parent.body) {
       if (sibling === node)
-        {break}
+        break
 
       if (!isDirective(sibling, sourceCode))
-        {return false}
+        return false
     }
-
     return true
   }
-
   return false
 }
 
@@ -254,12 +238,12 @@ function isDirectivePrologue(
  */
 function isCJSExport(node: ASTNode): boolean {
   if (node.type === 'ExpressionStatement') {
-    const {expression} = node
+    const expression = node.expression
     if (expression.type === 'AssignmentExpression') {
-      let {left} = expression
+      let left = expression.left
       if (left.type === 'MemberExpression') {
         while (left.object.type === 'MemberExpression')
-          {left = left.object}
+          left = left.object
 
         return (
           left.object.type === 'Identifier'
@@ -271,7 +255,6 @@ function isCJSExport(node: ASTNode): boolean {
       }
     }
   }
-
   return false
 }
 
@@ -311,7 +294,6 @@ function getActualLastToken(
   const semiToken = sourceCode.getLastToken(node)!
   const prevToken = sourceCode.getTokenBefore(semiToken)
   const nextToken = sourceCode.getTokenAfter(semiToken)
-
   const isSemicolonLessStyle
     = prevToken
       && nextToken
@@ -341,13 +323,12 @@ function replacerToRemovePaddingLines(
 
 function getReportLoc(node: ASTNode, sourceCode: SourceCode): Location {
   if (isSingleLine(node))
-    {return node.loc}
+    return node.loc
 
-  const {line} = node.loc.start
+  const line = node.loc.start.line
   const sourceLine = sourceCode.lines[line - 1]
-
   if (sourceLine === undefined)
-    {throw new Error('Padding rule invariant: statement source line is missing')}
+    throw new Error('Padding rule invariant: statement source line is missing')
 
   return {
     start: node.loc.start,
@@ -388,7 +369,7 @@ function verifyForNever(
   paddingLines: [Token, Token][],
 ): void {
   if (paddingLines.length === 0)
-    {return}
+    return
 
   context.report({
     node: nextNode,
@@ -396,16 +377,14 @@ function verifyForNever(
     loc: getReportLoc(nextNode, context.sourceCode),
     fix(fixer) {
       if (paddingLines.length >= 2)
-        {return null}
+        return null
 
       const paddingPair = paddingLines[0]
-
       if (paddingPair === undefined)
-        {throw new Error('Padding rule invariant: reported padding pair is missing')}
+        throw new Error('Padding rule invariant: reported padding pair is missing')
       const [prevToken, nextToken] = paddingPair
       const start = prevToken.range[1]
       const end = nextToken.range[0]
-
       const text = context
         .sourceCode
         .text
@@ -437,16 +416,15 @@ function verifyForAlways(
   paddingLines: [Token, Token][],
 ): void {
   if (paddingLines.length > 0)
-    {return}
+    return
 
   context.report({
     node: nextNode,
     messageId: 'expectedBlankLine',
     loc: getReportLoc(nextNode, context.sourceCode),
     fix(fixer) {
-      const {sourceCode} = context
+      const sourceCode = context.sourceCode
       let prevToken = getActualLastToken(prevNode, sourceCode)!
-
       const nextToken
         = sourceCode.getFirstTokenBetween(prevToken, nextNode, {
           includeComments: true,
@@ -474,14 +452,11 @@ function verifyForAlways(
           filter(token) {
             if (isTokenOnSameLine(prevToken, token)) {
               prevToken = token
-
               return false
             }
-
             return true
           },
         })! || nextNode
-
       const insertText = isTokenOnSameLine(prevToken, nextToken)
         ? '\n\n'
         : '\n'
@@ -580,7 +555,7 @@ const StatementTypes: Record<string, NodeTestObject> = {
     test: (node, sourceCode) => node.type === 'VariableDeclaration'
       && node.declarations.length > 0
       && node.declarations[0]?.init != null
-      && sourceCode.getText(node.declarations[0].init).startsWith("require("),
+      && CJS_IMPORT.test(sourceCode.getText(node.declarations[0].init)),
   },
 
   'enum': newKeywordTester(
@@ -687,7 +662,7 @@ return {
     },
   },
   create(context) {
-    const {sourceCode} = context
+    const sourceCode = context.sourceCode
 
     const selectorMatchedNodes = new Map<string, Set<ASTNode>>()
     const pendingPairs: { prevNode: ASTNode, nextNode: ASTNode }[] = []
@@ -695,12 +670,12 @@ return {
     function collectSelectorOption(option: StatementOption): void {
       if (Array.isArray(option)) {
         for (const item of option)
-          {collectSelectorOption(item)}
+          collectSelectorOption(item)
         return
       }
 
       if (!isSelectorOption(option))
-        {return}
+        return
 
       selectorMatchedNodes.set(option.selector, new Set())
     }
@@ -737,7 +712,7 @@ return {
      */
     function exitScope(): void {
       if (scopeInfo)
-        {scopeInfo = scopeInfo.upper}
+        scopeInfo = scopeInfo.upper
     }
 
     /**
@@ -751,31 +726,31 @@ return {
       let innerStatementNode = node
 
       while (innerStatementNode.type === 'LabeledStatement')
-        {innerStatementNode = innerStatementNode.body}
+        innerStatementNode = innerStatementNode.body
 
       if (Array.isArray(type))
-        {return type.some(match.bind(null, innerStatementNode))}
+        return type.some(match.bind(null, innerStatementNode))
 
       if (isSelectorOption(type)) {
         const matchedNodes = selectorMatchedNodes.get(type.selector)
-
         if (!matchedNodes?.has(innerStatementNode))
-          {return false}
+          return false
 
-        const {lineMode} = type
+        const lineMode = type.lineMode
 
         if (lineMode === 'singleline')
-          {return isSingleLine(innerStatementNode)}
+          return isSingleLine(innerStatementNode)
         else if (lineMode === 'multiline')
-          {return !isSingleLine(innerStatementNode)}
+          return !isSingleLine(innerStatementNode)
 
         return true
       }
+      else {
         const statementType = StatementTypes[type]
         if (statementType === undefined)
           throw new Error(`Padding rule invariant: unsupported statement type ${type}`)
         return statementType.test(innerStatementNode, sourceCode)
-
+      }
     }
 
     /**
@@ -791,9 +766,8 @@ return {
     ): (typeof PaddingTypes)[keyof typeof PaddingTypes] {
       for (let i = options.length - 1; i >= 0; --i) {
         const configure = options[i]
-
         if (configure === undefined)
-          {throw new Error('Padding rule invariant: configuration entry is missing')}
+          throw new Error('Padding rule invariant: configuration entry is missing')
         if (
           match(prevNode, configure.prev)
           && match(nextNode, configure.next)
@@ -801,7 +775,6 @@ return {
           return PaddingTypes[configure.blankLine]
         }
       }
-
       return PaddingTypes.any
     }
 
@@ -827,7 +800,7 @@ return {
           })!
 
           if (token.loc.start.line - prevToken.loc.end.line >= 2)
-            {pairs.push([prevToken, token])}
+            pairs.push([prevToken, token])
 
           prevToken = token
         } while (prevToken.range[0] < nextNode.range[0])
@@ -860,11 +833,11 @@ return {
       }
 
       // Save this node as the current previous statement.
-      const {prevNode} = scopeInfo!
+      const prevNode = scopeInfo!.prevNode
 
       // Verify.
       if (prevNode)
-        {pendingPairs.push({ prevNode, nextNode: node })}
+        pendingPairs.push({ prevNode, nextNode: node })
 
       scopeInfo!.prevNode = node
     }

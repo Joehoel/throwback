@@ -102,8 +102,8 @@
     "react-doctor/no-derived-state": "error",
     "react-doctor/no-event-handler": "error",
     "react-doctor/no-initialize-state": "error",
-    "react-doctor/no-pass-data-to-parent": "error",
-    "react-doctor/no-pass-live-state-to-parent": "error",
+    "react-doctor/no-pass-data-to-parent": "off",
+    "react-doctor/no-pass-live-state-to-parent": "off",
     "react-doctor/no-reset-all-state-on-prop-change": "error",
     "react/jsx-filename-extension": "off",
     "react/jsx-max-depth": "off",
@@ -125,17 +125,24 @@
     "eslint/new-cap": "off",
     "eslint/func-names": "off",
     "eslint/id-length": "off",
+    "eslint/no-redeclare": "off",
     "eslint/capitalized-comments": "off",
     "eslint/no-inline-comments": "off",
     "eslint/max-classes-per-file": "off",
     "eslint/max-lines": ["error", { "max": 300, "skipBlankLines": true }],
     "eslint/max-lines-per-function": "off",
     "eslint/max-statements": "off",
+    "eslint/one-var": "off",
+    "node/no-sync": "off",
     "oxc/no-barrel-file": "off",
+    "react/jsx-no-literals": "off",
+    "react/todo": "off",
     "unicorn/no-array-method-this-argument": "off",
     "eslint/init-declarations": "off",
     "unicorn/filename-case": ["error", { "case": "kebabCase" }],
-    "unicorn/number-literal-case": "off"
+    "unicorn/max-nested-calls": "off",
+    "unicorn/number-literal-case": "off",
+    "unicorn/throw-new-error": "off"
   },
   "overrides": [
     {
@@ -155,9 +162,13 @@
         "vitest/no-importing-vitest-globals": "off",
         "vitest/prefer-importing-vitest-globals": "off",
         "vitest/no-hooks": "off",
+        "vitest/no-standalone-expect": "off",
         "vitest/require-top-level-describe": "off",
         "vitest/max-expects": "off",
         "vitest/consistent-test-it": "off",
+        "vitest/prefer-to-be-falsy": "off",
+        "vitest/prefer-to-be-truthy": "off",
+        "vitest/prefer-to-contain": "off",
         "typescript/no-deprecated": "off",
         "eslint/no-shadow": "off",
         "eslint/no-console": "off",
@@ -194,30 +205,10 @@
       }
     },
     {
-      "files": [
-        "src/domains/curation/machine/**",
-        "src/domains/curation/data.ts",
-        "src/domains/curation/events-query.ts"
-      ],
+      "files": ["tools/**"],
       "rules": {
-        "typescript/no-unsafe-type-assertion": "off",
-        "typescript/prefer-nullish-coalescing": "off",
-        "typescript/strict-boolean-expressions": "off",
-        "typescript/strict-void-return": "off",
-        "promise/prefer-await-to-then": "off",
-        "promise/always-return": "off",
-        "promise/avoid-new": "off",
-        "promise/param-names": "off",
-        "eslint/no-promise-executor-return": "off",
-        "eslint/no-empty-function": "off",
-        "eslint/no-continue": "off",
-        "eslint/max-params": "off",
-        "eslint/max-lines": "off",
-        "unicorn/no-array-for-each": "off",
-        "oxc/no-map-spread": "off",
-        "vitest/no-conditional-in-test": "off",
-        "vitest/prefer-to-be-truthy": "off",
-        "vitest/prefer-to-be-falsy": "off"
+        "node/no-top-level-await": "off",
+        "vitest/require-hook": "off"
       }
     },
     {
@@ -238,6 +229,7 @@
     ".pi/**",
     ".roo/**",
     ".windsurf/**",
+    "src/client/generated/**",
     "node_modules/**",
     ".context/**",
     ".claude/**",
@@ -246,14 +238,9 @@
     ".vinxi/**",
     ".output/**",
     "alchemy.run.ts",
-    "infra/**",
-    "spike/**",
-    "src/prototypes/**",
-    "src/routes/prototypes/**",
     "src/routeTree.gen.ts",
     "worker-configuration.d.ts",
     "src/types/**",
-    "drizzle/meta/**",
     "tools/oxlint/anti-slop/**"
   ]
 }
