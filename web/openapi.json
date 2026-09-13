@@ -31,7 +31,94 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "CuratorAccessUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                }
+              }
+            }
           }
+        }
+      }
+    },
+    "/curator/claim": {
+      "post": {
+        "tags": ["curator"],
+        "operationId": "claimCurator",
+        "parameters": [],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "BootstrapState",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BootstrapState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AuthenticationRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationRequiredEncoded"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CuratorOwnershipConflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratorOwnershipConflictEncoded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BuildUpgradeRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildUpgradeRequiredEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "CuratorAccessUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmCuratorClaim"
+              }
+            }
+          },
+          "required": true
         }
       }
     }
@@ -44,9 +131,13 @@
           "_tag": {
             "type": "string",
             "enum": ["SignInRequired"]
+          },
+          "reason": {
+            "type": "string",
+            "enum": ["signedOut", "ownerMismatch"]
           }
         },
-        "required": ["_tag"],
+        "required": ["_tag", "reason"],
         "additionalProperties": false
       },
       "CuratorClaimRequired": {
@@ -55,9 +146,26 @@
           "_tag": {
             "type": "string",
             "enum": ["CuratorClaimRequired"]
+          },
+          "account": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": ["microsoft"]
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": ["provider", "name", "email"],
+            "additionalProperties": false
           }
         },
-        "required": ["_tag"],
+        "required": ["_tag", "account"],
         "additionalProperties": false
       },
       "GraphConnectionRequired": {
@@ -66,9 +174,26 @@
           "_tag": {
             "type": "string",
             "enum": ["GraphConnectionRequired"]
+          },
+          "account": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": ["microsoft"]
+              },
+              "name": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              }
+            },
+            "required": ["provider", "name", "email"],
+            "additionalProperties": false
           }
         },
-        "required": ["_tag"],
+        "required": ["_tag", "account"],
         "additionalProperties": false
       },
       "LibrarySelectionRequired": {
@@ -150,6 +275,20 @@
           }
         ]
       },
+      "CuratorAccessUnavailableEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["CuratorAccessUnavailable"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
       "BuildUpgradeRequiredEncoded": {
         "type": "object",
         "properties": {
@@ -166,6 +305,45 @@
         },
         "required": ["_tag", "currentBuildId", "message"],
         "additionalProperties": false
+      },
+      "ConfirmCuratorClaim": {
+        "type": "object",
+        "properties": {
+          "confirmed": {
+            "type": "boolean",
+            "enum": [true]
+          }
+        },
+        "required": ["confirmed"],
+        "additionalProperties": false
+      },
+      "CuratorOwnershipConflictEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["CuratorOwnershipConflict"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "AuthenticationRequiredEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["AuthenticationRequired"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {}
@@ -174,6 +352,9 @@
   "tags": [
     {
       "name": "bootstrap"
+    },
+    {
+      "name": "curator"
     }
   ]
 }

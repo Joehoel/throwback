@@ -4,8 +4,15 @@ import * as v from "valibot";
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from "./client";
 import { client } from "./client.gen";
-import type { GetBootstrapData, GetBootstrapErrors, GetBootstrapResponses } from "./types.gen";
-import { vGetBootstrapResponse } from "./valibot.gen";
+import type {
+  ClaimCuratorData,
+  ClaimCuratorErrors,
+  ClaimCuratorResponses,
+  GetBootstrapData,
+  GetBootstrapErrors,
+  GetBootstrapResponses,
+} from "./types.gen";
+import { vClaimCuratorResponse, vGetBootstrapResponse } from "./valibot.gen";
 
 export type Options<
   TData extends TDataShape = TDataShape,
@@ -32,4 +39,17 @@ export const getBootstrap = <ThrowOnError extends boolean = false>(
     responseValidator: async (data) => await v.parseAsync(vGetBootstrapResponse, data),
     url: "/bootstrap",
     ...options,
+  });
+
+export const claimCurator = <ThrowOnError extends boolean = false>(
+  options: Options<ClaimCuratorData, ThrowOnError>,
+): RequestResult<ClaimCuratorResponses, ClaimCuratorErrors, ThrowOnError> =>
+  (options.client ?? client).post<ClaimCuratorResponses, ClaimCuratorErrors, ThrowOnError>({
+    responseValidator: async (data) => await v.parseAsync(vClaimCuratorResponse, data),
+    url: "/curator/claim",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
   });

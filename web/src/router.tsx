@@ -1,8 +1,7 @@
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { routeTree } from "./routeTree.gen";
 
-import { getContext } from "./integrations/tanstack-query/root-provider";
+import { getContext, PersistedQueryProvider } from "./integrations/tanstack-query/root-provider";
 
 // `createTanStackRouter`'s own `ReturnType` collapses the route tree to
 // `AnyRoute`; binding `typeof routeTree` recovers the precise, type-safe router.
@@ -20,7 +19,7 @@ export function getRouter(): AppRouter {
     routeTree,
     scrollRestoration: true,
     Wrap: ({ children }) => (
-      <QueryClientProvider client={context.queryClient}>{children}</QueryClientProvider>
+      <PersistedQueryProvider client={context.queryClient}>{children}</PersistedQueryProvider>
     ),
   });
 

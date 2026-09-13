@@ -1,6 +1,6 @@
 # Throwback Beheer-webapp
 
-The web workspace contains the empty Graph-only Beheer-webapp scaffold. Browser code lives in
+The web workspace contains the Graph-only Beheer-webapp. Browser code lives in
 `src/client`, Effect and the authoritative HTTP contract live in `src/server`, and `src/routes`
 contains only TanStack Start route composition.
 
@@ -16,7 +16,7 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
-Alchemy serves the SPA and Worker on `http://127.0.0.1:3000`. The definitive routes are:
+Alchemy serves the SPA and Worker on `http://localhost:3000`. The definitive routes are:
 
 - `/`
 - `/sign-in`
@@ -37,19 +37,23 @@ The preview stack is deliberately separate from production:
 - Better Auth secret: generated once in the preview Alchemy state;
 - Microsoft callback: `https://curation-preview.kuijper.fyi/api/auth/callback/microsoft`.
 
-Set the single curator email only for planning or deployment:
+Create the gitignored `web/.env` used by Alchemy:
 
-```bash
-THROWBACK_BUILD_ID="$(git rev-parse HEAD)" \
-  PREVIEW_ACCESS_ALLOWED_EMAIL=curator@example.com \
-  bun run plan
-THROWBACK_BUILD_ID="$(git rev-parse HEAD)" \
-  PREVIEW_ACCESS_ALLOWED_EMAIL=curator@example.com \
-  bun run deploy
+```dotenv
+MICROSOFT_CLIENT_SECRET=<Microsoft application secret value>
+PREVIEW_ACCESS_ALLOWED_EMAIL=<single Cloudflare Access email>
 ```
 
-Both commands target the explicit `preview` stage. The current scaffold does not implement Better Auth
-or Microsoft OAuth yet; their isolated secret and callback boundary are reserved for the next slice.
+Then plan or deploy an identified build:
+
+```bash
+THROWBACK_BUILD_ID="$(git rev-parse HEAD)" bun run plan
+THROWBACK_BUILD_ID="$(git rev-parse HEAD)" bun run deploy
+```
+
+Both commands target the explicit `preview` stage. Alchemy applies the D1 migrations and protects the
+entire preview hostname with Cloudflare Access; Better Auth and Microsoft OAuth enforce application
+authorization behind that edge gate.
 
 ## Verification
 

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { handleDomainRequest } from "#/server/api/handler.ts";
+import { handleDomainRequest } from "#/server/runtime.ts";
 
 export const Route = createFileRoute("/api/domain/$")({
   server: {

@@ -4,14 +4,25 @@ import * as v from "valibot";
 
 export const vSignInRequired = v.strictObject({
   _tag: v.picklist(["SignInRequired"]),
+  reason: v.picklist(["signedOut", "ownerMismatch"]),
 });
 
 export const vCuratorClaimRequired = v.strictObject({
   _tag: v.picklist(["CuratorClaimRequired"]),
+  account: v.strictObject({
+    provider: v.picklist(["microsoft"]),
+    name: v.string(),
+    email: v.string(),
+  }),
 });
 
 export const vGraphConnectionRequired = v.strictObject({
   _tag: v.picklist(["GraphConnectionRequired"]),
+  account: v.strictObject({
+    provider: v.picklist(["microsoft"]),
+    name: v.string(),
+    email: v.string(),
+  }),
 });
 
 export const vLibrarySelectionRequired = v.strictObject({
@@ -45,9 +56,28 @@ export const vBootstrapState = v.union([
   vReviewReady,
 ]);
 
+export const vCuratorAccessUnavailableEncoded = v.strictObject({
+  _tag: v.picklist(["CuratorAccessUnavailable"]),
+  message: v.string(),
+});
+
 export const vBuildUpgradeRequiredEncoded = v.strictObject({
   _tag: v.picklist(["BuildUpgradeRequired"]),
   currentBuildId: v.string(),
+  message: v.string(),
+});
+
+export const vConfirmCuratorClaim = v.strictObject({
+  confirmed: v.literal(true),
+});
+
+export const vCuratorOwnershipConflictEncoded = v.strictObject({
+  _tag: v.picklist(["CuratorOwnershipConflict"]),
+  message: v.string(),
+});
+
+export const vAuthenticationRequiredEncoded = v.strictObject({
+  _tag: v.picklist(["AuthenticationRequired"]),
   message: v.string(),
 });
 
@@ -55,3 +85,8 @@ export const vBuildUpgradeRequiredEncoded = v.strictObject({
  * BootstrapState
  */
 export const vGetBootstrapResponse = vBootstrapState;
+
+/**
+ * BootstrapState
+ */
+export const vClaimCuratorResponse = vBootstrapState;

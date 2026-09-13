@@ -8,14 +8,25 @@ export type ClientOptions = {
 
 export type SignInRequired = {
   _tag: "SignInRequired";
+  reason: "signedOut" | "ownerMismatch";
 };
 
 export type CuratorClaimRequired = {
   _tag: "CuratorClaimRequired";
+  account: {
+    provider: "microsoft";
+    name: string;
+    email: string;
+  };
 };
 
 export type GraphConnectionRequired = {
   _tag: "GraphConnectionRequired";
+  account: {
+    provider: "microsoft";
+    name: string;
+    email: string;
+  };
 };
 
 export type LibrarySelectionRequired = {
@@ -48,9 +59,28 @@ export type BootstrapState =
   | LibraryIndexing
   | ReviewReady;
 
+export type CuratorAccessUnavailableEncoded = {
+  _tag: "CuratorAccessUnavailable";
+  message: string;
+};
+
 export type BuildUpgradeRequiredEncoded = {
   _tag: "BuildUpgradeRequired";
   currentBuildId: string;
+  message: string;
+};
+
+export type ConfirmCuratorClaim = {
+  confirmed: true;
+};
+
+export type CuratorOwnershipConflictEncoded = {
+  _tag: "CuratorOwnershipConflict";
+  message: string;
+};
+
+export type AuthenticationRequiredEncoded = {
+  _tag: "AuthenticationRequired";
   message: string;
 };
 
@@ -66,6 +96,10 @@ export type GetBootstrapErrors = {
    * BuildUpgradeRequired
    */
   409: BuildUpgradeRequiredEncoded;
+  /**
+   * CuratorAccessUnavailable
+   */
+  503: CuratorAccessUnavailableEncoded;
 };
 
 export type GetBootstrapError = GetBootstrapErrors[keyof GetBootstrapErrors];
@@ -78,3 +112,40 @@ export type GetBootstrapResponses = {
 };
 
 export type GetBootstrapResponse = GetBootstrapResponses[keyof GetBootstrapResponses];
+
+export type ClaimCuratorData = {
+  body: ConfirmCuratorClaim;
+  path?: never;
+  query?: never;
+  url: "/curator/claim";
+};
+
+export type ClaimCuratorErrors = {
+  /**
+   * AuthenticationRequired
+   */
+  401: AuthenticationRequiredEncoded;
+  /**
+   * CuratorOwnershipConflict
+   */
+  403: CuratorOwnershipConflictEncoded;
+  /**
+   * BuildUpgradeRequired
+   */
+  409: BuildUpgradeRequiredEncoded;
+  /**
+   * CuratorAccessUnavailable
+   */
+  503: CuratorAccessUnavailableEncoded;
+};
+
+export type ClaimCuratorError = ClaimCuratorErrors[keyof ClaimCuratorErrors];
+
+export type ClaimCuratorResponses = {
+  /**
+   * BootstrapState
+   */
+  200: BootstrapState;
+};
+
+export type ClaimCuratorResponse = ClaimCuratorResponses[keyof ClaimCuratorResponses];

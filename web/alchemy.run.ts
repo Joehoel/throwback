@@ -5,11 +5,12 @@ import * as Effect from "effect/Effect";
 
 const PREVIEW_DOMAIN = "curation-preview.kuijper.fyi";
 const PREVIEW_URL = `https://${PREVIEW_DOMAIN}`;
-const LOCAL_URL = "http://127.0.0.1:3000";
+const LOCAL_URL = "http://localhost:3000";
 
 export const PreviewDB = Cloudflare.D1.Database("PreviewDB", {
   name: "throwback-curation-preview",
   jurisdiction: "eu",
+  migrations: "./migrations",
 });
 
 const PreviewBetterAuthSecret = Alchemy.makeRandom("PreviewBetterAuthSecret");
@@ -47,9 +48,11 @@ export class Website extends Cloudflare.Website.Vite<Website>()(
         DB: PreviewDB,
         BETTER_AUTH_SECRET: PreviewBetterAuthSecret,
         BETTER_AUTH_URL: baseUrl,
+        MICROSOFT_CLIENT_ID: "0bb9b8c8-a9e6-475d-b44f-74521e46aaf1",
+        MICROSOFT_CLIENT_SECRET: Config.redacted("MICROSOFT_CLIENT_SECRET"),
         MICROSOFT_CALLBACK_URL: `${baseUrl}/api/auth/callback/microsoft`,
       },
-      dev: { host: "127.0.0.1", port: 3000, strictPort: true },
+      dev: { host: "localhost", port: 3000, strictPort: true },
     };
   }),
 ) {}

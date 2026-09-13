@@ -5,13 +5,17 @@ import { bootstrapDestination } from "./bootstrap-destination.ts";
 
 describe("bootstrap destination", () => {
   it.each([
-    [JSON.parse('{"_tag":"SignInRequired"}'), { to: "/sign-in" }],
+    [JSON.parse('{"_tag":"SignInRequired","reason":"signedOut"}'), { to: "/sign-in" }],
     [
-      JSON.parse('{"_tag":"CuratorClaimRequired"}'),
+      JSON.parse(
+        '{"_tag":"CuratorClaimRequired","account":{"provider":"microsoft","name":"Curator","email":"curator@example.test"}}',
+      ),
       { to: "/setup/$step", params: { step: "claim" } },
     ],
     [
-      JSON.parse('{"_tag":"GraphConnectionRequired"}'),
+      JSON.parse(
+        '{"_tag":"GraphConnectionRequired","account":{"provider":"microsoft","name":"Curator","email":"curator@example.test"}}',
+      ),
       { to: "/setup/$step", params: { step: "graph" } },
     ],
     [

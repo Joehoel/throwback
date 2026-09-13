@@ -1,8 +1,13 @@
-import { parseAsync } from "valibot";
+import { is, parseAsync, union } from "valibot";
 import { BUILD_ID } from "../config/build-id.ts";
 import { client as generatedClient } from "../generated/client.gen.ts";
 import type { Client } from "../generated/client/index.ts";
-import { vBuildUpgradeRequiredEncoded } from "../generated/valibot.gen.ts";
+import {
+  vAuthenticationRequiredEncoded,
+  vBuildUpgradeRequiredEncoded,
+  vCuratorAccessUnavailableEncoded,
+  vCuratorOwnershipConflictEncoded,
+} from "../generated/valibot.gen.ts";
 import {
   MutationBlockedForUpgradeError,
   getReloadRequirement,
@@ -12,6 +17,13 @@ import {
 export const BUILD_ID_HEADER = "x-throwback-build-id";
 
 const safeMethods = new Set(["GET", "HEAD", "OPTIONS"]);
+
+const declaredDomainError = union([
+  vAuthenticationRequiredEncoded,
+  vBuildUpgradeRequiredEncoded,
+  vCuratorAccessUnavailableEncoded,
+  vCuratorOwnershipConflictEncoded,
+]);
 
 export function configureDomainClient(client: Client): Client {
   client.setConfig({
@@ -34,12 +46,14 @@ export function configureDomainClient(client: Client): Client {
     if (
       response !== undefined &&
       response.status >= 400 &&
-      response.status < 500 &&
+      response.status < 600 &&
       response.headers.get("content-type")?.includes("application/json") === true
     ) {
-      const parsed = await parseAsync(vBuildUpgradeRequiredEncoded, error);
+      const parsed = await parseAsync(declaredDomainError, error);
 
-      markReloadRequired(parsed);
+      if (is(vBuildUpgradeRequiredEncoded, parsed)) {
+        markReloadRequired(parsed);
+      }
 
       return parsed;
     }
