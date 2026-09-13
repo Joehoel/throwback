@@ -53,7 +53,9 @@ describe("Beheer-webapp shells", () => {
 
     const indexing = parse(
       vLibraryIndexing,
-      JSON.parse('{"_tag":"LibraryIndexing","discoveredPhotos":42}'),
+      JSON.parse(
+        '{"_tag":"LibraryIndexing","libraryId":"00000000-0000-4000-8000-000000000043","rootFolder":{"name":"Familiefoto\u0027s","path":"OneDrive / Familiefoto\u0027s"},"discoveredPhotos":42}',
+      ),
     );
 
     render(<ReviewShell state={indexing} />);

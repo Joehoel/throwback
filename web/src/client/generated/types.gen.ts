@@ -33,12 +33,19 @@ export type LibrarySelectionRequired = {
   _tag: "LibrarySelectionRequired";
 };
 
-export type LibraryIndexing = {
-  _tag: "LibraryIndexing";
-  discoveredPhotos: number;
+export type LibraryId = string & Brand<"LibraryId">;
+
+export type LibraryRootDisplay = {
+  name: string;
+  path: string;
 };
 
-export type LibraryId = string & Brand<"LibraryId">;
+export type LibraryIndexing = {
+  _tag: "LibraryIndexing";
+  libraryId: LibraryId;
+  rootFolder: LibraryRootDisplay;
+  discoveredPhotos: number;
+};
 
 export type EventId = string & Brand<"EventId">;
 
@@ -81,6 +88,62 @@ export type CuratorOwnershipConflictEncoded = {
 
 export type AuthenticationRequiredEncoded = {
   _tag: "AuthenticationRequired";
+  message: string;
+};
+
+export type DriveItemId = string & Brand<"DriveItemId">;
+
+export type FolderLocation = {
+  id: DriveItemId;
+  name: string;
+  path: string;
+  isDriveRoot: boolean;
+  parentFolderId?: DriveItemId;
+};
+
+export type SelectableFolder = {
+  id: DriveItemId;
+  name: string;
+  childCount: number;
+};
+
+export type FolderBrowserState = {
+  current: FolderLocation;
+  folders: Array<SelectableFolder>;
+};
+
+export type GraphReauthenticationRequiredEncoded = {
+  _tag: "GraphReauthenticationRequired";
+  message: string;
+};
+
+export type LibraryAlreadySelectedEncoded = {
+  _tag: "LibraryAlreadySelected";
+  message: string;
+};
+
+export type LibraryStoreUnavailableEncoded = {
+  _tag: "LibraryStoreUnavailable";
+  message: string;
+};
+
+export type OneDriveFolderNotFoundEncoded = {
+  _tag: "OneDriveFolderNotFound";
+  message: string;
+};
+
+export type OneDriveUnavailableEncoded = {
+  _tag: "OneDriveUnavailable";
+  message: string;
+};
+
+export type SelectLibraryRequest = {
+  rootFolderId: DriveItemId;
+  confirmed: true;
+};
+
+export type InvalidLibrarySelectionEncoded = {
+  _tag: "InvalidLibrarySelection";
   message: string;
 };
 
@@ -149,3 +212,100 @@ export type ClaimCuratorResponses = {
 };
 
 export type ClaimCuratorResponse = ClaimCuratorResponses[keyof ClaimCuratorResponses];
+
+export type ListLibraryFoldersData = {
+  body?: never;
+  path?: never;
+  query?: {
+    parentFolderId?: DriveItemId;
+  };
+  url: "/library/folders";
+};
+
+export type ListLibraryFoldersErrors = {
+  /**
+   * GraphReauthenticationRequired | AuthenticationRequired
+   */
+  401: GraphReauthenticationRequiredEncoded | AuthenticationRequiredEncoded;
+  /**
+   * CuratorOwnershipConflict
+   */
+  403: CuratorOwnershipConflictEncoded;
+  /**
+   * OneDriveFolderNotFound
+   */
+  404: OneDriveFolderNotFoundEncoded;
+  /**
+   * LibraryAlreadySelected | BuildUpgradeRequired
+   */
+  409: LibraryAlreadySelectedEncoded | BuildUpgradeRequiredEncoded;
+  /**
+   * OneDriveUnavailable
+   */
+  502: OneDriveUnavailableEncoded;
+  /**
+   * LibraryStoreUnavailable | CuratorAccessUnavailable
+   */
+  503: LibraryStoreUnavailableEncoded | CuratorAccessUnavailableEncoded;
+};
+
+export type ListLibraryFoldersError = ListLibraryFoldersErrors[keyof ListLibraryFoldersErrors];
+
+export type ListLibraryFoldersResponses = {
+  /**
+   * FolderBrowserState
+   */
+  200: FolderBrowserState;
+};
+
+export type ListLibraryFoldersResponse =
+  ListLibraryFoldersResponses[keyof ListLibraryFoldersResponses];
+
+export type SelectLibraryData = {
+  body: SelectLibraryRequest;
+  path?: never;
+  query?: never;
+  url: "/library/selection";
+};
+
+export type SelectLibraryErrors = {
+  /**
+   * InvalidLibrarySelection
+   */
+  400: InvalidLibrarySelectionEncoded;
+  /**
+   * GraphReauthenticationRequired | AuthenticationRequired
+   */
+  401: GraphReauthenticationRequiredEncoded | AuthenticationRequiredEncoded;
+  /**
+   * CuratorOwnershipConflict
+   */
+  403: CuratorOwnershipConflictEncoded;
+  /**
+   * OneDriveFolderNotFound
+   */
+  404: OneDriveFolderNotFoundEncoded;
+  /**
+   * LibraryAlreadySelected | BuildUpgradeRequired
+   */
+  409: LibraryAlreadySelectedEncoded | BuildUpgradeRequiredEncoded;
+  /**
+   * OneDriveUnavailable
+   */
+  502: OneDriveUnavailableEncoded;
+  /**
+   * LibraryStoreUnavailable | CuratorAccessUnavailable
+   */
+  503: LibraryStoreUnavailableEncoded | CuratorAccessUnavailableEncoded;
+};
+
+export type SelectLibraryError = SelectLibraryErrors[keyof SelectLibraryErrors];
+
+export type SelectLibraryResponses = {
+  /**
+   * LibraryIndexing
+   */
+  200: LibraryIndexing;
+};
+
+export type SelectLibraryResponse = SelectLibraryResponses[keyof SelectLibraryResponses];

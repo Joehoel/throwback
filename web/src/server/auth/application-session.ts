@@ -1,5 +1,6 @@
 import { Context, Effect, Layer, Option, Schema } from "effect";
 import type { ThrowbackAuth } from "./auth.ts";
+import { BetterAuthServer } from "./better-auth-server.ts";
 
 /** A Better Auth session after an authoritative D1-backed lookup. */
 export interface ApplicationSessionValue {
@@ -50,9 +51,12 @@ export function makeBetterAuthApplicationSession(auth: ThrowbackAuth): Applicati
   return ApplicationSession.of({ get });
 }
 
-/** Provide an application-session service backed by Better Auth. */
-export function layerBetterAuthApplicationSession(
-  auth: ThrowbackAuth,
-): Layer.Layer<ApplicationSession> {
-  return Layer.succeed(ApplicationSession, makeBetterAuthApplicationSession(auth));
-}
+/** Application-session implementation requiring the runtime Better Auth server. */
+export const ApplicationSessionLive = Layer.effect(
+  ApplicationSession,
+  Effect.gen(function* () {
+    const auth = yield* BetterAuthServer;
+
+    return makeBetterAuthApplicationSession(auth);
+  }),
+);

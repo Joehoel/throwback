@@ -1,5 +1,8 @@
 # UI met Cloudflare Kumo; Splitscreen als gekozen reviewscherm-richting
 
+> **Superseded in part:** ADR-0028 replaces Kumo and its token contract with shadcn/ui `base-nova`
+> components on Base UI. The validated responsive Splitscreen direction remains accepted.
+>
 > **Production migration:** ADR-0026 confirms this responsive Kumo/Splitscreen contract, promotes the
 > `Review.*` compound shape, and discards the prototype data, timers, routes, providers, and state models.
 

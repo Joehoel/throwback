@@ -4,13 +4,14 @@ import {
   vGraphConnectionRequired,
   vLibraryIndexing,
   vLibrarySelectionRequired,
+  vReviewReady,
   vSignInRequired,
 } from "../generated/valibot.gen.ts";
 import { linkOptions } from "@tanstack/react-router";
 import type { BootstrapState } from "../generated/types.gen.ts";
 
 export function bootstrapDestination(state: BootstrapState) {
-  if ("libraryId" in state) {
+  if (is(vReviewReady, state)) {
     return linkOptions({
       to: "/libraries/$libraryId/events/$eventId/photos/$photoId",
       params: {

@@ -159,7 +159,7 @@ diagnostic retention, and alerting.
   v2. SSR is off by default; Start still owns the shell, middleware, protocol routes, and build.
 - `src/server/**` contains Effect v4 schemas, HttpApi, services/Layers, auth integration, D1, Graph/Gemini,
   codec, dispatchers, and Workflows.
-- `src/client/**` contains React, TanStack Router/Query/Store, Kumo, generated Fetch/Query/Valibot, and no
+- `src/client/**` contains React, TanStack Router/Query/Store, shadcn/ui, generated Fetch/Query/Valibot, and no
   Effect import of any kind.
 - `src/routes/**` contains thin page or protocol adapters. The domain API is `/api/domain/$`; Better Auth is
   `/api/auth/$`; OpenAPI and interactive docs are `/api/openapi.json` and `/api/docs` behind Access.

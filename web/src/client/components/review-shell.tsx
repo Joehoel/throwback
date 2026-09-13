@@ -8,9 +8,7 @@ export function ReviewShell({ state }: { readonly state: BootstrapState }) {
       </section>
       <aside className="bg-[#fffdf8] p-6 text-[#26231d] sm:p-8">
         <p className="text-xs font-bold tracking-[0.18em] text-[#736957] uppercase">Review</p>
-        <h1 className="font-display mt-5 text-3xl leading-tight font-semibold">
-          Foto wordt voorbereid
-        </h1>
+        <h1 className="mt-5 text-3xl leading-tight font-semibold">Foto wordt voorbereid</h1>
         <p className="mt-4 leading-7 text-[#665d4d]">
           Deze vaste bookmark is klaar voor de Foto-editor zodra de Bibliotheek is geïndexeerd.
         </p>

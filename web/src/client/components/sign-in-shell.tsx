@@ -21,7 +21,7 @@ export function SignInShell({ state }: { readonly state?: SignInRequired }) {
 
   return (
     <ShellLayout eyebrow="Throwback · Beheer-webapp">
-      <h1 className="font-display max-w-xl text-4xl leading-tight font-semibold text-balance sm:text-5xl">
+      <h1 className="max-w-xl text-4xl leading-tight font-semibold text-balance sm:text-5xl">
         Breng de verhalen achter je familiefoto&apos;s terug.
       </h1>
       <p className="mt-5 max-w-xl text-base leading-7 text-[#665d4d] sm:text-lg">

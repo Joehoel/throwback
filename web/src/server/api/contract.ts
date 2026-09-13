@@ -8,12 +8,21 @@ import {
 } from "effect/unstable/httpapi";
 import { CuratorAccessUnavailable, CuratorOwnershipConflict } from "../curator/errors.ts";
 import { MicrosoftAccountDisplay } from "../curator/model.ts";
-import { SignedInSessionAuthorization } from "./authentication.ts";
-
-export const LibraryId = Schema.String.pipe(Schema.brand("LibraryId")).annotate({
-  format: "throwback-library-id",
-  identifier: "LibraryId",
-});
+import {
+  GraphReauthenticationRequired,
+  InvalidLibrarySelection,
+  LibraryAlreadySelected,
+  LibraryStoreUnavailable,
+  OneDriveFolderNotFound,
+  OneDriveUnavailable,
+} from "../library/errors.ts";
+import {
+  DriveItemId,
+  FolderBrowserState,
+  LibraryId,
+  LibraryRootDisplay,
+} from "../library/model.ts";
+import { CuratorAuthorization, SignedInSessionAuthorization } from "./authentication.ts";
 
 export const EventId = Schema.String.pipe(Schema.brand("EventId")).annotate({
   format: "throwback-event-id",
@@ -45,6 +54,8 @@ export const LibrarySelectionRequired = Schema.TaggedStruct(
 ).annotate({ identifier: "LibrarySelectionRequired" });
 
 export const LibraryIndexing = Schema.TaggedStruct("LibraryIndexing", {
+  libraryId: LibraryId,
+  rootFolder: LibraryRootDisplay,
   discoveredPhotos: Schema.Finite,
 }).annotate({ identifier: "LibraryIndexing" });
 
@@ -104,9 +115,42 @@ export class CuratorApi extends HttpApiGroup.make("curator")
   .middleware(BuildCompatibility)
   .prefix("/curator") {}
 
+export const SelectLibraryRequest = Schema.Struct({
+  rootFolderId: DriveItemId,
+  confirmed: Schema.Literal(true),
+}).annotate({ identifier: "SelectLibraryRequest" });
+
+const LibraryErrors = [
+  GraphReauthenticationRequired,
+  LibraryAlreadySelected,
+  LibraryStoreUnavailable,
+  OneDriveFolderNotFound,
+  OneDriveUnavailable,
+] as const;
+
+export class LibraryApi extends HttpApiGroup.make("library")
+  .add(
+    HttpApiEndpoint.get("listLibraryFolders", "/folders", {
+      query: { parentFolderId: Schema.optionalKey(DriveItemId) },
+      success: FolderBrowserState,
+      error: LibraryErrors,
+    }).annotateMerge(OpenApi.annotations({ identifier: "listLibraryFolders" })),
+  )
+  .add(
+    HttpApiEndpoint.post("selectLibrary", "/selection", {
+      payload: SelectLibraryRequest,
+      success: LibraryIndexing,
+      error: [...LibraryErrors, InvalidLibrarySelection],
+    }).annotateMerge(OpenApi.annotations({ identifier: "selectLibrary" })),
+  )
+  .middleware(CuratorAuthorization)
+  .middleware(BuildCompatibility)
+  .prefix("/library") {}
+
 export class ThrowbackApi extends HttpApi.make("throwback-api")
   .add(BootstrapApi)
   .add(CuratorApi)
+  .add(LibraryApi)
   .annotateMerge(
     OpenApi.annotations({
       title: "Throwback Beheer-webapp API",

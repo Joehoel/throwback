@@ -152,7 +152,12 @@
       }
     },
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx", "test/**/*.{ts,tsx}"],
+      "files": [
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "test/**/*.{ts,tsx}",
+        "src/**/test-support/**/*.{ts,tsx}"
+      ],
       "rules": {
         "vitest/prefer-expect-assertions": "off",
         "vitest/require-test-timeout": "off",
@@ -162,6 +167,7 @@
         "vitest/no-importing-vitest-globals": "off",
         "vitest/prefer-importing-vitest-globals": "off",
         "vitest/no-hooks": "off",
+        "vitest/no-conditional-in-test": "off",
         "vitest/no-standalone-expect": "off",
         "vitest/require-top-level-describe": "off",
         "vitest/max-expects": "off",
@@ -181,6 +187,7 @@
         "eslint/no-nested-ternary": "off",
         "eslint/require-await": "off",
         "unicorn/no-process-exit": "off",
+        "unicorn/consistent-function-scoping": "off",
         "unicorn/catch-error-name": "off",
         "unicorn/explicit-length-check": "off",
         "unicorn/no-array-sort": "off",
@@ -212,6 +219,12 @@
       }
     },
     {
+      "files": ["src/**/test-support/**/*.{ts,tsx}"],
+      "rules": {
+        "anti-slop/no-unsafe-dictionary-type": "off"
+      }
+    },
+    {
       "files": ["**/*.ts"],
       "rules": {
         "react-hooks/rules-of-hooks": "off"
@@ -230,6 +243,8 @@
     ".roo/**",
     ".windsurf/**",
     "src/client/generated/**",
+    "src/client/components/ui/**",
+    "src/client/hooks/**",
     "node_modules/**",
     ".context/**",
     ".claude/**",

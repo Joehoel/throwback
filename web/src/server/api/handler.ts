@@ -1,11 +1,16 @@
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Option } from "effect";
 import { HttpRouter, HttpServer, HttpServerRequest } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi";
 import { CuratorAccess } from "../curator/curator-access.ts";
 import type { SignedInMicrosoftAccount as SignedInMicrosoftAccountValue } from "../curator/model.ts";
-import { SignedInMicrosoftAccount, SignedInSessionAuthorization } from "./authentication.ts";
+import { LibrarySetup } from "../library/library-setup.ts";
+import {
+  CuratorAuthorization,
+  SignedInMicrosoftAccount,
+  SignedInSessionAuthorization,
+} from "./authentication.ts";
 import { BuildCompatibilityLive } from "./build-compatibility.ts";
-import { ThrowbackApi } from "./contract.ts";
+import { LibraryIndexing, ThrowbackApi } from "./contract.ts";
 
 const BootstrapHandlers = HttpApiBuilder.group(
   ThrowbackApi,
@@ -41,6 +46,37 @@ const CuratorHandlers = HttpApiBuilder.group(
   }),
 );
 
+const LibraryHandlers = HttpApiBuilder.group(
+  ThrowbackApi,
+  "library",
+  Effect.fnUntraced(function* (handlers) {
+    const setup = yield* LibrarySetup;
+
+    return handlers
+      .handle(
+        "listLibraryFolders",
+        Effect.fn("LibraryApi.listLibraryFolders")(function* ({ query }) {
+          const account = yield* SignedInMicrosoftAccount;
+
+          return yield* setup.browseFolders(account, Option.fromNullishOr(query.parentFolderId));
+        }),
+      )
+      .handle(
+        "selectLibrary",
+        Effect.fn("LibraryApi.selectLibrary")(function* ({ payload }) {
+          const account = yield* SignedInMicrosoftAccount;
+          const library = yield* setup.selectLibrary(account, payload.rootFolderId);
+
+          return LibraryIndexing.make({
+            libraryId: library.id,
+            rootFolder: library.root,
+            discoveredPhotos: 0,
+          });
+        }),
+      );
+  }),
+);
+
 const SignedInSessionAuthorizationLive = Layer.effect(
   SignedInSessionAuthorization,
   Effect.gen(function* () {
@@ -49,6 +85,25 @@ const SignedInSessionAuthorizationLive = Layer.effect(
     return Effect.fnUntraced(function* (httpEffect) {
       const request = yield* HttpServerRequest.HttpServerRequest;
       const account = yield* access.requireSignedIn(new Headers(request.headers));
+
+      return yield* httpEffect.pipe(
+        Effect.provideService(
+          SignedInMicrosoftAccount,
+          account satisfies SignedInMicrosoftAccountValue,
+        ),
+      );
+    });
+  }),
+);
+
+const CuratorAuthorizationLive = Layer.effect(
+  CuratorAuthorization,
+  Effect.gen(function* () {
+    const access = yield* CuratorAccess;
+
+    return Effect.fnUntraced(function* (httpEffect) {
+      const request = yield* HttpServerRequest.HttpServerRequest;
+      const account = yield* access.requireCurator(new Headers(request.headers));
 
       return yield* httpEffect.pipe(
         Effect.provideService(
@@ -80,12 +135,13 @@ function rerouteRequest(request: Request, mount: string): Request {
 
 /** Build the domain handler with one concrete Curator access implementation. */
 export function createDomainRequestHandler(
-  curatorAccessLayer: Layer.Layer<CuratorAccess>,
+  applicationLayer: Layer.Layer<CuratorAccess | LibrarySetup>,
 ): (request: Request) => Promise<Response> {
   const routes = HttpApiBuilder.layer(ThrowbackApi).pipe(
-    Layer.provide([BootstrapHandlers, CuratorHandlers]),
+    Layer.provide([BootstrapHandlers, CuratorHandlers, LibraryHandlers]),
     Layer.provide(SignedInSessionAuthorizationLive),
-    Layer.provide(curatorAccessLayer),
+    Layer.provide(CuratorAuthorizationLive),
+    Layer.provide(applicationLayer),
     Layer.provide(BuildCompatibilityLive),
     Layer.provide(HttpServer.layerServices),
   );

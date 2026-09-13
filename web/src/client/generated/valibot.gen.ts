@@ -29,12 +29,25 @@ export const vLibrarySelectionRequired = v.strictObject({
   _tag: v.picklist(["LibrarySelectionRequired"]),
 });
 
-export const vLibraryIndexing = v.strictObject({
-  _tag: v.picklist(["LibraryIndexing"]),
-  discoveredPhotos: v.number(),
+export const vLibraryId = v.pipe(
+  v.string(),
+  v.brand("LibraryId"),
+  v.regex(
+    /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12})$/,
+  ),
+);
+
+export const vLibraryRootDisplay = v.strictObject({
+  name: v.pipe(v.string(), v.minLength(1)),
+  path: v.pipe(v.string(), v.minLength(1)),
 });
 
-export const vLibraryId = v.pipe(v.string(), v.brand("LibraryId"));
+export const vLibraryIndexing = v.strictObject({
+  _tag: v.picklist(["LibraryIndexing"]),
+  libraryId: vLibraryId,
+  rootFolder: vLibraryRootDisplay,
+  discoveredPhotos: v.number(),
+});
 
 export const vEventId = v.pipe(v.string(), v.brand("EventId"));
 
@@ -81,6 +94,62 @@ export const vAuthenticationRequiredEncoded = v.strictObject({
   message: v.string(),
 });
 
+export const vDriveItemId = v.pipe(v.string(), v.brand("DriveItemId"), v.minLength(1));
+
+export const vFolderLocation = v.strictObject({
+  id: vDriveItemId,
+  name: v.pipe(v.string(), v.minLength(1)),
+  path: v.pipe(v.string(), v.minLength(1)),
+  isDriveRoot: v.boolean(),
+  parentFolderId: v.optional(vDriveItemId),
+});
+
+export const vSelectableFolder = v.strictObject({
+  id: vDriveItemId,
+  name: v.pipe(v.string(), v.minLength(1)),
+  childCount: v.number(),
+});
+
+export const vFolderBrowserState = v.strictObject({
+  current: vFolderLocation,
+  folders: v.array(vSelectableFolder),
+});
+
+export const vGraphReauthenticationRequiredEncoded = v.strictObject({
+  _tag: v.picklist(["GraphReauthenticationRequired"]),
+  message: v.string(),
+});
+
+export const vLibraryAlreadySelectedEncoded = v.strictObject({
+  _tag: v.picklist(["LibraryAlreadySelected"]),
+  message: v.string(),
+});
+
+export const vLibraryStoreUnavailableEncoded = v.strictObject({
+  _tag: v.picklist(["LibraryStoreUnavailable"]),
+  message: v.string(),
+});
+
+export const vOneDriveFolderNotFoundEncoded = v.strictObject({
+  _tag: v.picklist(["OneDriveFolderNotFound"]),
+  message: v.string(),
+});
+
+export const vOneDriveUnavailableEncoded = v.strictObject({
+  _tag: v.picklist(["OneDriveUnavailable"]),
+  message: v.string(),
+});
+
+export const vSelectLibraryRequest = v.strictObject({
+  rootFolderId: vDriveItemId,
+  confirmed: v.literal(true),
+});
+
+export const vInvalidLibrarySelectionEncoded = v.strictObject({
+  _tag: v.picklist(["InvalidLibrarySelection"]),
+  message: v.string(),
+});
+
 /**
  * BootstrapState
  */
@@ -90,3 +159,13 @@ export const vGetBootstrapResponse = vBootstrapState;
  * BootstrapState
  */
 export const vClaimCuratorResponse = vBootstrapState;
+
+/**
+ * FolderBrowserState
+ */
+export const vListLibraryFoldersResponse = vFolderBrowserState;
+
+/**
+ * LibraryIndexing
+ */
+export const vSelectLibraryResponse = vLibraryIndexing;

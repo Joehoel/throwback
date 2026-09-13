@@ -11,9 +11,7 @@ export function AppErrorShell({ error }: { readonly error: unknown }) {
 
   return (
     <ShellLayout eyebrow={parsed.success ? "Nieuwe versie beschikbaar" : "Tijdelijke fout"}>
-      <h1 className="font-display text-4xl leading-tight font-semibold text-balance sm:text-5xl">
-        {message}
-      </h1>
+      <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">{message}</h1>
       <button
         type="button"
         onClick={() => {

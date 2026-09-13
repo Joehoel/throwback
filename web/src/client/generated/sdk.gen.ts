@@ -11,8 +11,19 @@ import type {
   GetBootstrapData,
   GetBootstrapErrors,
   GetBootstrapResponses,
+  ListLibraryFoldersData,
+  ListLibraryFoldersErrors,
+  ListLibraryFoldersResponses,
+  SelectLibraryData,
+  SelectLibraryErrors,
+  SelectLibraryResponses,
 } from "./types.gen";
-import { vClaimCuratorResponse, vGetBootstrapResponse } from "./valibot.gen";
+import {
+  vClaimCuratorResponse,
+  vGetBootstrapResponse,
+  vListLibraryFoldersResponse,
+  vSelectLibraryResponse,
+} from "./valibot.gen";
 
 export type Options<
   TData extends TDataShape = TDataShape,
@@ -47,6 +58,32 @@ export const claimCurator = <ThrowOnError extends boolean = false>(
   (options.client ?? client).post<ClaimCuratorResponses, ClaimCuratorErrors, ThrowOnError>({
     responseValidator: async (data) => await v.parseAsync(vClaimCuratorResponse, data),
     url: "/curator/claim",
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  });
+
+export const listLibraryFolders = <ThrowOnError extends boolean = false>(
+  options?: Options<ListLibraryFoldersData, ThrowOnError>,
+): RequestResult<ListLibraryFoldersResponses, ListLibraryFoldersErrors, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListLibraryFoldersResponses,
+    ListLibraryFoldersErrors,
+    ThrowOnError
+  >({
+    responseValidator: async (data) => await v.parseAsync(vListLibraryFoldersResponse, data),
+    url: "/library/folders",
+    ...options,
+  });
+
+export const selectLibrary = <ThrowOnError extends boolean = false>(
+  options: Options<SelectLibraryData, ThrowOnError>,
+): RequestResult<SelectLibraryResponses, SelectLibraryErrors, ThrowOnError> =>
+  (options.client ?? client).post<SelectLibraryResponses, SelectLibraryErrors, ThrowOnError>({
+    responseValidator: async (data) => await v.parseAsync(vSelectLibraryResponse, data),
+    url: "/library/selection",
     ...options,
     headers: {
       "Content-Type": "application/json",
