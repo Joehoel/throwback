@@ -1,6 +1,6 @@
 {
   "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules", "spike"],
+  "exclude": ["node_modules", "spike", "tools/oxlint/anti-slop"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

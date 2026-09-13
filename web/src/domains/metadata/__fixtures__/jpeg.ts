@@ -1,5 +1,7 @@
 import piexif from "piexifjs";
 
+type PiexifIfd = NonNullable<Parameters<typeof piexif.dump>[0]["0th"]>;
+
 /**
  * Test-only fixtures: build real JPEGs with injected EXIF (the same piexifjs
  * round-trip the `spike/piexif_check.mjs` verified) and wrap bytes as `File`s, so
@@ -23,23 +25,27 @@ export interface ExifOptions {
 /** A JPEG binary string with the given EXIF injected (empty options → no EXIF). */
 export function jpegBinaryWithExif(options: ExifOptions = {}): string {
   const base = Buffer.from(BASE_JPEG_B64, "base64").toString("binary");
+
   if (Object.keys(options).length === 0) {
     return base;
   }
 
-  const zeroth: Record<number, unknown> = {};
-  const exifIfd: Record<number, unknown> = {};
-  const gps: Record<number, unknown> = {};
+  const zeroth: PiexifIfd = {};
+  const exifIfd: PiexifIfd = {};
+  const gps: PiexifIfd = {};
 
   if (options.orientation !== undefined) {
     zeroth[piexif.ImageIFD.Orientation] = options.orientation;
   }
+
   if (options.description !== undefined) {
     zeroth[piexif.ImageIFD.ImageDescription] = options.description;
   }
+
   if (options.dateTimeOriginal !== undefined) {
     exifIfd[piexif.ExifIFD.DateTimeOriginal] = options.dateTimeOriginal;
   }
+
   if (options.lat !== undefined && options.lon !== undefined) {
     gps[piexif.GPSIFD.GPSLatitudeRef] = options.lat >= 0 ? "N" : "S";
     gps[piexif.GPSIFD.GPSLatitude] = piexif.GPSHelper.degToDmsRational(Math.abs(options.lat));
@@ -53,9 +59,11 @@ export function jpegBinaryWithExif(options: ExifOptions = {}): string {
 function bytesToBinary(bytes: Uint8Array): string {
   let out = "";
   const chunk = 32_768;
+
   for (let i = 0; i < bytes.length; i += chunk) {
     out += String.fromCodePoint(...bytes.subarray(i, i + chunk));
   }
+
   return out;
 }
 
@@ -67,11 +75,14 @@ export function jpegWithXmp(jpegBinary: string, description: string): string {
     `<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/">` +
     `<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${description}</rdf:li>` +
     `</rdf:Alt></dc:description></rdf:Description></rdf:RDF></x:xmpmeta>`;
+
   const payload = new TextEncoder().encode(`http://ns.adobe.com/xap/1.0/ ${xml}`);
   const length = payload.length + 2;
+
   const segment =
     String.fromCodePoint(0xff, 0xe1, Math.trunc(length / 256), length % 256) +
     bytesToBinary(payload);
+
   // insert the APP1 segment right after SOI (the first two bytes)
   return jpegBinary.slice(0, 2) + segment + jpegBinary.slice(2);
 }
@@ -89,19 +100,24 @@ export function jpegWithStandardXmp(jpegBinary: string, description: string): st
     `<rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/">` +
     `<dc:description><rdf:Alt><rdf:li xml:lang="x-default">${description}</rdf:li>` +
     `</rdf:Alt></dc:description></rdf:Description></rdf:RDF></x:xmpmeta><?xpacket end="w"?>`;
+
   const payload = new TextEncoder().encode(`http://ns.adobe.com/xap/1.0/\0${xml}`);
   const length = payload.length + 2;
+
   const segment =
     String.fromCodePoint(0xff, 0xe1, Math.trunc(length / 256), length % 256) +
     bytesToBinary(payload);
+
   return jpegBinary.slice(0, 2) + segment + jpegBinary.slice(2);
 }
 
 /** Wrap a binary string as an in-memory image File. */
 export function fileFromBinary(name: string, binary: string, type: string): File {
   const bytes = new Uint8Array(binary.length);
+
   for (let i = 0; i < binary.length; i += 1) {
     bytes[i] = binary.codePointAt(i) ?? 0;
   }
+
   return new File([bytes], name, { type });
 }

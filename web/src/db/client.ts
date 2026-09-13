@@ -1,6 +1,6 @@
 import { D1Client } from "@effect/sql-d1";
 import { env } from "#/env";
-import { makeRuntime } from "#/effect/runtime.ts";
+import { createManagedRuntime } from "#/effect/runtime.ts";
 
 /**
  * Runtime `SqlClient` layer bound to the Worker's D1 binding (ADR-0009/0012: app
@@ -18,4 +18,4 @@ export const SqlLive = D1Client.layer({ db: env.DB });
  * covariant `R`, so repo effects requiring only `SqlClient` run on the
  * `D1Client | SqlClient` runtime directly.)
  */
-export const DbRuntime = makeRuntime(SqlLive);
+export const DbRuntime = createManagedRuntime(SqlLive);

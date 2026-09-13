@@ -32,3 +32,8 @@ Elke foto had de caption al op vijf plekken tegelijk: EXIF `ImageDescription`, W
 - **Format-dekking**: PNG/HEIC voor GPS (EXIF werkt daar niet; XMP `exif:`-GPS of overslaan).
 - **TV-leespad**: Fotoshow Beschrijving uit bestand-XMP laten lezen, en de D1-review-status koppelen aan de OneDrive-`DriveItemId` (beide uitgesteld).
 - **Sync-conflicten**: buiten scope — de OneDrive-client op de laptop handelt dat af.
+
+> **Noot (2026-09-11):** ADR-0022 behoudt embedded metadata als canonieke bron, maar vervangt het
+> lokale File System Access-schrijfpad voor productie. De geïntegreerde Beheer-webapp leest en schrijft
+> op ieder ondersteund apparaat via Graph en een per-Foto Workflow; File System Access blijft alleen een
+> ontwikkelharnas.

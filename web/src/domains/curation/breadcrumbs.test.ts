@@ -7,16 +7,20 @@ import { buildCrumbs } from "./breadcrumbs";
  * `buildCrumbs` reads. Everything else gets inert defaults so a test reads as a
  * folder tree, e.g. `evt("a", "Camera-Album", "2022", "08. Augustus", "Verjaardag")`.
  */
-const evt = (id: string, ...chain: string[]): ThrowbackEvent => ({
-  id,
-  name: chain.at(-1),
-  path: chain.slice(0, -1),
-  period: "",
-  aiPlace: "",
-  location: null,
-  coords: { lat: 0, lng: 0 },
-  photos: [],
-});
+const evt = (id: string, firstSegment: string, ...remainingSegments: string[]): ThrowbackEvent => {
+  const chain = [firstSegment, ...remainingSegments];
+
+  return {
+    id,
+    name: remainingSegments.at(-1) ?? firstSegment,
+    path: chain.slice(0, -1),
+    period: "",
+    aiPlace: "",
+    location: null,
+    coords: { lat: 0, lng: 0 },
+    photos: [],
+  };
+};
 
 describe("buildCrumbs", () => {
   it("renders one crumb per folder segment, with the leaf marked as current", () => {

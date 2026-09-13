@@ -31,6 +31,7 @@ export const writePhoto = (photoId: DriveItemId, edit: MetadataEdit): Promise<vo
 /** The approved edit: trimmed Beschrijving (null if blank); EXIF location preserved. */
 export const toApproveEdit = (photo: Photo, description: string): MetadataEdit => {
   const trimmed = description.trim();
+
   return {
     description: trimmed === "" ? null : trimmed,
     location: photo.location,

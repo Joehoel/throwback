@@ -1,5 +1,9 @@
 # Effect v4 (smol) als applicatie-paradigma + package-selectie op de beta-lijn
 
+> **Transport update:** ADR-0023 keeps Effect v4 for backend and infrastructure code but supersedes
+> this ADR's whole-app wording and oRPC/Standard Schema transport with server-side `HttpApi`, OpenAPI,
+> and an Effect-free generated browser client.
+
 De **Beheer-webapp** is Effect-native gebouwd op **Effect v4 (smol)** — `effect@4.0.0-beta.x` — omdat de gekozen IaC (ADR-0010, Alchemy v2 = `alchemy@2.0.0-beta`) `effect: >=4.0.0-beta.78` pint. De hele app deelt dus één Effect-runtime. Bewust **beta-op-beta**: Effect v4 stabiel bestaat nog niet (v3 stabiel = 3.21.x), maar op v4 blijven houdt app en infra op dezelfde Effect-versie en voorkomt twee Effect-installaties naast elkaar.
 
 ## Regel op de smol-lijn

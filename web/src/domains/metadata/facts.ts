@@ -20,6 +20,7 @@ const readOnly = () => "metadata read is decode-only";
 
 /** A caption with surrounding whitespace trimmed; blank decodes to `None`, not "". */
 const Caption = Schema.Trim.pipe(Schema.check(Schema.isNonEmpty()));
+
 const toCaption = Schema.decodeUnknownOption(Caption);
 
 const DescriptionSources = Schema.Struct({
@@ -45,6 +46,7 @@ const YearFromCaptureDate = Schema.NullOr(Schema.String).pipe(
   Schema.decodeTo(Schema.NullOr(Schema.Int), {
     decode: SchemaGetter.transform((date) => {
       const year = date === null ? undefined : /^(?<year>\d{4})/u.exec(date)?.groups?.year;
+
       return year === undefined ? null : Number(year);
     }),
     encode: SchemaGetter.forbidden(readOnly),
@@ -54,6 +56,7 @@ const YearFromCaptureDate = Schema.NullOr(Schema.String).pipe(
 // --- Locatie: GPS rationals → decimal, range-checked by the Location schema ---
 
 const RationalSchema = Schema.Tuple([Schema.Number, Schema.Number]);
+
 const RawGpsSchema = Schema.Struct({
   lat: Schema.Tuple([RationalSchema, RationalSchema, RationalSchema]),
   latRef: Schema.String,
@@ -66,6 +69,7 @@ const ratio = ([numerator, denominator]: Rational): number => numerator / denomi
 /** DMS rationals → decimal degrees, negated for the southern/western hemisphere. */
 const toDegrees = (dms: Rational3, ref: string): number => {
   const degrees = ratio(dms[0]) + ratio(dms[1]) / 60 + ratio(dms[2]) / 3600;
+
   return ref === "S" || ref === "W" ? -degrees : degrees;
 };
 
@@ -93,6 +97,7 @@ const LocationFromGps = Schema.NullOr(RawGpsSchema).pipe(
 const ValidOrientation = Schema.Int.pipe(
   Schema.check(Schema.isBetween({ minimum: 1, maximum: 8 })),
 );
+
 const toOrientation = Schema.decodeUnknownOption(ValidOrientation);
 
 const OrientationFromRaw = Schema.NullOr(Schema.Number).pipe(

@@ -41,8 +41,11 @@ declare function showDirectoryPicker(
 // --- piexifjs (no @types published) ---
 
 declare module "piexifjs" {
+  /** Values surfaced by the piexif API subset used by the metadata tests. */
+  type PiexifValue = string | number | null | PiexifValue[];
+
   /** An IFD dict: tag number -> value (string, number, or rational tuples). */
-  type PiexifIfd = Record<number, unknown>;
+  type PiexifIfd = Record<number, PiexifValue>;
 
   interface PiexifExif {
     "0th"?: PiexifIfd;

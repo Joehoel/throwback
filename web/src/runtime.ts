@@ -2,7 +2,7 @@ import { Layer } from "effect";
 import { OneDriveClientLive } from "#/domains/onedrive/client.ts";
 import { OneDriveHttpDefault } from "#/domains/onedrive/http-client.ts";
 import { GraphTokenLive } from "#/domains/onedrive/token-live.ts";
-import { makeRuntime } from "#/effect/runtime.ts";
+import { createManagedRuntime } from "#/effect/runtime.ts";
 
 /**
  * App runtime composition (ADR-0012). Worker-only: pulls in `GraphTokenLive`
@@ -22,4 +22,4 @@ export const OneDriveLayer = OneDriveClientLive.pipe(
   Layer.provideMerge(Layer.mergeAll(OneDriveHttpDefault, GraphTokenLive)),
 );
 
-export const OneDriveRuntime = makeRuntime(OneDriveLayer);
+export const OneDriveRuntime = createManagedRuntime(OneDriveLayer);

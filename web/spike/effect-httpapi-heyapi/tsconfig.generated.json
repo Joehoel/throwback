@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "generated/**/*.ts",
+    "src/browser-entry.ts",
+    "src/client.ts",
+    "src/verify-contract.ts"
+  ]
+}

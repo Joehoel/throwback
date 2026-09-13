@@ -42,6 +42,7 @@ describe("writeXmpDescription", () => {
       jpegBinaryWithExif({ orientation: 6, description: "exif-only" }),
       "via xmp",
     );
+
     const raw = readExif(jpeg);
     expect(raw.orientation).toBe(6);
     expect(raw.description).toBe("exif-only"); // EXIF ImageDescription untouched

@@ -44,6 +44,7 @@ function readDrizzleMigrations(files: string[]) {
   return Promise.all(
     files.map(async (name) => {
       const body = await readFile(new URL(`drizzle/${name}`, import.meta.url), "utf8");
+
       const queries = body
         .split("--> statement-breakpoint")
         .map((chunk) =>
@@ -54,6 +55,7 @@ function readDrizzleMigrations(files: string[]) {
             .trim(),
         )
         .filter(Boolean);
+
       return { name, queries };
     }),
   );
@@ -85,6 +87,7 @@ export default defineConfig({
               "0002_write_jobs.sql",
               "0003_local_review.sql",
             ]);
+
             return {
               miniflare: {
                 compatibilityDate: "2025-09-02",

@@ -9,6 +9,7 @@
 import { enqueueActions, fromCallback, setup } from "xstate";
 
 export type WriteKind = "description" | "location_orientation";
+
 export type WriteStatus = "running" | "succeeded" | "failed";
 
 export interface WriteJobRec {
@@ -18,6 +19,10 @@ export interface WriteJobRec {
   status: WriteStatus;
 }
 
+interface WriteQueueContext {
+  readonly jobs: WriteJobRec[];
+}
+
 export type WriteQueueEvent =
   | { type: "enqueue"; jobs: { photoId: string; kind: WriteKind }[] }
   | { type: "write.settled"; id: string; ok: boolean };
@@ -25,9 +30,11 @@ export type WriteQueueEvent =
 const writeJob = fromCallback<WriteQueueEvent, { id: string; kind: WriteKind }>(
   ({ input, sendBack }) => {
     const ms = input.kind === "location_orientation" ? 2400 : 800;
+
     const handle = setTimeout(() => {
       sendBack({ type: "write.settled", id: input.id, ok: true });
     }, ms);
+
     return () => {
       clearTimeout(handle);
     };
@@ -36,7 +43,9 @@ const writeJob = fromCallback<WriteQueueEvent, { id: string; kind: WriteKind }>(
 
 export const writeQueueMachine = setup({
   types: {
-    context: {} as { jobs: WriteJobRec[] },
+    // SAFETY: XState uses these empty values only as compile-time type declarations.
+    context: {} as WriteQueueContext,
+    // SAFETY: XState uses these empty values only as compile-time type declarations.
     events: {} as WriteQueueEvent,
   },
   actors: { writeJob },
@@ -46,15 +55,17 @@ export const writeQueueMachine = setup({
   on: {
     enqueue: {
       actions: enqueueActions(({ context, event, enqueue }) => {
-        const newJobs = event.jobs.map((j, i) => ({
+        const newJobs = event.jobs.map<WriteJobRec>((j, i) => ({
           id: `${j.photoId}:${j.kind}:${context.jobs.length + i}`,
           photoId: j.photoId,
           kind: j.kind,
-          status: "running" as WriteStatus,
+          status: "running",
         }));
+
         if (newJobs.length === 0) {
           return;
         }
+
         enqueue.assign({ jobs: [...context.jobs, ...newJobs] });
         newJobs.forEach((job) => {
           enqueue.spawnChild("writeJob", { id: job.id, input: { id: job.id, kind: job.kind } });

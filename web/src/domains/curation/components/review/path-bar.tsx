@@ -6,6 +6,7 @@ import { useReview } from "#/domains/curation/components/review/review-provider.
 /** OneDrive folder path as breadcrumbs, each segment a sibling-folder dropdown. */
 export function PathBar(): React.ReactNode {
   const { events, event, selectEvent } = useReview();
+
   return (
     <nav aria-label="Mappad" className="flex min-w-0 items-center gap-1.5 text-sm">
       <FolderIcon size={16} aria-hidden className="shrink-0 text-kumo-subtle" />

@@ -57,9 +57,11 @@ const ReviewContext = createContext<ReviewContextValue | null>(null);
 /** Read the review context; throws if used outside `Review.Provider`. */
 export function useReview(): ReviewContextValue {
   const ctx = use(ReviewContext);
+
   if (!ctx) {
     throw new Error("Review.* components must be rendered inside <Review.Provider>");
   }
+
   return ctx;
 }
 
@@ -128,6 +130,7 @@ export function ReviewProvider({
       onCommit(snapshot.output);
     }
   });
+
   useEffect(() => {
     // eslint-disable-next-line react-doctor/no-pass-data-to-parent
     commit();
@@ -139,7 +142,7 @@ export function ReviewProvider({
     { hotkey: "]", callback: onEventNext, options: { enabled: !helpOpen } },
     { hotkey: "[", callback: onEventPrev, options: { enabled: !helpOpen } },
     {
-      hotkey: "r",
+      hotkey: "R",
       callback: () => {
         if (photo.needsRotation) {
           send({ type: "rotation.toggled" });
@@ -155,17 +158,18 @@ export function ReviewProvider({
       options: { enabled: !helpOpen },
     },
     {
-      hotkey: "a",
+      hotkey: "A",
       callback: () => {
         send({ type: "suggestion.applied" });
       },
       options: { enabled: !helpOpen },
     },
-    { hotkey: "Shift+/", callback: onToggleHelp },
+    { hotkey: { key: "?", shift: true }, callback: onToggleHelp },
   ]);
 
   const { description, suggestion, place, coords, orientationFixed, aiPlaceSuggestion } =
     snapshot.context;
+
   const { done, total } = eventProgress(event);
 
   const value: ReviewContextValue = {

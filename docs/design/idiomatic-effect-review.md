@@ -1,5 +1,9 @@
 # Idiomatic-Effect review & rewrite plan — `/curate` + non-prototype code
 
+> **Historical cleanup plan:** ADR-0026 deletes the reviewed local `/curate`, oRPC, metadata, and mixed
+> browser/server modules rather than promoting them. Its production replacement is server-only Effect
+> behind the ADR-0023 generated browser contract.
+
 Distilled from a multi-agent review (3 reference repos in `web/.context/` — effect-smol,
 opencode, alchemy — held against 5 code clusters: metadata codec, local PhotoSource/crawl,
 runtime/layers, db+server seam, UI↔Effect boundary). This is the **learnings record + working

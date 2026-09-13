@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createActor, fromCallback } from "xstate";
 import { photoMachine } from "./photo-machine";
+import type { PhotoEvent, SuggestInput } from "./photo-machine";
 import type { Photo } from "../data";
 
 // Inert suggestion actor for the "no description" tests — keeps the unit tests
 // off the network (the real actor POSTs to the Gemini route); we drive the
 // suggestion events by hand instead.
-const noopSuggestion = fromCallback(() => () => {});
+const noopSuggestion = fromCallback<PhotoEvent, SuggestInput>(() => () => {});
+
 const offline = photoMachine.provide({ actors: { streamSuggestion: noopSuggestion } });
 
 function makePhoto(over: Partial<Photo> = {}): Photo {
@@ -42,6 +44,7 @@ describe("photoMachine", () => {
     const actor = createActor(offline, {
       input: input(makePhoto({ description: "Bestaand" })),
     }).start();
+
     expect(actor.getSnapshot().matches({ active: "suggesting" })).toBe(true);
     expect(actor.getSnapshot().context.description).toBe("Bestaand"); // draft pre-filled
     actor.stop();
@@ -71,6 +74,7 @@ describe("photoMachine", () => {
     const actor = createActor(offline, {
       input: input(makePhoto({ description: "x" })),
     }).start();
+
     actor.send({ type: "location.suggested", place: "Londen, VK" });
     expect(actor.getSnapshot().context.aiPlaceSuggestion).toBe("Londen, VK");
     expect(actor.getSnapshot().context.place).toBe("Apeldoorn"); // draft untouched until applied
@@ -82,6 +86,7 @@ describe("photoMachine", () => {
     const actor = createActor(offline, {
       input: input(makePhoto({ description: "x", needsRotation: true })),
     }).start();
+
     actor.send({ type: "rotation.toggled" });
     expect(actor.getSnapshot().context.orientationFixed).toBe(true);
     actor.stop();
@@ -91,6 +96,7 @@ describe("photoMachine", () => {
     const actor = createActor(offline, {
       input: input(makePhoto({ description: "Bestaand" })),
     }).start();
+
     actor.send({ type: "description.changed", value: "Nieuwe tekst" });
     actor.send({ type: "approve" });
     const snapshot = actor.getSnapshot();
@@ -108,6 +114,7 @@ describe("photoMachine", () => {
     const actor = createActor(offline, {
       input: input(makePhoto({ description: "Bestaand" })),
     }).start();
+
     actor.send({ type: "skip" });
     expect(actor.getSnapshot().output).toEqual({ decision: "skipped" });
     actor.stop();

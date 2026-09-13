@@ -1,0 +1,31 @@
+{
+  "name": "effect-httpapi-heyapi-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate:openapi": "node src/generate-openapi.ts",
+    "generate:client": "openapi-ts",
+    "generate": "npm run generate:openapi && npm run generate:client",
+    "typecheck": "npm run typecheck:contract && npm run typecheck:generated",
+    "typecheck:contract": "tsc -p tsconfig.contract.json",
+    "typecheck:generated": "tsc -p tsconfig.generated.json",
+    "verify:determinism": "node src/verify-determinism.mjs",
+    "verify:strict-codegen": "node src/verify-strict-codegen.mjs",
+    "verify:workerd": "node src/verify-workerd.mjs",
+    "bundle:client": "vite build --config vite.client.config.ts",
+    "verify": "npm run generate && npm run verify:determinism && npm run typecheck && npm run verify:strict-codegen && tsx src/verify-contract.ts && npm run bundle:client && node src/verify-client-bundle.mjs"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "5.102.8",
+    "effect": "4.0.0-beta.78",
+    "react": "19.2.0",
+    "valibot": "1.5.0"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
+    "@types/node": "22.20.2",
+    "tsx": "4.21.0",
+    "typescript": "6.0.2",
+    "vite": "8.0.16"
+  }
+}

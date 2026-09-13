@@ -1,5 +1,9 @@
 # Curation webapp — implementation plan
 
+> **Superseded (2026-09-12):** ADR-0026 replaces this prototype-era oRPC/local-source plan with the clean
+> Graph-only rebuild sequence. ADR-0023 through ADR-0025 define the contract, synchronization, and recovery
+> boundaries used by that sequence.
+
 > **Status:** plan (2026-06-06), build not yet started. Sequences the build of the **Curation webapp**
 > (`web/`) per `docs/design/domain-model.md`, ADR-0002/0007/0008/0009/0010/0011/0012/0013, and the
 > `@effect/sql-d1` research (`docs/research/` / this session). Companion to the domain model — that doc

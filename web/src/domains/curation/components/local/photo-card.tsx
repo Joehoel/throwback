@@ -19,9 +19,11 @@ function useObjectUrl(photoId: DriveItemId): string | null {
   useEffect(() => {
     let active = true;
     let created: string | null = null;
+
     const load = async (): Promise<void> => {
       try {
         const file = await readPhotoFile(photoId);
+
         if (active) {
           created = URL.createObjectURL(file);
           setUrl(created);
@@ -30,14 +32,18 @@ function useObjectUrl(photoId: DriveItemId): string | null {
         // a missing/unreadable handle just leaves the placeholder
       }
     };
+
     void load();
+
     return () => {
       active = false;
+
       if (created !== null) {
         URL.revokeObjectURL(created);
       }
     };
   }, [photoId]);
+
   return url;
 }
 
@@ -52,11 +58,13 @@ function StatusBadge({ status }: { status: ReviewStatus }): React.ReactNode {
       />
     );
   }
+
   if (status === "skipped") {
     return (
       <ProhibitIcon size={12} className="shrink-0 text-kumo-subtle" aria-label="overgeslagen" />
     );
   }
+
   return null;
 }
 
@@ -72,6 +80,7 @@ export function PhotoCard({
   onSelect: () => void;
 }): React.ReactNode {
   const url = useObjectUrl(photo.id);
+
   return (
     <button type="button" onClick={onSelect} className="flex w-full flex-col gap-1.5 text-left">
       <div

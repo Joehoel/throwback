@@ -45,18 +45,22 @@ export function FolderBrowser({
 
   const photosById = useMemo(() => {
     const map = new Map<DriveItemId, Photo>();
+
     for (const photo of result.photos) {
       map.set(photo.id, photo);
     }
+
     return map;
   }, [result]);
 
   // Hydrate the crawled photos with their persisted (D1) review status.
   useEffect(() => {
     let active = true;
+
     const load = async (): Promise<void> => {
       try {
         const recorded = await fetchReviewStatuses();
+
         if (active) {
           setStatuses(mergeReviewStatuses(result.photos, recorded));
         }
@@ -64,7 +68,9 @@ export function FolderBrowser({
         // no server / not migrated yet → fall back to the crawl defaults
       }
     };
+
     void load();
+
     return () => {
       active = false;
     };
@@ -86,10 +92,12 @@ export function FolderBrowser({
   ): Promise<void> => {
     setBusy(true);
     setErrorMessage(null);
+
     try {
       if (write !== undefined) {
         await write();
       }
+
       await setReviewStatus({ data: { path: photo.id, status } });
       setStatuses((previous) => new Map(previous).set(photo.id, status));
       setSelectedId(null);

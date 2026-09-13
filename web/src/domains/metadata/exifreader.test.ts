@@ -59,6 +59,7 @@ describe("Exif via exifreader", () => {
         Effect.flatMap(Exif, (exif) => exif.read(bin)),
         ExifReaderLive,
       );
+
     expect(read(jpegBinaryWithExif())).toEqual(EMPTY);
     expect(read("definitely not a jpeg")).toEqual(EMPTY);
   });
@@ -106,11 +107,13 @@ describe("Xmp via exifreader", () => {
 describe("PhotoMetadata facade parity", () => {
   it("produces identical facts whichever backend is wired", () => {
     const bin = jpegWithStandardXmp(RICH, "Aan het meer café");
+
     const facts = (layer: typeof PhotoMetadataDefault) =>
       run(
         Effect.flatMap(PhotoMetadata, (metadata) => metadata.read(bin, "image/jpeg")),
         layer,
       );
+
     const viaExifReader = facts(PhotoMetadataExifReader);
     expect(viaExifReader).toEqual(facts(PhotoMetadataDefault));
     // and the facts are actually populated, not coincidentally-equal empties

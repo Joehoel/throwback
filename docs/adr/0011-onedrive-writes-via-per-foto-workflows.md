@@ -25,3 +25,8 @@ Een workflow draait buiten het HTTP-request en kan de better-auth-sessie niet ge
 ## Status
 
 **Geaccepteerd (2026-06-05), bouw nog te starten.**
+
+> **Noot (2026-09-11):** ADR-0022 behoudt één Workflow per Foto, maar breidt haar uit tot één
+> conditionele transactie voor de volledige goedgekeurde Beschrijving, Locatie en Oriëntatie. Canonieke
+> bestandsmetadata — niet een losse Graph-`description`-PATCH of het afgeleide `location`-facet — bepaalt
+> of de write geverifieerd is.

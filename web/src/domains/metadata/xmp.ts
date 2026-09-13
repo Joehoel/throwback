@@ -14,7 +14,9 @@ import { binaryToUtf8, utf8ToBinary } from "./binary.ts";
  */
 
 const XMP_MARKER = "http://ns.adobe.com/xap/1.0/";
+
 const CLOSE_TAG = "</x:xmpmeta>";
+
 const NAMED_ENTITIES = new Map<string, string>([
   ["amp", "&"],
   ["lt", "<"],
@@ -29,12 +31,15 @@ function decodeEntities(text: string): string {
     /&(?<entity>#x?[0-9a-f]+|amp|lt|gt|quot|apos);/giu,
     (full, entity: string) => {
       const named = NAMED_ENTITIES.get(entity.toLowerCase());
+
       if (named !== undefined) {
         return named;
       }
+
       const code = entity.startsWith("#x")
         ? Number.parseInt(entity.slice(2), 16)
         : Number.parseInt(entity.slice(1), 10);
+
       return Number.isNaN(code) ? full : String.fromCodePoint(code);
     },
   );
@@ -47,29 +52,38 @@ function decodeEntities(text: string): string {
  */
 function extractXmpXml(binary: string): string | null {
   const marker = binary.indexOf(XMP_MARKER);
+
   if (marker === -1) {
     return null;
   }
+
   const start = binary.indexOf("<", marker);
+
   if (start === -1) {
     return null;
   }
+
   const close = binary.indexOf(CLOSE_TAG, start);
   const end = close === -1 ? binary.indexOf("<?xpacket end", start) : close + CLOSE_TAG.length;
+
   if (end === -1) {
     return null;
   }
+
   return binaryToUtf8(binary.slice(start, end));
 }
 
 /** Pull the text of an RDF property (`<prop>…</prop>`, unwrapping an `rdf:li`). */
 function pickProperty(xml: string, property: string): string | null {
   const block = new RegExp(`<${property}[^>]*>(?<body>[\\s\\S]*?)</${property}>`, "u").exec(xml);
+
   if (block?.groups?.body === undefined) {
     return null;
   }
+
   const li = /<rdf:li[^>]*>(?<text>[\s\S]*?)<\/rdf:li>/u.exec(block.groups.body);
   const raw = (li?.groups?.text ?? block.groups.body).trim();
+
   return raw === "" ? null : decodeEntities(raw);
 }
 
@@ -80,6 +94,7 @@ export const descriptionFromXml = (xml: string): string | null =>
 /** The Beschrijving from a JPEG's XMP packet; null if absent. */
 export function readXmpDescription(jpegBinary: string): string | null {
   const xml = extractXmpXml(jpegBinary);
+
   return xml === null ? null : descriptionFromXml(xml);
 }
 
@@ -98,6 +113,7 @@ const escapeXml = (text: string): string =>
 /** The XMP RDF/XML packet carrying `description` as `dc:description` + `dc:title`. */
 export function buildXmpPacket(description: string): string {
   const text = escapeXml(description);
+
   return (
     `<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>` +
     `<x:xmpmeta xmlns:x="adobe:ns:meta/">` +
@@ -114,10 +130,13 @@ export function buildXmpPacket(description: string): string {
 function removeXmpSegment(jpeg: string): string {
   const marker = jpeg.indexOf(XMP_MARKER);
   const start = marker - 4; // back over the 0xFFE1 marker + 2-byte length
+
   if (marker === -1 || start < 0) {
     return jpeg;
   }
+
   const length = (jpeg.codePointAt(start + 2) ?? 0) * 256 + (jpeg.codePointAt(start + 3) ?? 0);
+
   return jpeg.slice(0, start) + jpeg.slice(start + 2 + length);
 }
 
@@ -133,9 +152,13 @@ export function writeXmpDescription(jpegBinary: string, description: string): st
   const payload = utf8ToBinary(
     `${XMP_MARKER}${String.fromCodePoint(0)}${buildXmpPacket(description)}`,
   );
+
   const length = payload.length + 2; // APP1 length counts its own 2 length bytes
+
   const segment =
     String.fromCodePoint(0xff, 0xe1, Math.trunc(length / 256), length % 256) + payload;
+
   const body = removeXmpSegment(jpegBinary);
+
   return body.slice(0, 2) + segment + body.slice(2); // insert just after SOI
 }

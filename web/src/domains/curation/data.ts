@@ -284,7 +284,12 @@ export function photoDone(p: Photo): boolean {
   return p.description !== null;
 }
 
-export function eventProgress(e: ThrowbackEvent): { done: number; total: number } {
+export interface EventProgress {
+  readonly done: number;
+  readonly total: number;
+}
+
+export function eventProgress(e: ThrowbackEvent): EventProgress {
   return {
     done: e.photos.filter(photoDone).length,
     total: e.photos.length,
@@ -297,5 +302,6 @@ export function photoSrc(p: Photo, longEdge = 1200): string {
     p.orientation === "landscape"
       ? [longEdge, Math.round(longEdge * 0.7)]
       : [Math.round(longEdge * 0.7), longEdge];
+
   return `https://picsum.photos/seed/${p.seed}/${w}/${h}`;
 }

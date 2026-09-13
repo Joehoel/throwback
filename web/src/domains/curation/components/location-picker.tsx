@@ -9,12 +9,14 @@
 import { Suspense, lazy } from "react";
 import { Button, Input } from "@cloudflare/kumo";
 import { MapPinIcon } from "@phosphor-icons/react";
+import { Option, Schema } from "effect";
 import { AiPlaceChip } from "#/domains/curation/components/ai-place-chip.tsx";
 import { MapMock } from "#/domains/curation/components/map-mock.tsx";
 import type { LatLng } from "#/domains/curation/data.ts";
 
 const rawKey: unknown = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-const MAPS_KEY = typeof rawKey === "string" && rawKey !== "" ? rawKey : undefined;
+
+const MAPS_KEY = Option.getOrUndefined(Schema.decodeUnknownOption(Schema.NonEmptyString)(rawKey));
 
 // Heavy: @vis.gl/react-google-maps + the Maps JS API. Only pulled in when a key
 // is set, and never on the server (the picker is client-only).
@@ -59,7 +61,7 @@ export function LocationSection({
   viewport,
   onViewport,
 }: Props): React.ReactNode {
-  const showAi = typeof aiPlace === "string" && aiPlace !== "" && aiPlace !== place;
+  const showAi = aiPlace !== undefined && aiPlace !== null && aiPlace !== "" && aiPlace !== place;
 
   if (MAPS_KEY === undefined) {
     return (
@@ -91,6 +93,7 @@ export function LocationSection({
   }
 
   const apiKey = MAPS_KEY;
+
   return (
     <Suspense fallback={<MapMock place={place} className={MAP_PLACEHOLDER} />}>
       <LocationMapPanel

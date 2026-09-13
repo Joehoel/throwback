@@ -13,9 +13,12 @@ import { Route as CurateRouteImport } from './routes/curate'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PrototypesIndexRouteImport } from './routes/prototypes/index'
 import { Route as PrototypesSplitscreenRouteImport } from './routes/prototypes/splitscreen'
+import { Route as PrototypesResponsiveReviewRouteImport } from './routes/prototypes/responsive-review'
+import { Route as PrototypesHttpapiClientRouteImport } from './routes/prototypes/httpapi-client'
 import { Route as ApiDriveRouteImport } from './routes/api/drive'
 import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as PrototypesSplitscreenIndexRouteImport } from './routes/prototypes/splitscreen.index'
+import { Route as PrototypesHttpapiSplatRouteImport } from './routes/prototypes/httpapi/$'
 import { Route as PrototypesApiSuggestRouteImport } from './routes/prototypes/api/suggest'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -41,6 +44,17 @@ const PrototypesSplitscreenRoute = PrototypesSplitscreenRouteImport.update({
   path: '/prototypes/splitscreen',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PrototypesResponsiveReviewRoute =
+  PrototypesResponsiveReviewRouteImport.update({
+    id: '/prototypes/responsive-review',
+    path: '/prototypes/responsive-review',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const PrototypesHttpapiClientRoute = PrototypesHttpapiClientRouteImport.update({
+  id: '/prototypes/httpapi-client',
+  path: '/prototypes/httpapi-client',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDriveRoute = ApiDriveRouteImport.update({
   id: '/api/drive',
   path: '/api/drive',
@@ -57,6 +71,11 @@ const PrototypesSplitscreenIndexRoute =
     path: '/',
     getParentRoute: () => PrototypesSplitscreenRoute,
   } as any)
+const PrototypesHttpapiSplatRoute = PrototypesHttpapiSplatRouteImport.update({
+  id: '/prototypes/httpapi/$',
+  path: '/prototypes/httpapi/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrototypesApiSuggestRoute = PrototypesApiSuggestRouteImport.update({
   id: '/prototypes/api/suggest',
   path: '/prototypes/api/suggest',
@@ -84,11 +103,14 @@ export interface FileRoutesByFullPath {
   '/curate': typeof CurateRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
+  '/prototypes/httpapi-client': typeof PrototypesHttpapiClientRoute
+  '/prototypes/responsive-review': typeof PrototypesResponsiveReviewRoute
   '/prototypes/splitscreen': typeof PrototypesSplitscreenRouteWithChildren
   '/prototypes/': typeof PrototypesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/prototypes/api/suggest': typeof PrototypesApiSuggestRoute
+  '/prototypes/httpapi/$': typeof PrototypesHttpapiSplatRoute
   '/prototypes/splitscreen/': typeof PrototypesSplitscreenIndexRoute
   '/prototypes/splitscreen/$eventId/$photoId': typeof PrototypesSplitscreenEventIdPhotoIdRoute
 }
@@ -97,10 +119,13 @@ export interface FileRoutesByTo {
   '/curate': typeof CurateRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
+  '/prototypes/httpapi-client': typeof PrototypesHttpapiClientRoute
+  '/prototypes/responsive-review': typeof PrototypesResponsiveReviewRoute
   '/prototypes': typeof PrototypesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/prototypes/api/suggest': typeof PrototypesApiSuggestRoute
+  '/prototypes/httpapi/$': typeof PrototypesHttpapiSplatRoute
   '/prototypes/splitscreen': typeof PrototypesSplitscreenIndexRoute
   '/prototypes/splitscreen/$eventId/$photoId': typeof PrototypesSplitscreenEventIdPhotoIdRoute
 }
@@ -110,11 +135,14 @@ export interface FileRoutesById {
   '/curate': typeof CurateRoute
   '/api/$': typeof ApiSplatRoute
   '/api/drive': typeof ApiDriveRoute
+  '/prototypes/httpapi-client': typeof PrototypesHttpapiClientRoute
+  '/prototypes/responsive-review': typeof PrototypesResponsiveReviewRoute
   '/prototypes/splitscreen': typeof PrototypesSplitscreenRouteWithChildren
   '/prototypes/': typeof PrototypesIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/prototypes/api/suggest': typeof PrototypesApiSuggestRoute
+  '/prototypes/httpapi/$': typeof PrototypesHttpapiSplatRoute
   '/prototypes/splitscreen/': typeof PrototypesSplitscreenIndexRoute
   '/prototypes/splitscreen/$eventId/$photoId': typeof PrototypesSplitscreenEventIdPhotoIdRoute
 }
@@ -125,11 +153,14 @@ export interface FileRouteTypes {
     | '/curate'
     | '/api/$'
     | '/api/drive'
+    | '/prototypes/httpapi-client'
+    | '/prototypes/responsive-review'
     | '/prototypes/splitscreen'
     | '/prototypes/'
     | '/api/auth/$'
     | '/api/rpc/$'
     | '/prototypes/api/suggest'
+    | '/prototypes/httpapi/$'
     | '/prototypes/splitscreen/'
     | '/prototypes/splitscreen/$eventId/$photoId'
   fileRoutesByTo: FileRoutesByTo
@@ -138,10 +169,13 @@ export interface FileRouteTypes {
     | '/curate'
     | '/api/$'
     | '/api/drive'
+    | '/prototypes/httpapi-client'
+    | '/prototypes/responsive-review'
     | '/prototypes'
     | '/api/auth/$'
     | '/api/rpc/$'
     | '/prototypes/api/suggest'
+    | '/prototypes/httpapi/$'
     | '/prototypes/splitscreen'
     | '/prototypes/splitscreen/$eventId/$photoId'
   id:
@@ -150,11 +184,14 @@ export interface FileRouteTypes {
     | '/curate'
     | '/api/$'
     | '/api/drive'
+    | '/prototypes/httpapi-client'
+    | '/prototypes/responsive-review'
     | '/prototypes/splitscreen'
     | '/prototypes/'
     | '/api/auth/$'
     | '/api/rpc/$'
     | '/prototypes/api/suggest'
+    | '/prototypes/httpapi/$'
     | '/prototypes/splitscreen/'
     | '/prototypes/splitscreen/$eventId/$photoId'
   fileRoutesById: FileRoutesById
@@ -164,11 +201,14 @@ export interface RootRouteChildren {
   CurateRoute: typeof CurateRoute
   ApiSplatRoute: typeof ApiSplatRoute
   ApiDriveRoute: typeof ApiDriveRoute
+  PrototypesHttpapiClientRoute: typeof PrototypesHttpapiClientRoute
+  PrototypesResponsiveReviewRoute: typeof PrototypesResponsiveReviewRoute
   PrototypesSplitscreenRoute: typeof PrototypesSplitscreenRouteWithChildren
   PrototypesIndexRoute: typeof PrototypesIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
   PrototypesApiSuggestRoute: typeof PrototypesApiSuggestRoute
+  PrototypesHttpapiSplatRoute: typeof PrototypesHttpapiSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -201,6 +241,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PrototypesSplitscreenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/prototypes/responsive-review': {
+      id: '/prototypes/responsive-review'
+      path: '/prototypes/responsive-review'
+      fullPath: '/prototypes/responsive-review'
+      preLoaderRoute: typeof PrototypesResponsiveReviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prototypes/httpapi-client': {
+      id: '/prototypes/httpapi-client'
+      path: '/prototypes/httpapi-client'
+      fullPath: '/prototypes/httpapi-client'
+      preLoaderRoute: typeof PrototypesHttpapiClientRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/drive': {
       id: '/api/drive'
       path: '/api/drive'
@@ -221,6 +275,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/prototypes/splitscreen/'
       preLoaderRoute: typeof PrototypesSplitscreenIndexRouteImport
       parentRoute: typeof PrototypesSplitscreenRoute
+    }
+    '/prototypes/httpapi/$': {
+      id: '/prototypes/httpapi/$'
+      path: '/prototypes/httpapi/$'
+      fullPath: '/prototypes/httpapi/$'
+      preLoaderRoute: typeof PrototypesHttpapiSplatRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/prototypes/api/suggest': {
       id: '/prototypes/api/suggest'
@@ -274,11 +335,14 @@ const rootRouteChildren: RootRouteChildren = {
   CurateRoute: CurateRoute,
   ApiSplatRoute: ApiSplatRoute,
   ApiDriveRoute: ApiDriveRoute,
+  PrototypesHttpapiClientRoute: PrototypesHttpapiClientRoute,
+  PrototypesResponsiveReviewRoute: PrototypesResponsiveReviewRoute,
   PrototypesSplitscreenRoute: PrototypesSplitscreenRouteWithChildren,
   PrototypesIndexRoute: PrototypesIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
   PrototypesApiSuggestRoute: PrototypesApiSuggestRoute,
+  PrototypesHttpapiSplatRoute: PrototypesHttpapiSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

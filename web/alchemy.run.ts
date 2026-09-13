@@ -54,9 +54,7 @@ export default Alchemy.Stack(
     // Compose our custom Access resources on top of the Cloudflare catalog.
     // `provideMerge` hands Cloudflare's credentials/environment/retry to the
     // Access providers, and both collections end up in the stack context.
-    providers: accessProviders().pipe(
-      Layer.provideMerge(Cloudflare.providers()),
-    ),
+    providers: accessProviders().pipe(Layer.provideMerge(Cloudflare.providers())),
     state: Cloudflare.state(),
   },
   Effect.gen(function* () {
@@ -67,9 +65,7 @@ export default Alchemy.Stack(
     // app. Access challenges every visitor with a one-time PIN emailed to the
     // address they enter and only admits listed addresses. Unset = no Access
     // app provisioned. Identity-based, so it works from any network/IP.
-    const allowedEmailsCsv = yield* Config.string("ACCESS_ALLOWED_EMAILS").pipe(
-      Config.option,
-    );
+    const allowedEmailsCsv = yield* Config.string("ACCESS_ALLOWED_EMAILS").pipe(Config.option);
     if (Option.isSome(allowedEmailsCsv)) {
       const emails = allowedEmailsCsv.value
         .split(",")

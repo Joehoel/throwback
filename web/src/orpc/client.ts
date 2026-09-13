@@ -20,6 +20,7 @@ const getORPCClient = createIsomorphicFn()
     const link = new RPCLink({
       url: `${globalThis.location.origin}/api/rpc`,
     });
+
     return createORPCClient(link);
   });
 

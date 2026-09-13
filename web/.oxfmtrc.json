@@ -12,6 +12,18 @@
   "arrowParens": "always",
   "endOfLine": "lf",
   "ignorePatterns": [
+    ".agent/**",
+    ".agents/**",
+    ".claude/**",
+    ".codex/**",
+    ".context/**",
+    ".continue/**",
+    ".cursor/**",
+    ".gemini/**",
+    ".opencode/**",
+    ".pi/**",
+    ".roo/**",
+    ".windsurf/**",
     "node_modules/**",
     "dist/**",
     "build/**",
@@ -21,6 +33,7 @@
     "src/routeTree.gen.ts",
     "worker-configuration.d.ts",
     "drizzle/meta/**",
-    "package-lock.json"
+    "package-lock.json",
+    "tools/oxlint/anti-slop/**"
   ]
 }

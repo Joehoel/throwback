@@ -16,10 +16,12 @@ export const Location = Schema.Struct({
   longitude: Schema.Number.pipe(Schema.check(Schema.isBetween({ minimum: -180, maximum: 180 }))),
   altitude: Schema.optionalKey(Schema.Number),
 });
+
 export type Location = typeof Location.Type;
 
 /** Approved per-photo caption text — `driveItem.description` (ADR-0002). */
 export const Description = Schema.NonEmptyString;
+
 export type Description = typeof Description.Type;
 
 /**
@@ -28,10 +30,12 @@ export type Description = typeof Description.Type;
  * of the domain value (ADR-0012).
  */
 export const Suggestion = Schema.NonEmptyString;
+
 export type Suggestion = typeof Suggestion.Type;
 
 /** Per-photo review state, survives sessions (ADR-0009). */
 export const ReviewStatus = Schema.Literals(["needs_review", "handled", "skipped"]);
+
 export type ReviewStatus = typeof ReviewStatus.Type;
 
 /** The index projection of a driveItem as the webapp curates it. */
@@ -45,6 +49,7 @@ export const Photo = Schema.Struct({
   location: Schema.NullOr(Location), // null = no Location yet
   reviewStatus: ReviewStatus,
 });
+
 export type Photo = typeof Photo.Type;
 
 /** The deepest folder; its name is the title. Carries the default Location. */
@@ -54,4 +59,5 @@ export const Event = Schema.Struct({
   year: Schema.Int,
   defaultLocation: Schema.NullOr(Location),
 });
+
 export type Event = typeof Event.Type;

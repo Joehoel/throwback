@@ -27,22 +27,24 @@ const HEADER_BYTES = 256 * 1024;
 // How many files to read+decode concurrently during a crawl.
 const CRAWL_CONCURRENCY = 8;
 
-const EXT_MIME: Record<string, string> = {
-  jpg: "image/jpeg",
-  jpeg: "image/jpeg",
-  png: "image/png",
-  webp: "image/webp",
-  gif: "image/gif",
-  avif: "image/avif",
-};
+const EXTENSION_MIME = new Map<string, string>([
+  ["jpg", "image/jpeg"],
+  ["jpeg", "image/jpeg"],
+  ["png", "image/png"],
+  ["webp", "image/webp"],
+  ["gif", "image/gif"],
+  ["avif", "image/avif"],
+]);
 
 /** The file's MIME type, falling back to its extension when the browser leaves it blank. */
 const mimeOf = (file: File, name: string): string => {
   if (file.type !== "") {
     return file.type;
   }
+
   const ext = name.split(".").pop()?.toLowerCase() ?? "";
-  return EXT_MIME[ext] ?? "";
+
+  return EXTENSION_MIME.get(ext) ?? "";
 };
 
 /** A file found by the crawl, with its directory path (no filename). */
@@ -87,21 +89,27 @@ const filesUnder = (
 /** Read one image file's header and project it to a decode-ready source; non-images → None. */
 const ingestFile = Effect.fn("local.ingestFile")(function* (file: CrawledFile) {
   const metadata = yield* PhotoMetadata;
+
   const prepared = yield* Effect.tryPromise({
     try: async (): Promise<{ mimeType: string; binary: string } | null> => {
       const blob = await file.handle.getFile();
       const mimeType = mimeOf(blob, file.handle.name);
+
       if (mimeType.startsWith("image/")) {
         return { mimeType, binary: await blobToBinaryString(blob.slice(0, HEADER_BYTES)) };
       }
+
       return null;
     },
     catch: (cause) => new LocalSourceError({ operation: "crawl", message: String(cause) }),
   });
+
   if (prepared === null) {
     return Option.none<IngestedFile>();
   }
+
   const facts = yield* metadata.read(prepared.binary, prepared.mimeType);
+
   return Option.some<IngestedFile>({
     id: [...file.pathSegments, file.handle.name].join("/"),
     handle: file.handle,
@@ -123,6 +131,7 @@ const ensurePermission = (handle: FileSystemDirectoryHandle) =>
       if ((await handle.queryPermission({ mode: "readwrite" })) === "granted") {
         return;
       }
+
       if ((await handle.requestPermission({ mode: "readwrite" })) !== "granted") {
         throw new Error("read-write permission denied");
       }
@@ -140,6 +149,7 @@ const make = Effect.all([Ref.make(new Map<string, FileSystemFileHandle>()), Phot
         Stream.runCollect,
         Effect.provideService(PhotoMetadata, metadata),
       );
+
       // Drop the non-image Nones, keeping the projected sources.
       const ingested = collected.flatMap((option) => (Option.isSome(option) ? [option.value] : []));
 
@@ -152,16 +162,19 @@ const make = Effect.all([Ref.make(new Map<string, FileSystemFileHandle>()), Phot
       );
 
       yield* Ref.set(registry, new Map(ingested.map((item) => [item.id, item.handle])));
+
       return { root: buildFolderTree(photos, rootHandle.name), photos };
     });
 
     const getFile = Effect.fn("local.getFile")(function* (photoId: DriveItemId) {
       const handle = (yield* Ref.get(registry)).get(photoId);
+
       if (handle === undefined) {
         return yield* Effect.fail(
           new LocalSourceError({ operation: "getFile", message: `unknown photo: ${photoId}` }),
         );
       }
+
       return yield* Effect.tryPromise({
         try: () => handle.getFile(),
         catch: (cause) => new LocalSourceError({ operation: "getFile", message: String(cause) }),
@@ -170,16 +183,20 @@ const make = Effect.all([Ref.make(new Map<string, FileSystemFileHandle>()), Phot
 
     const write = Effect.fn("local.write")(function* (photoId: DriveItemId, edit: MetadataEdit) {
       const handle = (yield* Ref.get(registry)).get(photoId);
+
       if (handle === undefined) {
         return yield* Effect.fail(
           new LocalSourceError({ operation: "write", message: `unknown photo: ${photoId}` }),
         );
       }
+
       const file = yield* Effect.tryPromise({
         try: () => handle.getFile(),
         catch: (cause) => new LocalSourceError({ operation: "write", message: String(cause) }),
       });
+
       const binary = yield* Effect.promise(() => blobToBinaryString(file)); // whole file: lossless rewrite
+
       const next = yield* metadata
         .write(binary, mimeOf(file, handle.name), edit)
         .pipe(
@@ -187,6 +204,7 @@ const make = Effect.all([Ref.make(new Map<string, FileSystemFileHandle>()), Phot
             (cause) => new LocalSourceError({ operation: "write", message: cause.message }),
           ),
         );
+
       return yield* Effect.tryPromise({
         try: async () => {
           const writable = await handle.createWritable();

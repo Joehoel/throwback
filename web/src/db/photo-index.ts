@@ -49,15 +49,18 @@ export const upsert = Effect.fn("photoIndex.upsert")(function* (photo: Photo) {
 /** The next photo still needing review for the given filter, or null. */
 export const reviewNext = Effect.fn("photoIndex.reviewNext")(function* (filter: ReviewFilter) {
   const sql = yield* SqlClient.SqlClient;
+
   // Pick the review-queue predicate by filter (statements are lazy; only the chosen one runs).
   const rows = yield* {
     missing_description: sql`SELECT * FROM photo_index WHERE description IS NULL AND review_status = 'needs_review' ORDER BY id LIMIT 1`,
     missing_location: sql`SELECT * FROM photo_index WHERE location IS NULL AND review_status = 'needs_review' ORDER BY id LIMIT 1`,
     any: sql`SELECT * FROM photo_index WHERE review_status = 'needs_review' ORDER BY id LIMIT 1`,
   }[filter];
+
   if (rows.length === 0) {
     return null;
   }
+
   return yield* Schema.decodeUnknownEffect(PhotoFromRow)(rows[0]);
 });
 

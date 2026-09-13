@@ -90,7 +90,7 @@ class GraphSyncTest {
     }
 
     @Test
-    fun `meldt alleen foto's die zonder enige beschrijving eindigen`() = runBlocking {
+    fun `een ontbrekende beschrijving blijft null`() = runBlocking {
         val http = FakeGraphHttp(
             mapOf(
                 "https://g/d1" to json(
@@ -108,10 +108,10 @@ class GraphSyncTest {
             )
         )
 
-        val missing = mutableListOf<String>()
-        GraphSync(http, onMissingDescription = { missing += it.id }).refresh("https://g/d1")
+        val changes = GraphSync(http).refresh("https://g/d1")
 
-        assertEquals(listOf("p2"), missing)
+        assertEquals("Dans", changes.upserts.single { it.id == "p1" }.description)
+        assertNull(changes.upserts.single { it.id == "p2" }.description)
     }
 
     @Test

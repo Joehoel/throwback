@@ -16,6 +16,7 @@ describe("decodeMetadata", () => {
       },
       orientation: 6,
     });
+
     expect(facts.description).toBe("xmp-tekst");
     expect(facts.year).toBe(2007);
     expect(facts.location?.latitude).toBeCloseTo(52.1, 3);
@@ -30,6 +31,7 @@ describe("decodeMetadata", () => {
       location: null,
       orientation: null,
     });
+
     expect(facts.description).toBe("alleen-exif");
     expect(facts.orientation).toBe(1);
     expect(facts.location).toBeNull();
@@ -43,6 +45,7 @@ describe("decodeMetadata", () => {
       location: null,
       orientation: null,
     });
+
     expect(facts.description).toBeNull();
   });
 
@@ -58,6 +61,7 @@ describe("decodeMetadata", () => {
       },
       orientation: null,
     });
+
     expect(facts.location).toBeNull();
   });
 });

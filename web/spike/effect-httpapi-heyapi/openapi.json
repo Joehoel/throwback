@@ -1,0 +1,525 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Throwback Beheer-webapp contract spike",
+    "version": "0.0.0-spike"
+  },
+  "paths": {
+    "/drives/{driveId}/photos/{driveItemId}": {
+      "get": {
+        "tags": [
+          "curation"
+        ],
+        "operationId": "getPhoto",
+        "parameters": [
+          {
+            "name": "driveId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/DriveId"
+            },
+            "required": true
+          },
+          {
+            "name": "driveItemId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/DriveItemId"
+            },
+            "required": true
+          },
+          {
+            "name": "projectionRevision",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PhotoReview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoReview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PhotoNotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoNotFound"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/drives/{driveId}/photos/{driveItemId}/approvals": {
+      "post": {
+        "tags": [
+          "curation"
+        ],
+        "operationId": "approvePhoto",
+        "parameters": [
+          {
+            "name": "driveId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/DriveId"
+            },
+            "required": true
+          },
+          {
+            "name": "driveItemId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/DriveItemId"
+            },
+            "required": true
+          },
+          {
+            "name": "idempotency-key",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "if-match",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "ApprovalAccepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalAccepted"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PhotoNotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoNotFound"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PhotoConflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoConflict"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalTarget"
+              }
+            }
+          },
+          "required": true
+        }
+      }
+    },
+    "/drives/{driveId}/photos/{driveItemId}/preview": {
+      "get": {
+        "tags": [
+          "curation"
+        ],
+        "operationId": "getPreview",
+        "parameters": [
+          {
+            "name": "driveId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/DriveId"
+            },
+            "required": true
+          },
+          {
+            "name": "driveItemId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/DriveItemId"
+            },
+            "required": true
+          }
+        ],
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unauthorized"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PhotoNotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoNotFound"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DriveId": {
+        "type": "string",
+        "format": "throwback-drive-id"
+      },
+      "DriveItemId": {
+        "type": "string",
+        "format": "throwback-drive-item-id"
+      },
+      "KnownLocation": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": [
+              "KnownLocation"
+            ]
+          },
+          "latitude": {
+            "type": "number"
+          },
+          "longitude": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "_tag",
+          "latitude",
+          "longitude"
+        ],
+        "additionalProperties": false
+      },
+      "NoLocation": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": [
+              "NoLocation"
+            ]
+          }
+        },
+        "required": [
+          "_tag"
+        ],
+        "additionalProperties": false
+      },
+      "LocationTarget": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/KnownLocation"
+          },
+          {
+            "$ref": "#/components/schemas/NoLocation"
+          }
+        ]
+      },
+      "CommandId": {
+        "type": "string",
+        "format": "throwback-command-id"
+      },
+      "PhotoReview": {
+        "type": "object",
+        "properties": {
+          "driveId": {
+            "$ref": "#/components/schemas/DriveId"
+          },
+          "driveItemId": {
+            "$ref": "#/components/schemas/DriveItemId"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationTarget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewState": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": {
+                    "type": "string",
+                    "enum": [
+                      "NeedsReview"
+                    ]
+                  }
+                },
+                "required": [
+                  "_tag"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "_tag": {
+                    "type": "string",
+                    "enum": [
+                      "CommandAccepted"
+                    ]
+                  },
+                  "commandId": {
+                    "$ref": "#/components/schemas/CommandId"
+                  }
+                },
+                "required": [
+                  "_tag",
+                  "commandId"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "required": [
+          "driveId",
+          "driveItemId",
+          "description",
+          "location",
+          "reviewState"
+        ],
+        "additionalProperties": false
+      },
+      "PhotoNotFound": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": [
+              "PhotoNotFound"
+            ]
+          },
+          "driveItemId": {
+            "$ref": "#/components/schemas/DriveItemId"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "_tag",
+          "driveItemId",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "Unauthorized": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": [
+              "Unauthorized"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "_tag",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "ApprovalTarget": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LocationTarget"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "orientation": {
+            "type": "number",
+            "enum": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8
+            ]
+          }
+        },
+        "required": [
+          "description",
+          "location",
+          "orientation"
+        ],
+        "additionalProperties": false
+      },
+      "ApprovalAccepted": {
+        "type": "object",
+        "properties": {
+          "commandId": {
+            "$ref": "#/components/schemas/CommandId"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted"
+            ]
+          }
+        },
+        "required": [
+          "commandId",
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "PhotoConflict": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": [
+              "PhotoConflict"
+            ]
+          },
+          "currentETag": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "_tag",
+          "currentETag",
+          "message"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "securitySchemes": {
+      "session": {
+        "type": "apiKey",
+        "name": "throwback_session",
+        "in": "cookie"
+      }
+    }
+  },
+  "security": [],
+  "tags": [
+    {
+      "name": "curation"
+    }
+  ]
+}
