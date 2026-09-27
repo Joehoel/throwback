@@ -39,9 +39,9 @@ function unavailable(): OneDriveUnavailableError {
   });
 }
 
-function sourceUnavailable(): JpegSourceUnavailable {
+function sourceUnavailable(operation: "Graph Foto request" | "Graph Foto stream") {
   return new JpegSourceUnavailable({
-    operation: "Graph Foto download",
+    operation,
     message: "De JPEG-bron kon niet veilig worden gelezen.",
   });
 }
@@ -98,12 +98,10 @@ export const PhotoHydratorLive = Layer.effect(
 
       const source: ReplayableJpeg = {
         open: Effect.fnUntraced(function* () {
-          const content = yield* graph
-            .download(downloadUrl)
-            .pipe(
-              Effect.mapError(sourceUnavailable),
-              Effect.map(Stream.mapError(sourceUnavailable)),
-            );
+          const content = yield* graph.download(downloadUrl).pipe(
+            Effect.mapError(() => sourceUnavailable("Graph Foto request")),
+            Effect.map(Stream.mapError(() => sourceUnavailable("Graph Foto stream"))),
+          );
 
           return yield* Stream.toReadableStreamEffect(content);
         }),
@@ -113,7 +111,9 @@ export const PhotoHydratorLive = Layer.effect(
         Effect.retry({
           times: 3,
           schedule: Schedule.exponential("1 second", 4).pipe(Schedule.jittered),
-          while: Predicate.isTagged("JpegSourceUnavailable"),
+          while: (error) =>
+            Predicate.isTagged("JpegSourceUnavailable")(error) &&
+            error.operation === "Graph Foto stream",
         }),
         Effect.result,
       );

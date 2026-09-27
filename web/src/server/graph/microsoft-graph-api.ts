@@ -215,7 +215,6 @@ export const MicrosoftGraphApiLive = Layer.effect(
         client,
         operation: "metadata",
         request: graphRequest,
-        retry: true,
       }).pipe(Effect.mapError(oneDriveUnavailable));
 
       if (response.status === 401 || response.status === 403) {

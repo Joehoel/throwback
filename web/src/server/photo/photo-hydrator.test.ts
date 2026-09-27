@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { Effect, Layer, Option, Predicate, Redacted, Stream } from "effect";
 import { describe, expect, it } from "vitest";
 import { MicrosoftGraphPhotoApi } from "../graph/microsoft-graph-photo-api.ts";
+import { OneDriveUnavailable } from "../library/errors.ts";
 import { DriveId, DriveItemId } from "../library/model.ts";
 import { PhotoHydrator, PhotoHydratorLive } from "./photo-hydrator.ts";
 import { EventId, NotReviewableFile, PhotoId } from "./model.ts";
@@ -117,5 +118,45 @@ describe("Foto hydration", () => {
     );
 
     expect(hydrated).toEqual(NotReviewableFile.make({ photoId: PhotoId.make("photo-a") }));
+  });
+
+  it("does not restart an exhausted Graph request budget as a stream retry", async () => {
+    let downloadAttempts = 0;
+
+    const graphLayer = Layer.succeed(MicrosoftGraphPhotoApi, {
+      getFile: () =>
+        Effect.succeed({
+          id: DriveItemId.make("photo-a"),
+          name: "familie.jpg",
+          parentItemId: Option.some(DriveItemId.make("event-a")),
+          mimeType: Option.some("image/jpeg"),
+          cTag: Option.some("ctag-a"),
+          eTag: Option.some("etag-a"),
+          downloadUrl: Option.some(Redacted.make("https://content.example.test/private-jpeg")),
+        }),
+      download: () => {
+        downloadAttempts += 1;
+
+        return Effect.fail(
+          new OneDriveUnavailable({
+            message: "OneDrive kan de Foto nu niet veilig laden.",
+          }),
+        );
+      },
+    });
+
+    const hydration = PhotoHydrator.pipe(
+      Effect.flatMap((reader) =>
+        reader.hydrate(Redacted.make("server-only-token"), DriveId.make("drive-a"), {
+          photoId: PhotoId.make("photo-a"),
+          eventId: EventId.make("event-a"),
+        }),
+      ),
+      Effect.provide(PhotoHydratorLive.pipe(Layer.provide(graphLayer))),
+      Effect.runPromise,
+    );
+
+    await expect(hydration).rejects.toBeInstanceOf(OneDriveUnavailable);
+    expect(downloadAttempts).toBe(1);
   });
 });

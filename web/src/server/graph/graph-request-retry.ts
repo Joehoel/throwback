@@ -79,7 +79,6 @@ interface ExecuteGraphRequest {
   readonly client: HttpClient.HttpClient;
   readonly operation: GraphRequestOperation;
   readonly request: HttpClientRequest.HttpClientRequest;
-  readonly retry: boolean;
 }
 
 /** Execute one privacy-safe Graph request with the declared attempt budget. */
@@ -90,5 +89,5 @@ export function executeGraphRequest(input: ExecuteGraphRequest) {
     Effect.flatMap((response) => retryableGraphResponse(input.operation, response)),
   );
 
-  return input.retry ? attempt.pipe(Effect.retry(graphRetrySchedule)) : attempt;
+  return attempt.pipe(Effect.retry(graphRetrySchedule));
 }

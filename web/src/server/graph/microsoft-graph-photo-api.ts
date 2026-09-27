@@ -153,7 +153,6 @@ export const MicrosoftGraphPhotoApiLive = Layer.effect(
         client,
         operation: "photo-details",
         request,
-        retry: true,
       }).pipe(Effect.mapError(unavailable));
 
       if (response.status === 401 || response.status === 403) {
@@ -183,7 +182,6 @@ export const MicrosoftGraphPhotoApiLive = Layer.effect(
         client: downloadClient,
         operation: "download",
         request: HttpClientRequest.get(Redacted.value(validatedUrl)),
-        retry: true,
       }).pipe(Effect.mapError(unavailable));
 
       if (response.status < 200 || response.status >= 300) {
