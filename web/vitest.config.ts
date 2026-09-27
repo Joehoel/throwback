@@ -8,7 +8,7 @@ import { defineConfig } from "vitest/config";
  * devtools, Tailwind, or React Compiler build pipeline.
  *
  * The `exclude` is load-bearing: `.context/` holds gitignored *reference* repos
- * (effect-smol, alchemy, opencode) full of their own `*.test.ts`. Without scoping,
+ * (effect, alchemy, opencode) full of their own `*.test.ts`. Without scoping,
  * Vitest globs and runs them — alchemy's suite provisions and deletes real
  * Cloudflare resources. Every project is scoped to our own `src/`.
  */

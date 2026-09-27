@@ -67,7 +67,7 @@ export type GraphFolder = typeof GraphFolder.Type;
 const OptionalGraphFolderResponse = GraphDriveItemResponse.pipe(
   Schema.decodeTo(
     Schema.Option(GraphFolder),
-    SchemaTransformation.transformOrFail({
+    SchemaTransformation.transformEffect({
       decode: (item) => {
         if (Option.isNone(item.folder) || Option.isSome(item.remoteItem)) {
           return Effect.succeed(Option.none());
@@ -102,7 +102,7 @@ const OptionalGraphFolderResponse = GraphDriveItemResponse.pipe(
 const OptionalSelectableFolderResponse = GraphDriveItemResponse.pipe(
   Schema.decodeTo(
     Schema.Option(SelectableFolderSchema),
-    SchemaTransformation.transformOrFail({
+    SchemaTransformation.transformEffect({
       decode: (item) =>
         Option.isNone(item.folder) || Option.isSome(item.remoteItem)
           ? Effect.succeed(Option.none())

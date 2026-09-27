@@ -22,7 +22,7 @@ export class Website extends Cloudflare.Website.Vite<Website>()(
     const baseUrl = dev ? LOCAL_URL : PREVIEW_URL;
     const allowedEmail = dev
       ? "local-preview@example.invalid"
-      : yield* Config.string("PREVIEW_ACCESS_ALLOWED_EMAIL").pipe(Effect.orDie);
+      : yield* Config.String("PREVIEW_ACCESS_ALLOWED_EMAIL").pipe(Effect.orDie);
 
     return {
       name: "throwback-curation-preview",
@@ -49,7 +49,7 @@ export class Website extends Cloudflare.Website.Vite<Website>()(
         BETTER_AUTH_SECRET: PreviewBetterAuthSecret,
         BETTER_AUTH_URL: baseUrl,
         MICROSOFT_CLIENT_ID: "0bb9b8c8-a9e6-475d-b44f-74521e46aaf1",
-        MICROSOFT_CLIENT_SECRET: Config.redacted("MICROSOFT_CLIENT_SECRET"),
+        MICROSOFT_CLIENT_SECRET: Config.Redacted("MICROSOFT_CLIENT_SECRET"),
         MICROSOFT_CALLBACK_URL: `${baseUrl}/api/auth/callback/microsoft`,
       },
       dev: { host: "localhost", port: 3000, strictPort: true },

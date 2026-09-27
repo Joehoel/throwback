@@ -97,14 +97,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
-                    },
-                    {
-                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
-                    }
-                  ]
+                  "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
                 }
               }
             }
