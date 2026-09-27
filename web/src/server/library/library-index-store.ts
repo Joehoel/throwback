@@ -10,15 +10,14 @@ import type {
 } from "./library-index-model.ts";
 import { IndexRunId as IndexRunIdSchema } from "./library-index-model.ts";
 import {
+  containsActiveItemQuery,
   libraryIndexPageStatements,
-  retryBackgroundSql,
-  retryInteractiveSql,
-} from "./library-index-page-staging.ts";
-import type { StageLibraryIndexPage } from "./library-index-page-staging.ts";
+} from "./library-index-persistence.ts";
+import type { StageLibraryIndexPage } from "./library-index-persistence.ts";
 import type { DriveItemId, LibraryBoundary, LibraryId } from "./model.ts";
 import { LibraryId as LibraryIdSchema } from "./model.ts";
 import { StoredLibraryIndexRun } from "./library-index-storage-schema.ts";
-import { containsActiveItemQuery } from "./library-index-scope-query.ts";
+import { retryBackgroundSql, retryInteractiveSql } from "../sql-retry.ts";
 
 /** D1 authority for one staged, singleton Bibliotheek enumeration. */
 export interface LibraryIndexStoreService {

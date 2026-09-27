@@ -1,60 +1,45 @@
 import { Link } from "@tanstack/react-router";
-import { is, safeParse } from "valibot";
-import {
-  vBuildUpgradeRequiredEncoded,
-  vGraphReauthenticationRequiredEncoded,
-  vLibraryStoreUnavailableEncoded,
-  vOneDriveUnavailableEncoded,
-  vPhotoProjectionUnavailableEncoded,
-} from "../generated/valibot.gen.ts";
+import type { ErrorComponentProps } from "@tanstack/react-router";
+import { safeParse } from "valibot";
+import { classifyDomainFailure, vDomainFailureInput } from "../api/domain-failure.ts";
+import type { DomainFailure } from "../api/domain-failure.ts";
 import { ShellLayout } from "./shell-layout.tsx";
 
-interface FailureMessageOptions {
-  readonly buildUpgrade: string | null;
-  readonly reauthentication: boolean;
-  readonly unavailable: boolean;
-}
-
-function failureMessage(options: FailureMessageOptions): string {
-  if (options.reauthentication) {
+function failureMessage(failure: DomainFailure): string {
+  if (failure.kind === "reauthentication") {
     return "Verbind OneDrive opnieuw om deze Foto te hervatten.";
   }
 
-  if (options.unavailable) {
+  if (failure.kind === "unavailable") {
     return "De server is tijdelijk niet bereikbaar. Probeer het opnieuw.";
   }
 
-  return options.buildUpgrade ?? "De Beheer-webapp kon niet worden geladen. Probeer het opnieuw.";
+  return failure.kind === "build-upgrade"
+    ? failure.message
+    : "De Beheer-webapp kon niet worden geladen. Probeer het opnieuw.";
 }
 
-function failureEyebrow(buildUpgrade: boolean, reauthentication: boolean): string {
-  if (buildUpgrade) {
+function failureEyebrow(failure: DomainFailure): string {
+  if (failure.kind === "build-upgrade") {
     return "Nieuwe versie beschikbaar";
   }
 
-  return reauthentication ? "OneDrive-koppeling nodig" : "Tijdelijke fout";
+  return failure.kind === "reauthentication" ? "OneDrive-koppeling nodig" : "Tijdelijke fout";
 }
 
-export function AppErrorShell({ error }: { readonly error: unknown }) {
-  const parsed = safeParse(vBuildUpgradeRequiredEncoded, error);
+export function AppErrorShell({ error }: ErrorComponentProps) {
+  const parsed = safeParse(vDomainFailureInput, error);
 
-  const reauthentication = is(vGraphReauthenticationRequiredEncoded, error);
-
-  const unavailable =
-    is(vLibraryStoreUnavailableEncoded, error) ||
-    is(vOneDriveUnavailableEncoded, error) ||
-    is(vPhotoProjectionUnavailableEncoded, error);
-
-  const message = failureMessage({
-    buildUpgrade: parsed.success ? parsed.output.message : null,
-    reauthentication,
-    unavailable,
-  });
+  const failure: DomainFailure = parsed.success
+    ? classifyDomainFailure(parsed.output)
+    : { kind: "unexpected" };
 
   return (
-    <ShellLayout eyebrow={failureEyebrow(parsed.success, reauthentication)}>
-      <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">{message}</h1>
-      {reauthentication ? (
+    <ShellLayout eyebrow={failureEyebrow(failure)}>
+      <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">
+        {failureMessage(failure)}
+      </h1>
+      {failure.kind === "reauthentication" ? (
         <Link
           to="/setup/$step"
           params={{ step: "graph" }}

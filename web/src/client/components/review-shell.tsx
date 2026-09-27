@@ -1,14 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Link } from "@tanstack/react-router";
-import { is } from "valibot";
-import type { Photo } from "../generated/types.gen.ts";
-import {
-  vGraphReauthenticationRequiredEncoded,
-  vLibraryStoreUnavailableEncoded,
-  vOneDriveUnavailableEncoded,
-  vPhotoNotFoundEncoded,
-  vPhotoProjectionUnavailableEncoded,
-} from "../generated/valibot.gen.ts";
+import { classifyDomainFailure } from "../api/domain-failure.ts";
+import type { GetPhotoError, Photo } from "../generated/types.gen.ts";
 
 function AuthenticatedPreview({
   photo,
@@ -44,18 +37,15 @@ function AuthenticatedPreview({
   );
 }
 
-function ReadFailureBanner({ error }: { readonly error: unknown }) {
+function ReadFailureBanner({ error }: { readonly error: GetPhotoError | null }) {
   if (error === null) {
     return null;
   }
 
-  const reauthentication = is(vGraphReauthenticationRequiredEncoded, error);
-  const photoNotFound = is(vPhotoNotFoundEncoded, error);
-
-  const unavailable =
-    is(vLibraryStoreUnavailableEncoded, error) ||
-    is(vOneDriveUnavailableEncoded, error) ||
-    is(vPhotoProjectionUnavailableEncoded, error);
+  const failure = classifyDomainFailure(error);
+  const reauthentication = failure.kind === "reauthentication";
+  const photoNotFound = failure.kind === "photo-not-found";
+  const unavailable = failure.kind === "unavailable";
 
   if (!photoNotFound && !reauthentication && !unavailable) {
     return null;
@@ -91,7 +81,7 @@ export function ReviewShell({
   photo,
   preview,
 }: {
-  readonly error?: unknown;
+  readonly error?: GetPhotoError | null;
   readonly photo: Photo;
   readonly preview: Blob;
 }) {
