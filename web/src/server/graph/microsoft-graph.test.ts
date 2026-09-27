@@ -5,6 +5,7 @@ import {
   BetterAuthAccountId,
   BetterAuthUserId,
   CuratorIdentity,
+  GraphConnectionVersion,
   MicrosoftAccountId,
 } from "../curator/model.ts";
 import { InvalidLibrarySelection, OneDriveUnavailable } from "../library/errors.ts";
@@ -16,6 +17,7 @@ import { MicrosoftGraph, MicrosoftGraphLive } from "./microsoft-graph.ts";
 const account = {
   userId: BetterAuthUserId.make("user-a"),
   betterAuthAccountId: BetterAuthAccountId.make("account-a"),
+  graphConnectionVersion: GraphConnectionVersion.make("connection-v1"),
   identity: CuratorIdentity.make({
     providerId: "microsoft",
     providerAccountId: MicrosoftAccountId.make("owner-oid"),

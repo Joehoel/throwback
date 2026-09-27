@@ -1,4 +1,5 @@
 import { Option, Schema } from "effect";
+import { GraphConnectionVersion } from "../curator/model.ts";
 import { DriveItemId, LibraryId } from "./model.ts";
 
 /** Durable identity shared by retries of one initial Graph delta traversal. */
@@ -81,6 +82,7 @@ export const LibraryIndexRun = Schema.Struct({
   generation: IndexGeneration,
   status: LibraryIndexStatus,
   workflowInstanceId: Schema.Option(IndexWorkflowInstanceId),
+  graphConnectionVersion: GraphConnectionVersion,
   nextLink: Schema.Option(GraphDeltaLink),
   deltaLink: Schema.Option(GraphDeltaLink),
   activeGeneration: Schema.Option(IndexGeneration),

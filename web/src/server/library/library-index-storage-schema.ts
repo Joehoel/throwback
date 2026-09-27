@@ -1,4 +1,5 @@
 import { Schema, SchemaTransformation } from "effect";
+import { GraphConnectionVersion } from "../curator/model.ts";
 import {
   GraphDeltaLink,
   IndexGeneration,
@@ -14,6 +15,7 @@ export const StoredLibraryIndexRun = Schema.Struct({
   generation: IndexGeneration,
   status: LibraryIndexStatus,
   workflowInstanceId: Schema.OptionFromNullOr(IndexWorkflowInstanceId),
+  graphConnectionVersion: GraphConnectionVersion,
   nextLink: Schema.OptionFromNullOr(GraphDeltaLink),
   deltaLink: Schema.OptionFromNullOr(GraphDeltaLink),
   activeGeneration: Schema.OptionFromNullOr(IndexGeneration),

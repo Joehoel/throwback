@@ -1,7 +1,12 @@
 import { Effect, Layer, Option } from "effect";
 import { ApplicationSession } from "../../auth/application-session.ts";
 import { CuratorAccessLive } from "../../curator/curator-access.ts";
-import { BetterAuthAccountId, CuratorIdentity, MicrosoftAccountId } from "../../curator/model.ts";
+import {
+  BetterAuthAccountId,
+  CuratorIdentity,
+  GraphConnectionVersion,
+  MicrosoftAccountId,
+} from "../../curator/model.ts";
 import { CuratorStore } from "../../curator/curator-store.ts";
 import { LibrarySetup } from "../../library/library-setup.ts";
 import type { LibrarySetupService } from "../../library/library-setup.ts";
@@ -92,6 +97,7 @@ export function createSignedInDomainHandler(options: {
               Option.some({
                 providerAccountId: MicrosoftAccountId.make(options.accountId),
                 betterAuthAccountId: BetterAuthAccountId.make("account-user-a"),
+                graphConnectionVersion: GraphConnectionVersion.make("connection-v1"),
                 hasGraphConnection: options.hasGraphConnection ?? true,
               }),
             ),

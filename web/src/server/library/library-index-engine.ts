@@ -1,4 +1,5 @@
 import { Context, Effect, Layer, Option, Schema } from "effect";
+import { CuratorStore } from "../curator/curator-store.ts";
 import { GraphAccessToken } from "../graph/graph-token.ts";
 import { MicrosoftGraphApi } from "../graph/microsoft-graph-api.ts";
 import type {
@@ -8,7 +9,6 @@ import type {
 } from "./errors.ts";
 import { LibraryIndexUnavailable } from "./errors.ts";
 import type { LibraryIndexWorkflowInput } from "./library-index-dispatcher.ts";
-import type { IndexWorkflowInstanceId } from "./library-index-model.ts";
 import { LibraryIndexStore } from "./library-index-store.ts";
 
 export const LibraryIndexStepResult = Schema.Literals([
@@ -25,7 +25,6 @@ export type LibraryIndexStepResult = typeof LibraryIndexStepResult.Type;
 export interface LibraryIndexEngineService {
   readonly processNextPage: (
     input: LibraryIndexWorkflowInput,
-    workflowInstanceId: IndexWorkflowInstanceId,
   ) => Effect.Effect<
     LibraryIndexStepResult,
     | LibraryIndexUnavailable
@@ -48,11 +47,12 @@ export const LibraryIndexEngineLive = Layer.effect(
     const tokens = yield* GraphAccessToken;
     const graph = yield* MicrosoftGraphApi;
     const store = yield* LibraryIndexStore;
+    const curators = yield* CuratorStore;
 
     const processNextPage = Effect.fn("LibraryIndexEngine.processNextPage")(function* (
       input: LibraryIndexWorkflowInput,
-      workflowInstanceId: IndexWorkflowInstanceId,
     ) {
+      const { workflowInstanceId } = input;
       const beforeClaim = yield* store.getRun(input.libraryId);
 
       if (Option.exists(beforeClaim, (run) => run.status === "active")) {
@@ -83,9 +83,31 @@ export const LibraryIndexEngineLive = Layer.effect(
         Effect.flatMap((token) => graph.getDriveRootDeltaPage(token, input.driveId, run.nextLink)),
         Effect.asSome,
         Effect.catchTag("GraphReauthenticationRequired", () =>
-          store
-            .markWaitingForReauthentication(input.runId, workflowInstanceId)
-            .pipe(Effect.as(Option.none())),
+          curators.findMicrosoftAccount(input.account.userId).pipe(
+            Effect.mapError(
+              () =>
+                new LibraryIndexUnavailable({
+                  message: "De actuele OneDrive-koppeling kon niet worden vastgesteld.",
+                }),
+            ),
+            Effect.flatMap(
+              Option.match({
+                onNone: () =>
+                  Effect.fail(
+                    new LibraryIndexUnavailable({
+                      message: "De Microsoft-accountkoppeling voor de index ontbreekt.",
+                    }),
+                  ),
+                onSome: (account) =>
+                  store.markWaitingForReauthentication(
+                    input.runId,
+                    workflowInstanceId,
+                    account.graphConnectionVersion,
+                  ),
+              }),
+            ),
+            Effect.as(Option.none()),
+          ),
         ),
         Effect.catchTag("OneDriveFolderNotFound", () =>
           store.markFailed(input.runId, workflowInstanceId).pipe(Effect.as(Option.none())),

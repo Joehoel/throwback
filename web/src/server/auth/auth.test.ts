@@ -4,7 +4,12 @@ import { fileURLToPath } from "node:url";
 import { Effect, Option, Redacted, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import type { CuratorStoreService } from "../curator/curator-store.ts";
-import { BetterAuthAccountId, CuratorIdentity, MicrosoftAccountId } from "../curator/model.ts";
+import {
+  BetterAuthAccountId,
+  CuratorIdentity,
+  GraphConnectionVersion,
+  MicrosoftAccountId,
+} from "../curator/model.ts";
 import {
   createThrowbackAuth,
   makeMicrosoftIdentityAdmission,
@@ -28,6 +33,7 @@ function makeStore(ownerId?: string, accountId?: string): CuratorStoreService {
   const account = Option.fromNullishOr(accountId).pipe(
     Option.map((providerAccountId) => ({
       betterAuthAccountId: BetterAuthAccountId.make("account-owner"),
+      graphConnectionVersion: GraphConnectionVersion.make("connection-v1"),
       providerAccountId: MicrosoftAccountId.make(providerAccountId),
       hasGraphConnection: true,
     })),

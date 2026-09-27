@@ -2,12 +2,13 @@ import { Context, Schema } from "effect";
 import type { Effect } from "effect";
 import { BetterAuthAccountId, BetterAuthUserId } from "../curator/model.ts";
 import type { LibraryIndexUnavailable } from "./errors.ts";
-import { IndexRunId } from "./library-index-model.ts";
+import { IndexRunId, IndexWorkflowInstanceId } from "./library-index-model.ts";
 import { DriveId, LibraryId } from "./model.ts";
 
 /** Token-free server command used to start or resume one durable index Workflow. */
 export const LibraryIndexWorkflowInput = Schema.Struct({
   runId: IndexRunId,
+  workflowInstanceId: IndexWorkflowInstanceId,
   libraryId: LibraryId,
   driveId: DriveId,
   account: Schema.Struct({

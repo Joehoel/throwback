@@ -4,12 +4,14 @@ import type {
   BetterAuthAccountId,
   BetterAuthUserId,
   CuratorIdentity,
+  GraphConnectionVersion,
   MicrosoftAccountId,
 } from "./model.ts";
 import {
   BetterAuthAccountId as BetterAuthAccountIdSchema,
   BetterAuthUserId as BetterAuthUserIdSchema,
   CuratorIdentity as CuratorIdentitySchema,
+  GraphConnectionVersion as GraphConnectionVersionSchema,
   MicrosoftAccountId as MicrosoftAccountIdSchema,
 } from "./model.ts";
 
@@ -25,6 +27,7 @@ export class CuratorStoreError extends Schema.TaggedError<CuratorStoreError>()(
 /** The Microsoft account fields needed for authorization and Graph readiness. */
 export interface MicrosoftAccountBinding {
   readonly betterAuthAccountId: BetterAuthAccountId;
+  readonly graphConnectionVersion: GraphConnectionVersion;
   readonly providerAccountId: MicrosoftAccountId;
   readonly hasGraphConnection: boolean;
 }
@@ -45,6 +48,7 @@ export class CuratorStore extends Context.Service<CuratorStore, CuratorStoreServ
 
 const MicrosoftAccountRow = Schema.Struct({
   betterAuthAccountId: BetterAuthAccountIdSchema,
+  graphConnectionVersion: GraphConnectionVersionSchema,
   providerAccountId: MicrosoftAccountIdSchema,
   accessToken: Schema.NullOr(Schema.String),
   refreshToken: Schema.NullOr(Schema.String),
@@ -90,6 +94,7 @@ export const CuratorStoreLive = Layer.effect(
         SELECT
           "id" AS "betterAuthAccountId",
           "accountId" AS "providerAccountId",
+          CAST("updatedAt" AS TEXT) AS "graphConnectionVersion",
           "accessToken",
           "refreshToken",
           "scope"
@@ -123,6 +128,7 @@ export const CuratorStoreLive = Layer.effect(
 
       return Option.map(row, (account) => ({
         betterAuthAccountId: account.betterAuthAccountId,
+        graphConnectionVersion: account.graphConnectionVersion,
         providerAccountId: account.providerAccountId,
         hasGraphConnection:
           account.refreshToken !== null &&

@@ -10,6 +10,7 @@ import {
   BetterAuthAccountId,
   BetterAuthUserId,
   CuratorIdentity,
+  GraphConnectionVersion,
   MicrosoftAccountId,
 } from "./model.ts";
 
@@ -37,6 +38,7 @@ function insertMicrosoftAccount(
     readonly accessToken?: string | null;
     readonly refreshToken?: string | null;
     readonly scope?: string | null;
+    readonly updatedAt?: string;
   },
 ): void {
   database
@@ -50,7 +52,7 @@ function insertMicrosoftAccount(
     .prepare(
       `INSERT INTO "account"
         ("id", "accountId", "providerId", "userId", "accessToken", "refreshToken", "scope", "createdAt", "updatedAt")
-       VALUES (?, ?, 'microsoft', ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+        VALUES (?, ?, 'microsoft', ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       `account-${input.userId}`,
@@ -59,6 +61,8 @@ function insertMicrosoftAccount(
       input.accessToken ?? null,
       input.refreshToken ?? null,
       input.scope ?? null,
+      input.updatedAt ?? "2026-01-01 00:00:00",
+      input.updatedAt ?? "2026-01-01 00:00:00",
     );
 }
 
@@ -82,6 +86,7 @@ describe("Effect SQL D1 Curator store", () => {
 
     expect(Option.getOrThrow(account)).toEqual({
       betterAuthAccountId: BetterAuthAccountId.make("account-user-a"),
+      graphConnectionVersion: GraphConnectionVersion.make("2026-01-01 00:00:00"),
       providerAccountId: MicrosoftAccountId.make("oid-a"),
       hasGraphConnection: true,
     });

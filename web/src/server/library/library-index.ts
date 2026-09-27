@@ -3,7 +3,7 @@ import type { SignedInMicrosoftAccount } from "../curator/model.ts";
 import { LibraryIndexUnavailable } from "./errors.ts";
 import { LibraryIndexDispatcher } from "./library-index-dispatcher.ts";
 import type { LibraryIndexProgress } from "./library-index-model.ts";
-import { IndexRunId, indexProgress } from "./library-index-model.ts";
+import { IndexRunId, IndexWorkflowInstanceId, indexProgress } from "./library-index-model.ts";
 import { LibraryIndexStore } from "./library-index-store.ts";
 import type { LibraryBoundary } from "./model.ts";
 
@@ -38,11 +38,22 @@ export const LibraryIndexLive = Layer.effect(
       account: SignedInMicrosoftAccount,
       library: LibraryBoundary,
     ) {
-      const run = yield* store.ensureInitialRun(library, IndexRunId.make(crypto.randomUUID()));
+      const run = yield* store.ensureInitialRun(
+        library,
+        IndexRunId.make(crypto.randomUUID()),
+        account.graphConnectionVersion,
+      );
 
-      if (run.status !== "active" && Option.isNone(run.workflowInstanceId)) {
+      const reserved = yield* store.reserveDispatchAttempt(
+        run.runId,
+        IndexWorkflowInstanceId.make(crypto.randomUUID()),
+        account.graphConnectionVersion,
+      );
+
+      if (reserved.status === "queued" && Option.isSome(reserved.workflowInstanceId)) {
         yield* dispatcher.dispatch({
           runId: run.runId,
+          workflowInstanceId: reserved.workflowInstanceId.value,
           libraryId: library.id,
           driveId: library.driveId,
           account: {

@@ -12,6 +12,14 @@ export const BetterAuthAccountId = Schema.NonEmptyString.pipe(Schema.brand("Bett
 /** Better Auth's local identifier for one linked provider account. */
 export type BetterAuthAccountId = typeof BetterAuthAccountId.Type;
 
+/** Better Auth account revision used to prove that delegated Graph credentials changed. */
+export const GraphConnectionVersion = Schema.NonEmptyString.pipe(
+  Schema.brand("GraphConnectionVersion"),
+);
+
+/** Better Auth account revision used to prove that delegated Graph credentials changed. */
+export type GraphConnectionVersion = typeof GraphConnectionVersion.Type;
+
 /** Microsoft's stable, provider-owned account identifier (`oid`). */
 export const MicrosoftAccountId = Schema.NonEmptyString.pipe(Schema.brand("MicrosoftAccountId"));
 
@@ -41,6 +49,7 @@ export type MicrosoftAccountDisplay = typeof MicrosoftAccountDisplay.Type;
 export interface SignedInMicrosoftAccount {
   readonly userId: BetterAuthUserId;
   readonly betterAuthAccountId: BetterAuthAccountId;
+  readonly graphConnectionVersion: GraphConnectionVersion;
   readonly identity: CuratorIdentity;
   readonly display: MicrosoftAccountDisplay;
   readonly hasGraphConnection: boolean;

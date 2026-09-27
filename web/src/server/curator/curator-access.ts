@@ -103,6 +103,7 @@ export const CuratorAccessLive = Layer.effect(
       return Option.some({
         userId,
         betterAuthAccountId: account.value.betterAuthAccountId,
+        graphConnectionVersion: account.value.graphConnectionVersion,
         identity: CuratorIdentity.make({
           providerId: "microsoft",
           providerAccountId: account.value.providerAccountId,

@@ -1,6 +1,7 @@
 import { D1Client } from "@effect/sql-d1/D1Client";
 import { Context, Effect, Layer, Option } from "effect";
 import { SqlClient, SqlSchema } from "effect/unstable/sql";
+import type { GraphConnectionVersion } from "../curator/model.ts";
 import { LibraryIndexUnavailable } from "./errors.ts";
 import type {
   IndexRunId,
@@ -20,14 +21,16 @@ export interface LibraryIndexStoreService {
   readonly ensureInitialRun: (
     library: LibraryBoundary,
     proposedRunId: IndexRunId,
+    graphConnectionVersion: GraphConnectionVersion,
   ) => Effect.Effect<LibraryIndexRun, LibraryIndexUnavailable>;
   readonly getRun: (
     libraryId: LibraryId,
   ) => Effect.Effect<Option.Option<LibraryIndexRun>, LibraryIndexUnavailable>;
-  readonly recordDispatched: (
+  readonly reserveDispatchAttempt: (
     runId: IndexRunId,
-    workflowInstanceId: IndexWorkflowInstanceId,
-  ) => Effect.Effect<void, LibraryIndexUnavailable>;
+    proposedWorkflowInstanceId: IndexWorkflowInstanceId,
+    graphConnectionVersion: GraphConnectionVersion,
+  ) => Effect.Effect<LibraryIndexRun, LibraryIndexUnavailable>;
   readonly claimRun: (
     runId: IndexRunId,
     workflowInstanceId: IndexWorkflowInstanceId,
@@ -42,6 +45,7 @@ export interface LibraryIndexStoreService {
   readonly markWaitingForReauthentication: (
     runId: IndexRunId,
     workflowInstanceId: IndexWorkflowInstanceId,
+    graphConnectionVersion: GraphConnectionVersion,
   ) => Effect.Effect<void, LibraryIndexUnavailable>;
   readonly markRetrying: (
     runId: IndexRunId,
@@ -82,6 +86,7 @@ export const LibraryIndexStoreLive = Layer.effect(
           "generation",
           "status",
           "workflowInstanceId",
+          "graphConnectionVersion",
           "nextLink",
           "deltaLink",
           "activeGeneration",
@@ -102,6 +107,7 @@ export const LibraryIndexStoreLive = Layer.effect(
           "generation",
           "status",
           "workflowInstanceId",
+          "graphConnectionVersion",
           "nextLink",
           "deltaLink",
           "activeGeneration",
@@ -123,12 +129,13 @@ export const LibraryIndexStoreLive = Layer.effect(
     const ensureInitialRun = Effect.fn("LibraryIndexStore.ensureInitialRun")(function* (
       library: LibraryBoundary,
       proposedRunId: IndexRunId,
+      graphConnectionVersion: GraphConnectionVersion,
     ) {
       yield* sql`
         INSERT INTO "library_index_run" (
-          "libraryId", "runId", "generation", "status"
+          "libraryId", "runId", "generation", "status", "graphConnectionVersion"
         ) VALUES (
-          ${library.id}, ${proposedRunId}, 1, 'queued'
+          ${library.id}, ${proposedRunId}, 1, 'queued', ${graphConnectionVersion}
         )
         ON CONFLICT("libraryId") DO NOTHING
       `.pipe(Effect.mapError(unavailable));
@@ -141,18 +148,34 @@ export const LibraryIndexStoreLive = Layer.effect(
       });
     });
 
-    const recordDispatched = Effect.fn("LibraryIndexStore.recordDispatched")(function* (
+    const reserveDispatchAttempt = Effect.fn("LibraryIndexStore.reserveDispatchAttempt")(function* (
       runId: IndexRunId,
-      workflowInstanceId: IndexWorkflowInstanceId,
+      proposedWorkflowInstanceId: IndexWorkflowInstanceId,
+      graphConnectionVersion: GraphConnectionVersion,
     ) {
       yield* sql`
-        UPDATE "library_index_run"
-        SET
-          "workflowInstanceId" = COALESCE("workflowInstanceId", ${workflowInstanceId}),
-          "updatedAt" = CURRENT_TIMESTAMP
-        WHERE "runId" = ${runId}
-          AND "status" <> 'active'
-      `.pipe(Effect.mapError(unavailable));
+          UPDATE "library_index_run"
+          SET
+            "workflowInstanceId" = ${proposedWorkflowInstanceId},
+            "graphConnectionVersion" = ${graphConnectionVersion},
+            "status" = 'queued',
+            "updatedAt" = CURRENT_TIMESTAMP
+          WHERE "runId" = ${runId}
+            AND (
+              ("status" = 'queued' AND "workflowInstanceId" IS NULL)
+              OR (
+                "status" = 'waiting_for_reauthentication'
+                AND "graphConnectionVersion" <> ${graphConnectionVersion}
+              )
+            )
+        `.pipe(Effect.mapError(unavailable));
+
+      const reserved = yield* getRunById(runId);
+
+      return yield* Option.match(reserved, {
+        onNone: unavailable,
+        onSome: Effect.succeed,
+      });
     });
 
     const claimRun = Effect.fn("LibraryIndexStore.claimRun")(function* (
@@ -162,14 +185,11 @@ export const LibraryIndexStoreLive = Layer.effect(
       yield* sql`
         UPDATE "library_index_run"
         SET
-          "workflowInstanceId" = COALESCE("workflowInstanceId", ${workflowInstanceId}),
           "status" = 'running',
           "updatedAt" = CURRENT_TIMESTAMP
         WHERE "runId" = ${runId}
           AND "status" IN ('queued', 'running', 'retrying')
-          AND (
-            "workflowInstanceId" IS NULL OR "workflowInstanceId" = ${workflowInstanceId}
-          )
+          AND "workflowInstanceId" = ${workflowInstanceId}
       `.pipe(Effect.mapError(unavailable));
 
       const run = yield* getRunById(runId);
@@ -229,8 +249,21 @@ export const LibraryIndexStoreLive = Layer.effect(
 
     const markWaitingForReauthentication = Effect.fn(
       "LibraryIndexStore.markWaitingForReauthentication",
-    )(function* (runId: IndexRunId, workflowInstanceId: IndexWorkflowInstanceId) {
-      yield* markStatus(runId, workflowInstanceId, "waiting_for_reauthentication");
+    )(function* (
+      runId: IndexRunId,
+      workflowInstanceId: IndexWorkflowInstanceId,
+      graphConnectionVersion: GraphConnectionVersion,
+    ) {
+      yield* sql`
+        UPDATE "library_index_run"
+        SET
+          "status" = 'waiting_for_reauthentication',
+          "graphConnectionVersion" = ${graphConnectionVersion},
+          "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "runId" = ${runId}
+          AND "workflowInstanceId" = ${workflowInstanceId}
+          AND "status" <> 'active'
+      `.pipe(Effect.mapError(unavailable));
     });
 
     const markRetrying = Effect.fn("LibraryIndexStore.markRetrying")(function* (
@@ -261,7 +294,7 @@ export const LibraryIndexStoreLive = Layer.effect(
       markFailed,
       markRetrying,
       markWaitingForReauthentication,
-      recordDispatched,
+      reserveDispatchAttempt,
       stagePage,
     });
   }),

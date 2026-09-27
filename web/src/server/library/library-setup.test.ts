@@ -4,6 +4,7 @@ import {
   BetterAuthAccountId,
   BetterAuthUserId,
   CuratorIdentity,
+  GraphConnectionVersion,
   MicrosoftAccountId,
 } from "../curator/model.ts";
 import { MicrosoftGraph } from "../graph/microsoft-graph.ts";
@@ -17,6 +18,7 @@ import type { LibraryBoundary } from "./model.ts";
 const account = {
   userId: BetterAuthUserId.make("user-a"),
   betterAuthAccountId: BetterAuthAccountId.make("account-a"),
+  graphConnectionVersion: GraphConnectionVersion.make("connection-v1"),
   identity: CuratorIdentity.make({
     providerId: "microsoft",
     providerAccountId: MicrosoftAccountId.make("owner-oid"),

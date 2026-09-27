@@ -1,5 +1,6 @@
 import { Effect, Option } from "effect";
 import { describe, expect, it } from "vitest";
+import { GraphConnectionVersion } from "../curator/model.ts";
 import {
   CompleteDeltaContinuation,
   GraphDeltaLink,
@@ -9,6 +10,7 @@ import {
 } from "./library-index-model.ts";
 import {
   indexLibrary as library,
+  indexGraphConnectionVersion as graphConnectionVersion,
   indexNode as node,
   indexRunId as runId,
   indexStoreLayer as storeLayer,
@@ -28,8 +30,16 @@ describe("Effect SQL D1 Bibliotheek index store", () => {
       LibraryIndexStore.pipe(
         Effect.flatMap((store) =>
           Effect.gen(function* () {
-            const firstRun = yield* store.ensureInitialRun(library, runId);
-            const repeatedRun = yield* store.ensureInitialRun(library, competingRunId);
+            const firstRun = yield* store.ensureInitialRun(library, runId, graphConnectionVersion);
+
+            const repeatedRun = yield* store.ensureInitialRun(
+              library,
+              competingRunId,
+              graphConnectionVersion,
+            );
+
+            yield* store.reserveDispatchAttempt(runId, workflowId, graphConnectionVersion);
+
             const claimed = yield* store.claimRun(runId, workflowId);
 
             const competingClaim = yield* store.claimRun(
@@ -176,7 +186,8 @@ describe("Effect SQL D1 Bibliotheek index store", () => {
       LibraryIndexStore.pipe(
         Effect.flatMap((store) =>
           Effect.gen(function* () {
-            yield* store.ensureInitialRun(library, runId);
+            yield* store.ensureInitialRun(library, runId, graphConnectionVersion);
+            yield* store.reserveDispatchAttempt(runId, workflowId, graphConnectionVersion);
             yield* store.claimRun(runId, workflowId);
           }),
         ),
@@ -223,5 +234,65 @@ describe("Effect SQL D1 Bibliotheek index store", () => {
         .prepare('SELECT "status", "activeGeneration" FROM "library_index_run" WHERE "runId" = ?')
         .get(runId),
     ).toEqual({ status: "running", activeGeneration: null });
+  });
+
+  it("reserves one fresh Workflow attempt only after Graph credentials change", async () => {
+    const database = makeMigratedDatabase();
+    const initialVersion = GraphConnectionVersion.make("connection-v1");
+    const reconnectedVersion = GraphConnectionVersion.make("connection-v2");
+    const workflowB = IndexWorkflowInstanceId.make("workflow-b");
+    const workflowC = IndexWorkflowInstanceId.make("workflow-c");
+
+    const result = await Effect.runPromise(
+      LibraryIndexStore.pipe(
+        Effect.flatMap((store) =>
+          Effect.gen(function* () {
+            yield* store.ensureInitialRun(library, runId, initialVersion);
+
+            const initial = yield* store.reserveDispatchAttempt(runId, workflowId, initialVersion);
+
+            const competingInitial = yield* store.reserveDispatchAttempt(
+              runId,
+              workflowB,
+              initialVersion,
+            );
+
+            yield* store.claimRun(runId, workflowId);
+            yield* store.markWaitingForReauthentication(runId, workflowId, initialVersion);
+
+            const withoutReconnect = yield* store.reserveDispatchAttempt(
+              runId,
+              workflowB,
+              initialVersion,
+            );
+
+            const resumed = yield* store.reserveDispatchAttempt(
+              runId,
+              workflowB,
+              reconnectedVersion,
+            );
+
+            const competingResume = yield* store.reserveDispatchAttempt(
+              runId,
+              workflowC,
+              reconnectedVersion,
+            );
+
+            return { competingInitial, competingResume, initial, resumed, withoutReconnect };
+          }),
+        ),
+        Effect.provide(storeLayer(database)),
+      ),
+    );
+
+    expect(result.initial.workflowInstanceId).toEqual(Option.some(workflowId));
+    expect(result.competingInitial.workflowInstanceId).toEqual(Option.some(workflowId));
+    expect(result.withoutReconnect.status).toBe("waiting_for_reauthentication");
+    expect(result.resumed).toMatchObject({
+      graphConnectionVersion: reconnectedVersion,
+      status: "queued",
+    });
+    expect(result.resumed.workflowInstanceId).toEqual(Option.some(workflowB));
+    expect(result.competingResume.workflowInstanceId).toEqual(Option.some(workflowB));
   });
 });

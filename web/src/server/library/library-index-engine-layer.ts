@@ -3,6 +3,7 @@ import type { Redacted } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createThrowbackAuth } from "../auth/auth.ts";
 import { BetterAuthServer } from "../auth/better-auth-server.ts";
+import { CuratorStore } from "../curator/curator-store.ts";
 import type { CuratorStoreService } from "../curator/curator-store.ts";
 import { GraphAccessTokenLive } from "../graph/graph-token.ts";
 import { MicrosoftGraphApiLive } from "../graph/microsoft-graph-api.ts";
@@ -42,6 +43,7 @@ export function libraryIndexEngineLayer(
   return LibraryIndexEngineLive.pipe(
     Layer.provide([
       Layer.succeed(LibraryIndexStore, indexStore),
+      Layer.succeed(CuratorStore, curatorStore),
       graphTokenLayer,
       MicrosoftGraphApiLive.pipe(Layer.provide(FetchHttpClient.layer)),
     ]),

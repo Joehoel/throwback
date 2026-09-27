@@ -5,10 +5,7 @@ import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { LOCAL_URL, PREVIEW_URL, PreviewBetterAuthSecret, PreviewDB } from "./infrastructure.ts";
 import { LibraryIndexWorkflowInput } from "./src/server/library/library-index-dispatcher.ts";
 import { IndexWorkflowInstanceId } from "./src/server/library/library-index-model.ts";
-import {
-  processLibraryIndexPage,
-  recordLibraryIndexDispatch,
-} from "./src/server/library/library-index-runtime.ts";
+import { processLibraryIndexPage } from "./src/server/library/library-index-runtime.ts";
 
 function isD1Database(input: unknown): input is D1Database {
   return (
@@ -56,13 +53,13 @@ export class LibraryIndexWorkflow extends Workflow<LibraryIndexWorkflow>()(
       let pageNumber = 0;
       let shouldContinue = true;
 
+      if (workflowInstanceId !== input.workflowInstanceId) {
+        yield* Effect.die(new Error("Workflow instance does not match its reserved attempt"));
+      }
+
       yield* Effect.whileLoop({
         while: () => shouldContinue,
-        body: () =>
-          task(
-            `delta-page-${pageNumber}`,
-            processLibraryIndexPage(options, input, workflowInstanceId),
-          ),
+        body: () => task(`delta-page-${pageNumber}`, processLibraryIndexPage(options, input)),
         step: (result) => {
           pageNumber += 1;
           shouldContinue = result === "continue";
@@ -113,15 +110,9 @@ export class LibraryIndexWorker extends Worker<LibraryIndexWorker>()(
           Effect.orDie,
         );
 
-        const instance = yield* workflow
-          .create({ id: input.runId, params: input })
-          .pipe(Effect.catchCause(() => workflow.get(input.runId)));
-
-        const workflowInstanceId = IndexWorkflowInstanceId.make(instance.id);
-
-        const options = yield* indexRuntimeOptions();
-
-        yield* recordLibraryIndexDispatch(options.database, input.runId, workflowInstanceId);
+        yield* workflow
+          .create({ id: input.workflowInstanceId, params: input })
+          .pipe(Effect.catchCause(() => workflow.get(input.workflowInstanceId)));
 
         return HttpServerResponse.empty({ status: 202 });
       }),
