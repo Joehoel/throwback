@@ -65,12 +65,12 @@ const LibraryHandlers = HttpApiBuilder.group(
         "selectLibrary",
         Effect.fn("LibraryApi.selectLibrary")(function* ({ payload }) {
           const account = yield* SignedInMicrosoftAccount;
-          const library = yield* setup.selectLibrary(account, payload.rootFolderId);
+          const selection = yield* setup.selectLibrary(account, payload.rootFolderId);
 
           return LibraryIndexing.make({
-            libraryId: library.id,
-            rootFolder: library.root,
-            discoveredPhotos: 0,
+            libraryId: selection.library.id,
+            rootFolder: selection.library.root,
+            progress: selection.progress,
           });
         }),
       );

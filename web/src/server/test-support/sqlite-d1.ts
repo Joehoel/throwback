@@ -66,17 +66,21 @@ class SqliteD1PreparedStatement implements D1PreparedStatement {
   }
 
   public all<T = Record<string, unknown>>(): Promise<D1Result<T>> {
+    return Promise.resolve(this.execute<T>());
+  }
+
+  public execute<T = Record<string, unknown>>(): D1Result<T> {
     const rows = this.database
       .prepare(this.query)
       .all(...this.parameters)
       .map((row) => Schema.decodeUnknownSync(Row)(row));
 
-    return Promise.resolve({
+    return {
       success: true,
       meta: meta(),
       // SAFETY: SQLite rows are decoded records; D1's API leaves the row generic under caller control.
       results: rows as T[],
-    });
+    };
   }
 
   public raw<T = unknown[]>(options?: { columnNames?: false }): Promise<T[]>;
@@ -103,6 +107,31 @@ class SqliteD1PreparedStatement implements D1PreparedStatement {
   }
 }
 
+function batchStatements<T = unknown>(
+  database: DatabaseSync,
+  statements: D1PreparedStatement[],
+): Promise<D1Result<T>[]> {
+  database.exec("BEGIN IMMEDIATE");
+
+  try {
+    const results = statements.map((statement) => {
+      if (!(statement instanceof SqliteD1PreparedStatement)) {
+        throw new TypeError("The SQLite D1 test adapter received a foreign prepared statement");
+      }
+
+      return statement.execute<T>();
+    });
+
+    database.exec("COMMIT");
+
+    return Promise.resolve(results);
+  } catch (error) {
+    database.exec("ROLLBACK");
+
+    return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  }
+}
+
 class SqliteD1Session implements D1DatabaseSession {
   private readonly database: DatabaseSync;
 
@@ -114,9 +143,8 @@ class SqliteD1Session implements D1DatabaseSession {
     return new SqliteD1PreparedStatement(this.database, query);
   }
 
-  // oxlint-disable-next-line eslint/class-methods-use-this -- D1DatabaseSession requires this operation on each session value.
   public batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
-    return Promise.all(statements.map((statement) => statement.all<T>()));
+    return batchStatements(this.database, statements);
   }
 
   // oxlint-disable-next-line eslint/class-methods-use-this -- This local session has no replica bookmark to return.
@@ -125,15 +153,11 @@ class SqliteD1Session implements D1DatabaseSession {
   }
 }
 
-function batchStatements<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
-  return Promise.all(statements.map((statement) => statement.all<T>()));
-}
-
 /** Create a faithful local D1 query surface over Node's in-memory SQLite. */
-export function makeSqliteD1(database: DatabaseSync): D1Database {
+export function sqliteD1Database(database: DatabaseSync): D1Database {
   return {
     prepare: (query) => new SqliteD1PreparedStatement(database, query),
-    batch: batchStatements,
+    batch: (statements) => batchStatements(database, statements),
     exec: async (query) => {
       database.exec(query);
 

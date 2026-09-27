@@ -22,6 +22,9 @@ import {
   DriveItemId as DriveItemIdSchema,
   SelectableFolder as SelectableFolderSchema,
 } from "../library/model.ts";
+import type { DriveDeltaPage, GraphDeltaLink } from "../library/library-index-model.ts";
+import { GraphItemNotFolder } from "./errors.ts";
+import { GraphDeltaPageResponse } from "./graph-delta-schema.ts";
 
 const GRAPH_ORIGIN = "https://graph.microsoft.com";
 
@@ -131,12 +134,6 @@ const GraphFolderPage = Schema.Struct({
   "@odata.nextLink": Schema.OptionFromOptionalKey(Schema.String),
 });
 
-/** A Graph item exists but is not a selectable local folder. */
-export class GraphItemNotFolder extends Schema.TaggedError<GraphItemNotFolder>()(
-  "GraphItemNotFolder",
-  { message: Schema.String },
-) {}
-
 type GraphReadError = GraphReauthenticationRequired | OneDriveFolderNotFound | OneDriveUnavailable;
 
 /** Typed, server-only HTTP operations against the delegated Microsoft Graph API. */
@@ -154,6 +151,11 @@ export interface MicrosoftGraphApiService {
     driveId: DriveId,
     folderId: DriveItemId,
   ) => Effect.Effect<readonly SelectableFolder[], GraphReadError>;
+  readonly getDriveRootDeltaPage: (
+    token: Redacted.Redacted,
+    driveId: DriveId,
+    continuation: Option.Option<GraphDeltaLink>,
+  ) => Effect.Effect<DriveDeltaPage, GraphReadError>;
 }
 
 /** Typed, server-only HTTP operations against the delegated Microsoft Graph API. */
@@ -309,6 +311,27 @@ export const MicrosoftGraphApiLive = Layer.effect(
       );
     });
 
-    return MicrosoftGraphApi.of({ getDefaultDrive, getFolder, listChildFolders });
+    const getDriveRootDeltaPage = Effect.fn("MicrosoftGraphApi.getDriveRootDeltaPage")(function* (
+      token: Redacted.Redacted,
+      driveId: DriveId,
+      continuation: Option.Option<GraphDeltaLink>,
+    ) {
+      const request = Option.match(continuation, {
+        onNone: () =>
+          graphGet(`/drives/${encodeURIComponent(driveId)}/root/delta`, {
+            $select: "id,parentReference,folder,file,deleted",
+          }),
+        onSome: (link) => HttpClientRequest.get(link),
+      });
+
+      return yield* requestJson(token, request, GraphDeltaPageResponse);
+    });
+
+    return MicrosoftGraphApi.of({
+      getDefaultDrive,
+      getDriveRootDeltaPage,
+      getFolder,
+      listChildFolders,
+    });
   }),
 );

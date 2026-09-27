@@ -1,6 +1,12 @@
+import { useQuery } from "@tanstack/react-query";
 import { is } from "valibot";
 import type { InferOutput } from "valibot";
-import { vCuratorClaimRequired, vGraphConnectionRequired } from "../generated/valibot.gen.ts";
+import { bootstrapQueryOptions } from "../api/bootstrap.ts";
+import {
+  vCuratorClaimRequired,
+  vGraphConnectionRequired,
+  vLibraryIndexing,
+} from "../generated/valibot.gen.ts";
 import type { vBootstrapState } from "../generated/valibot.gen.ts";
 import { SessionActions } from "../auth/session-actions.tsx";
 import { LibraryFolderPicker } from "./library-folder-picker.tsx";
@@ -35,6 +41,48 @@ export function isSetupStep(step: string): step is SetupStep {
   return Object.hasOwn(setupCopy, step);
 }
 
+function IndexingProgress({ initialState }: { readonly initialState: BootstrapState }) {
+  const bootstrap = useQuery({
+    ...bootstrapQueryOptions(),
+    initialData: initialState,
+    staleTime: 1500,
+    refetchInterval: (query) => {
+      const current = query.state.data;
+
+      return is(vLibraryIndexing, current) &&
+        current.progress.status !== "active" &&
+        current.progress.status !== "failed" &&
+        current.progress.status !== "waiting_for_reauthentication"
+        ? 2000
+        : false;
+    },
+  });
+
+  if (!is(vLibraryIndexing, bootstrap.data)) {
+    return <StatusChip>Indexstatus wordt opnieuw geladen</StatusChip>;
+  }
+
+  const { progress } = bootstrap.data;
+
+  if (progress.status === "waiting_for_reauthentication") {
+    return <StatusChip>Koppel OneDrive opnieuw om verder te gaan</StatusChip>;
+  }
+
+  if (progress.status === "failed") {
+    return <StatusChip>De inventarisatie kon niet worden voltooid</StatusChip>;
+  }
+
+  if (progress.status === "active") {
+    return <StatusChip>Bibliotheek gereed · {progress.processedItems} items verwerkt</StatusChip>;
+  }
+
+  return (
+    <StatusChip>
+      {progress.processedItems} items verwerkt · {progress.pagesProcessed} pagina&apos;s opgeslagen
+    </StatusChip>
+  );
+}
+
 export function SetupShell({
   state,
   step,
@@ -57,11 +105,11 @@ export function SetupShell({
         <SetupAccountStep operation="graph" state={state} />
       ) : null}
       {step === "library" ? <LibraryFolderPicker /> : null}
-      <StatusChip>
-        {"discoveredPhotos" in state
-          ? `${state.discoveredPhotos} Fotos gevonden`
-          : "Volgende stap bevestigd door de server"}
-      </StatusChip>
+      {step === "indexing" && is(vLibraryIndexing, state) ? (
+        <IndexingProgress initialState={state} />
+      ) : (
+        <StatusChip>Volgende stap bevestigd door de server</StatusChip>
+      )}
       <SessionActions />
     </ShellLayout>
   );

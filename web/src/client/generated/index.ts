@@ -36,6 +36,8 @@ export type {
   LibraryAlreadySelectedEncoded,
   LibraryId,
   LibraryIndexing,
+  LibraryIndexProgress,
+  LibraryIndexUnavailableEncoded,
   LibraryRootDisplay,
   LibrarySelectionRequired,
   LibraryStoreUnavailableEncoded,

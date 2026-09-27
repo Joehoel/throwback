@@ -7,11 +7,23 @@ import { LibrarySetup } from "../../library/library-setup.ts";
 import type { LibrarySetupService } from "../../library/library-setup.ts";
 import { LibraryStore } from "../../library/library-store.ts";
 import type { LibraryBoundary } from "../../library/model.ts";
+import { LibraryIndex } from "../../library/library-index.ts";
 import { createDomainRequestHandler } from "../handler.ts";
 
 const unusedLibrarySetup = Layer.succeed(LibrarySetup, {
   browseFolders: () => Effect.die("Library setup is not configured for this test"),
   selectLibrary: () => Effect.die("Library setup is not configured for this test"),
+});
+
+const libraryIndexLayer = Layer.succeed(LibraryIndex, {
+  getProgress: () => Effect.succeed(Option.none()),
+  startOrResume: () =>
+    Effect.succeed({
+      status: "running" as const,
+      pagesProcessed: 2,
+      processedItems: 42,
+      reviewBlocked: true,
+    }),
 });
 
 const signedOutAccessLayer = CuratorAccessLive.pipe(
@@ -29,6 +41,7 @@ const signedOutAccessLayer = CuratorAccessLive.pipe(
         getSelected: () => Effect.succeed(Option.none()),
         select: (selection) => Effect.succeed(selection),
       }),
+      libraryIndexLayer,
     ),
   ),
 );
@@ -95,6 +108,7 @@ export function createSignedInDomainHandler(options: {
               return Option.getOrThrow(selectedLibrary);
             }),
         }),
+        libraryIndexLayer,
       ),
     ),
   );

@@ -42,11 +42,25 @@ export const vLibraryRootDisplay = v.strictObject({
   path: v.pipe(v.string(), v.minLength(1)),
 });
 
+export const vLibraryIndexProgress = v.strictObject({
+  status: v.picklist([
+    "queued",
+    "running",
+    "retrying",
+    "waiting_for_reauthentication",
+    "failed",
+    "active",
+  ]),
+  pagesProcessed: v.pipe(v.number(), v.integer()),
+  processedItems: v.pipe(v.number(), v.integer()),
+  reviewBlocked: v.boolean(),
+});
+
 export const vLibraryIndexing = v.strictObject({
   _tag: v.picklist(["LibraryIndexing"]),
   libraryId: vLibraryId,
   rootFolder: vLibraryRootDisplay,
-  discoveredPhotos: v.number(),
+  progress: vLibraryIndexProgress,
 });
 
 export const vEventId = v.pipe(v.string(), v.brand("EventId"));
@@ -143,6 +157,11 @@ export const vOneDriveUnavailableEncoded = v.strictObject({
 export const vSelectLibraryRequest = v.strictObject({
   rootFolderId: vDriveItemId,
   confirmed: v.literal(true),
+});
+
+export const vLibraryIndexUnavailableEncoded = v.strictObject({
+  _tag: v.picklist(["LibraryIndexUnavailable"]),
+  message: v.string(),
 });
 
 export const vInvalidLibrarySelectionEncoded = v.strictObject({

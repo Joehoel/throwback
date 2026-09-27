@@ -13,8 +13,8 @@ export function ReviewShell({ state }: { readonly state: BootstrapState }) {
           Deze vaste bookmark is klaar voor de Foto-editor zodra de Bibliotheek is geïndexeerd.
         </p>
         <p className="mt-8 border border-[#d8d0c1] bg-[#f4f0e7] px-4 py-3 text-sm font-semibold text-[#665d4d]">
-          {"discoveredPhotos" in state
-            ? `${state.discoveredPhotos} Fotos gevonden`
+          {"progress" in state
+            ? `${state.progress.processedItems} items verwerkt`
             : "Reviewstatus bevestigd door de server"}
         </p>
       </aside>

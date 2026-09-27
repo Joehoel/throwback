@@ -2,18 +2,16 @@ import * as Alchemy from "alchemy";
 import * as Cloudflare from "alchemy/Cloudflare";
 import * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
+import {
+  LOCAL_URL,
+  PREVIEW_DOMAIN,
+  PREVIEW_URL,
+  PreviewBetterAuthSecret,
+  PreviewDB,
+} from "./infrastructure.ts";
+import { LibraryIndexWorker } from "./library-index-worker.ts";
 
-const PREVIEW_DOMAIN = "curation-preview.kuijper.fyi";
-const PREVIEW_URL = `https://${PREVIEW_DOMAIN}`;
-const LOCAL_URL = "http://localhost:3000";
-
-export const PreviewDB = Cloudflare.D1.Database("PreviewDB", {
-  name: "throwback-curation-preview",
-  jurisdiction: "eu",
-  migrations: "./migrations",
-});
-
-const PreviewBetterAuthSecret = Alchemy.makeRandom("PreviewBetterAuthSecret");
+export { PreviewDB } from "./infrastructure.ts";
 
 export class Website extends Cloudflare.Website.Vite<Website>()(
   "PreviewWebsite",
@@ -51,6 +49,7 @@ export class Website extends Cloudflare.Website.Vite<Website>()(
         MICROSOFT_CLIENT_ID: "0bb9b8c8-a9e6-475d-b44f-74521e46aaf1",
         MICROSOFT_CLIENT_SECRET: Config.Redacted("MICROSOFT_CLIENT_SECRET"),
         MICROSOFT_CALLBACK_URL: `${baseUrl}/api/auth/callback/microsoft`,
+        LIBRARY_INDEXER: LibraryIndexWorker,
       },
       dev: { host: "localhost", port: 3000, strictPort: true },
     };

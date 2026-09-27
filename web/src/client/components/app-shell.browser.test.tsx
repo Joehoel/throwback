@@ -23,7 +23,7 @@ describe("Beheer-webapp shells", () => {
 
     await expect
       .element(page.getByRole("heading", { level: 1 }))
-      .toHaveTextContent("familiefoto's");
+      .toHaveTextContent("Breng de verhalen achter je familiefoto's terug.");
     await expect.element(page.getByText("Volgende stap bevestigd door de server")).toBeVisible();
   });
 
@@ -38,7 +38,9 @@ describe("Beheer-webapp shells", () => {
         <SetupShell state={librarySelection} step="library" />
       </QueryClientProvider>,
     );
-    await expect.element(page.getByRole("heading", { level: 1 })).toHaveTextContent("Hoofdmap");
+    await expect
+      .element(page.getByRole("heading", { level: 1 }))
+      .toHaveTextContent("Kies de Hoofdmap");
     await expect
       .element(page.getByRole("button", { name: "Uitloggen op dit apparaat" }))
       .toBeVisible();
@@ -54,12 +56,23 @@ describe("Beheer-webapp shells", () => {
     const indexing = parse(
       vLibraryIndexing,
       JSON.parse(
-        '{"_tag":"LibraryIndexing","libraryId":"00000000-0000-4000-8000-000000000043","rootFolder":{"name":"Familiefoto\u0027s","path":"OneDrive / Familiefoto\u0027s"},"discoveredPhotos":42}',
+        '{"_tag":"LibraryIndexing","libraryId":"00000000-0000-4000-8000-000000000043","rootFolder":{"name":"Familiefoto\u0027s","path":"OneDrive / Familiefoto\u0027s"},"progress":{"status":"running","pagesProcessed":2,"processedItems":42,"reviewBlocked":true}}',
       ),
     );
 
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <SetupShell state={indexing} step="indexing" />
+      </QueryClientProvider>,
+    );
+    await expect.element(page.getByText("42 items verwerkt · 2 pagina's opgeslagen")).toBeVisible();
+
+    document.body.innerHTML = "";
+
     render(<ReviewShell state={indexing} />);
-    await expect.element(page.getByRole("heading", { level: 1 })).toHaveTextContent("voorbereid");
+    await expect
+      .element(page.getByRole("heading", { level: 1 }))
+      .toHaveTextContent("Foto wordt voorbereid");
   });
 
   it("shows the Microsoft account before the one-time claim", async () => {

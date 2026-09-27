@@ -190,7 +190,16 @@ describe("Throwback domain API", () => {
       ownerId: "owner-oid",
       librarySetup: {
         browseFolders: () => Effect.die("Browsing is not configured for this test"),
-        selectLibrary: () => Effect.succeed(selectedLibrary),
+        selectLibrary: () =>
+          Effect.succeed({
+            library: selectedLibrary,
+            progress: {
+              status: "queued",
+              pagesProcessed: 0,
+              processedItems: 0,
+              reviewBlocked: true,
+            },
+          }),
       },
     });
 
@@ -201,7 +210,12 @@ describe("Throwback domain API", () => {
       LibraryIndexing.make({
         libraryId: LibraryId.make("00000000-0000-4000-8000-000000000043"),
         rootFolder: { name: "Familiefoto's", path: "OneDrive / Familiefoto's" },
-        discoveredPhotos: 0,
+        progress: {
+          status: "queued",
+          pagesProcessed: 0,
+          processedItems: 0,
+          reviewBlocked: true,
+        },
       }),
     );
   });
@@ -225,7 +239,12 @@ describe("Throwback domain API", () => {
       LibraryIndexing.make({
         libraryId: LibraryId.make("00000000-0000-4000-8000-000000000043"),
         rootFolder: { name: "Familiefoto's", path: "OneDrive / Familiefoto's" },
-        discoveredPhotos: 0,
+        progress: {
+          status: "running",
+          pagesProcessed: 2,
+          processedItems: 42,
+          reviewBlocked: true,
+        },
       }),
     );
   });

@@ -1,33 +1,23 @@
-import { env } from "cloudflare:workers";
-import { layer as layerD1 } from "@effect/sql-d1/D1Client";
-import { Effect, Layer, Redacted } from "effect";
+import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 import { createDomainRequestHandler } from "./api/handler.ts";
 import { ApplicationLive } from "./application-layer.ts";
-import { createThrowbackAuth } from "./auth/auth.ts";
 import { BetterAuthServer } from "./auth/better-auth-server.ts";
-import { CuratorStore, CuratorStoreLive } from "./curator/curator-store.ts";
-import { LibraryStore, LibraryStoreLive } from "./library/library-store.ts";
-
-const SqlLive = layerD1({ db: env.DB });
-
-const PersistenceLive = Layer.mergeAll(CuratorStoreLive, LibraryStoreLive).pipe(
-  Layer.provide(SqlLive),
-);
+import { createRuntimeAuth } from "./auth/runtime-auth.ts";
+import { CuratorStore } from "./curator/curator-store.ts";
+import {
+  LibraryIndex,
+  LibraryIndexApplicationLive,
+} from "./library/library-index-application-layer.ts";
+import { LibraryStore } from "./library/library-store.ts";
+import { PersistenceLive } from "./persistence-layer.ts";
 
 const runtime = Effect.gen(function* () {
   const curatorStore = yield* CuratorStore;
   const libraryStore = yield* LibraryStore;
+  const libraryIndex = yield* LibraryIndex.pipe(Effect.provide(LibraryIndexApplicationLive));
 
-  const auth = createThrowbackAuth({
-    baseURL: env.BETTER_AUTH_URL,
-    callbackURL: env.MICROSOFT_CALLBACK_URL,
-    curatorStore,
-    database: env.DB,
-    microsoftClientId: env.MICROSOFT_CLIENT_ID,
-    microsoftClientSecret: Redacted.make(env.MICROSOFT_CLIENT_SECRET),
-    secret: Redacted.make(env.BETTER_AUTH_SECRET),
-  });
+  const auth = createRuntimeAuth(curatorStore);
 
   return {
     auth,
@@ -37,6 +27,7 @@ const runtime = Effect.gen(function* () {
           Layer.succeed(BetterAuthServer, auth),
           Layer.succeed(CuratorStore, curatorStore),
           Layer.succeed(LibraryStore, libraryStore),
+          Layer.succeed(LibraryIndex, libraryIndex),
           FetchHttpClient.layer,
         ]),
       ),

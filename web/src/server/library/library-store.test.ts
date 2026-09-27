@@ -5,7 +5,7 @@ import * as D1Client from "@effect/sql-d1/D1Client";
 import { Effect, Layer, Option } from "effect";
 import { describe, expect, it } from "vitest";
 import { CuratorIdentity, MicrosoftAccountId } from "../curator/model.ts";
-import { makeSqliteD1 } from "../test-support/sqlite-d1.ts";
+import { sqliteD1Database } from "../test-support/sqlite-d1.ts";
 import { LibraryStore, LibraryStoreLive } from "./library-store.ts";
 import { DriveId, DriveItemId, LibraryId } from "./model.ts";
 
@@ -32,7 +32,7 @@ function makeMigratedDatabase(): DatabaseSync {
 }
 
 function storeLayer(database: DatabaseSync) {
-  return LibraryStoreLive.pipe(Layer.provide(D1Client.layer({ db: makeSqliteD1(database) })));
+  return LibraryStoreLive.pipe(Layer.provide(D1Client.layer({ db: sqliteD1Database(database) })));
 }
 
 const curator = CuratorIdentity.make({

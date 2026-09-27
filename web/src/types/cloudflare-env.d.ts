@@ -10,6 +10,7 @@ declare global {
       readonly MICROSOFT_CALLBACK_URL: string;
       readonly MICROSOFT_CLIENT_ID: string;
       readonly MICROSOFT_CLIENT_SECRET: string;
+      readonly LIBRARY_INDEXER: Fetcher;
     }
   }
 }

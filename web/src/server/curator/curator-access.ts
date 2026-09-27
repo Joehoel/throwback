@@ -17,6 +17,7 @@ import {
 import type { SignedInMicrosoftAccount } from "./model.ts";
 import { BetterAuthUserId, CuratorIdentity } from "./model.ts";
 import { LibraryStore } from "../library/library-store.ts";
+import { LibraryIndex } from "../library/library-index.ts";
 
 /** Authentication and single-Curator authorization policy. */
 export interface CuratorAccessService {
@@ -57,6 +58,7 @@ export const CuratorAccessLive = Layer.effect(
     const sessions = yield* ApplicationSession;
     const store = yield* CuratorStore;
     const libraries = yield* LibraryStore;
+    const indexes = yield* LibraryIndex;
 
     const nextSetupState = Effect.fn("CuratorAccess.nextSetupState")(function* (
       account: SignedInMicrosoftAccount,
@@ -69,14 +71,18 @@ export const CuratorAccessLive = Layer.effect(
         .getSelected(account.identity)
         .pipe(Effect.mapError(unavailable));
 
-      return Option.match(library, {
-        onNone: () => LibrarySelectionRequired.make({}),
-        onSome: (selected) =>
-          LibraryIndexing.make({
-            libraryId: selected.id,
-            rootFolder: selected.root,
-            discoveredPhotos: 0,
-          }),
+      if (Option.isNone(library)) {
+        return LibrarySelectionRequired.make({});
+      }
+
+      const progress = yield* indexes
+        .startOrResume(account, library.value)
+        .pipe(Effect.mapError(unavailable));
+
+      return LibraryIndexing.make({
+        libraryId: library.value.id,
+        rootFolder: library.value.root,
+        progress,
       });
     });
 

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import * as D1Client from "@effect/sql-d1/D1Client";
 import { Effect, Layer, Option } from "effect";
 import { describe, expect, it } from "vitest";
-import { makeSqliteD1 } from "../test-support/sqlite-d1.ts";
+import { sqliteD1Database } from "../test-support/sqlite-d1.ts";
 import { CuratorStore, CuratorStoreLive } from "./curator-store.ts";
 import {
   BetterAuthAccountId,
@@ -26,7 +26,7 @@ function makeMigratedDatabase(): DatabaseSync {
 }
 
 function storeLayer(database: DatabaseSync) {
-  return CuratorStoreLive.pipe(Layer.provide(D1Client.layer({ db: makeSqliteD1(database) })));
+  return CuratorStoreLive.pipe(Layer.provide(D1Client.layer({ db: sqliteD1Database(database) })));
 }
 
 function insertMicrosoftAccount(

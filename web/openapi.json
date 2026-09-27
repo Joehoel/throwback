@@ -317,13 +317,16 @@
             }
           },
           "503": {
-            "description": "LibraryStoreUnavailable | CuratorAccessUnavailable",
+            "description": "LibraryStoreUnavailable | LibraryIndexUnavailable | CuratorAccessUnavailable",
             "content": {
               "application/json": {
                 "schema": {
                   "anyOf": [
                     {
                       "$ref": "#/components/schemas/LibraryStoreUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LibraryIndexUnavailableEncoded"
                     },
                     {
                       "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
@@ -455,6 +458,33 @@
         "required": ["name", "path"],
         "additionalProperties": false
       },
+      "LibraryIndexProgress": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "retrying",
+              "waiting_for_reauthentication",
+              "failed",
+              "active"
+            ]
+          },
+          "pagesProcessed": {
+            "type": "integer"
+          },
+          "processedItems": {
+            "type": "integer"
+          },
+          "reviewBlocked": {
+            "type": "boolean"
+          }
+        },
+        "required": ["status", "pagesProcessed", "processedItems", "reviewBlocked"],
+        "additionalProperties": false
+      },
       "LibraryIndexing": {
         "type": "object",
         "properties": {
@@ -468,11 +498,11 @@
           "rootFolder": {
             "$ref": "#/components/schemas/LibraryRootDisplay"
           },
-          "discoveredPhotos": {
-            "type": "number"
+          "progress": {
+            "$ref": "#/components/schemas/LibraryIndexProgress"
           }
         },
-        "required": ["_tag", "libraryId", "rootFolder", "discoveredPhotos"],
+        "required": ["_tag", "libraryId", "rootFolder", "progress"],
         "additionalProperties": false
       },
       "EventId": {
@@ -743,6 +773,20 @@
           }
         },
         "required": ["rootFolderId", "confirmed"],
+        "additionalProperties": false
+      },
+      "LibraryIndexUnavailableEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["LibraryIndexUnavailable"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
         "additionalProperties": false
       },
       "InvalidLibrarySelectionEncoded": {

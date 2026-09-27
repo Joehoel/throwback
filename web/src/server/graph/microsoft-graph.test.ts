@@ -8,9 +8,9 @@ import {
   MicrosoftAccountId,
 } from "../curator/model.ts";
 import { InvalidLibrarySelection, OneDriveUnavailable } from "../library/errors.ts";
-import { DriveItemId } from "../library/model.ts";
+import { DriveId, DriveItemId } from "../library/model.ts";
 import { GraphAccessToken } from "./graph-token.ts";
-import { MicrosoftGraphApiLive } from "./microsoft-graph-api.ts";
+import { MicrosoftGraphApi, MicrosoftGraphApiLive } from "./microsoft-graph-api.ts";
 import { MicrosoftGraph, MicrosoftGraphLive } from "./microsoft-graph.ts";
 
 const account = {
@@ -196,5 +196,95 @@ describe("Microsoft Graph folder boundary", () => {
     );
 
     expect(error).toBeInstanceOf(InvalidLibrarySelection);
+  });
+});
+
+describe("Microsoft Graph drive-root delta boundary", () => {
+  it("uses the documented root request and follows provider links without interpreting them", async () => {
+    const requests: Request[] = [];
+
+    const opaqueNextLink =
+      "https://graph.microsoft.com/v1.0/drives/drive-a/root/delta?%24skiptoken=a%2Fb%3D%3D&custom=unchanged";
+
+    const fetchImplementation: typeof fetch = (input, init) => {
+      const request = new Request(input, init);
+      requests.push(request);
+
+      return Promise.resolve(
+        Response.json(
+          requests.length === 1
+            ? {
+                value: [
+                  { id: "root", folder: {} },
+                  { id: "photo-a", parentReference: { id: "root" }, file: {} },
+                ],
+                "@odata.nextLink": opaqueNextLink,
+              }
+            : {
+                value: [
+                  { id: "photo-a", parentReference: { id: "selected-root" }, file: {} },
+                  { id: "gone", deleted: { state: "deleted" } },
+                ],
+                "@odata.deltaLink":
+                  "https://graph.microsoft.com/v1.0/drives/drive-a/root/delta?$deltatoken=opaque-final",
+              },
+        ),
+      );
+    };
+
+    const httpLayer = FetchHttpClient.layer.pipe(
+      Layer.provide(Layer.succeed(FetchHttpClient.Fetch, fetchImplementation)),
+    );
+
+    const apiLayer = MicrosoftGraphApiLive.pipe(Layer.provide(httpLayer));
+
+    const pages = await Effect.runPromise(
+      MicrosoftGraphApi.pipe(
+        Effect.flatMap((api) =>
+          Effect.gen(function* () {
+            const first = yield* api.getDriveRootDeltaPage(
+              Redacted.make("synthetic-access-token"),
+              DriveId.make("drive-a"),
+              Option.none(),
+            );
+
+            const second = yield* api.getDriveRootDeltaPage(
+              Redacted.make("synthetic-access-token"),
+              DriveId.make("drive-a"),
+              Option.some(first.continuation.link),
+            );
+
+            return [first, second] as const;
+          }),
+        ),
+        Effect.provide(apiLayer),
+      ),
+    );
+
+    const firstUrl = new URL(requests[0]?.url ?? "");
+    expect(firstUrl.pathname).toBe("/v1.0/drives/drive-a/root/delta");
+    expect(firstUrl.searchParams.get("$select")).toBe("id,parentReference,folder,file,deleted");
+    expect(requests[1]?.url).toBe(opaqueNextLink);
+    expect(pages[0].continuation._tag).toBe("Next");
+    expect(pages[1].continuation._tag).toBe("Complete");
+    expect(pages[1].items).toEqual([
+      {
+        id: "photo-a",
+        parentId: Option.some("selected-root"),
+        nodeType: "file",
+        tombstone: false,
+      },
+      {
+        id: "gone",
+        parentId: Option.none(),
+        nodeType: "other",
+        tombstone: true,
+      },
+    ]);
+    expect(
+      requests.every(
+        (request) => request.headers.get("authorization") === "Bearer synthetic-access-token",
+      ),
+    ).toBe(true);
   });
 });

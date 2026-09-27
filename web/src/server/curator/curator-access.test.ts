@@ -6,6 +6,7 @@ import { CuratorOwnershipConflict } from "./errors.ts";
 import { BetterAuthAccountId, CuratorIdentity, MicrosoftAccountId } from "./model.ts";
 import { CuratorStore } from "./curator-store.ts";
 import { LibraryStore } from "../library/library-store.ts";
+import { LibraryIndex } from "../library/library-index.ts";
 
 function accessLayer(accountId: string, ownerId: string): Layer.Layer<CuratorAccess> {
   const owner = CuratorIdentity.make({
@@ -39,6 +40,16 @@ function accessLayer(accountId: string, ownerId: string): Layer.Layer<CuratorAcc
         Layer.succeed(LibraryStore, {
           getSelected: () => Effect.succeed(Option.none()),
           select: (selection) => Effect.succeed(selection),
+        }),
+        Layer.succeed(LibraryIndex, {
+          getProgress: () => Effect.succeed(Option.none()),
+          startOrResume: () =>
+            Effect.succeed({
+              status: "queued" as const,
+              pagesProcessed: 0,
+              processedItems: 0,
+              reviewBlocked: true,
+            }),
         }),
       ),
     ),

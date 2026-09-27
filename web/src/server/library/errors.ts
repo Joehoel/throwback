@@ -41,3 +41,10 @@ export class LibraryStoreUnavailable extends Schema.TaggedError<LibraryStoreUnav
   { message: Schema.String },
   { httpApiStatus: 503 },
 ) {}
+
+/** Durable Bibliotheek enumeration state could not be read, advanced, or dispatched safely. */
+export class LibraryIndexUnavailable extends Schema.TaggedError<LibraryIndexUnavailable>()(
+  "LibraryIndexUnavailable",
+  { message: Schema.String },
+  { httpApiStatus: 503 },
+) {}

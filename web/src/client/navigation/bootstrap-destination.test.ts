@@ -24,7 +24,7 @@ describe("bootstrap destination", () => {
     ],
     [
       JSON.parse(
-        '{"_tag":"LibraryIndexing","libraryId":"00000000-0000-4000-8000-000000000043","rootFolder":{"name":"Familiefoto\u0027s","path":"OneDrive / Familiefoto\u0027s"},"discoveredPhotos":42}',
+        '{"_tag":"LibraryIndexing","libraryId":"00000000-0000-4000-8000-000000000043","rootFolder":{"name":"Familiefoto\u0027s","path":"OneDrive / Familiefoto\u0027s"},"progress":{"status":"running","pagesProcessed":2,"processedItems":42,"reviewBlocked":true}}',
       ),
       { to: "/setup/$step", params: { step: "indexing" } },
     ],

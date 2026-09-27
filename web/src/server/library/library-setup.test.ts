@@ -10,6 +10,7 @@ import { MicrosoftGraph } from "../graph/microsoft-graph.ts";
 import { LibraryAlreadySelected } from "./errors.ts";
 import { LibrarySetup, LibrarySetupLive } from "./library-setup.ts";
 import { LibraryStore } from "./library-store.ts";
+import { LibraryIndex } from "./library-index.ts";
 import { DriveId, DriveItemId } from "./model.ts";
 import type { LibraryBoundary } from "./model.ts";
 
@@ -62,6 +63,16 @@ function setupLayer() {
             return Option.getOrThrow(selected);
           }),
       }),
+      Layer.succeed(LibraryIndex, {
+        getProgress: () => Effect.succeed(Option.none()),
+        startOrResume: () =>
+          Effect.succeed({
+            status: "queued" as const,
+            pagesProcessed: 0,
+            processedItems: 0,
+            reviewBlocked: true,
+          }),
+      }),
     ]),
   );
 
@@ -84,7 +95,7 @@ describe("Bibliotheek selection policy", () => {
       ),
     );
 
-    expect(selections.rootDriveItemId).toBe(rootFolderId);
+    expect(selections.library.rootDriveItemId).toBe(rootFolderId);
     expect(test.graphSelections()).toBe(1);
   });
 

@@ -40,11 +40,18 @@ export type LibraryRootDisplay = {
   path: string;
 };
 
+export type LibraryIndexProgress = {
+  status: "queued" | "running" | "retrying" | "waiting_for_reauthentication" | "failed" | "active";
+  pagesProcessed: number;
+  processedItems: number;
+  reviewBlocked: boolean;
+};
+
 export type LibraryIndexing = {
   _tag: "LibraryIndexing";
   libraryId: LibraryId;
   rootFolder: LibraryRootDisplay;
-  discoveredPhotos: number;
+  progress: LibraryIndexProgress;
 };
 
 export type EventId = string & Brand<"EventId">;
@@ -140,6 +147,11 @@ export type OneDriveUnavailableEncoded = {
 export type SelectLibraryRequest = {
   rootFolderId: DriveItemId;
   confirmed: true;
+};
+
+export type LibraryIndexUnavailableEncoded = {
+  _tag: "LibraryIndexUnavailable";
+  message: string;
 };
 
 export type InvalidLibrarySelectionEncoded = {
@@ -294,9 +306,12 @@ export type SelectLibraryErrors = {
    */
   502: OneDriveUnavailableEncoded;
   /**
-   * LibraryStoreUnavailable | CuratorAccessUnavailable
+   * LibraryStoreUnavailable | LibraryIndexUnavailable | CuratorAccessUnavailable
    */
-  503: LibraryStoreUnavailableEncoded | CuratorAccessUnavailableEncoded;
+  503:
+    | LibraryStoreUnavailableEncoded
+    | LibraryIndexUnavailableEncoded
+    | CuratorAccessUnavailableEncoded;
 };
 
 export type SelectLibraryError = SelectLibraryErrors[keyof SelectLibraryErrors];

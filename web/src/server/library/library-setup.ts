@@ -6,12 +6,15 @@ import { LibraryId } from "./model.ts";
 import type {
   GraphReauthenticationRequired,
   InvalidLibrarySelection,
+  LibraryIndexUnavailable,
   LibraryStoreUnavailable,
   OneDriveFolderNotFound,
   OneDriveUnavailable,
 } from "./errors.ts";
 import { LibraryAlreadySelected } from "./errors.ts";
 import { LibraryStore } from "./library-store.ts";
+import { LibraryIndex } from "./library-index.ts";
+import type { LibraryIndexProgress } from "./library-index-model.ts";
 
 type BrowseFoldersError =
   | GraphReauthenticationRequired
@@ -23,10 +26,17 @@ type BrowseFoldersError =
 type SelectLibraryError =
   | GraphReauthenticationRequired
   | InvalidLibrarySelection
+  | LibraryIndexUnavailable
   | LibraryAlreadySelected
   | LibraryStoreUnavailable
   | OneDriveFolderNotFound
   | OneDriveUnavailable;
+
+/** Persisted Hoofdmap plus the durable indexing state started for it. */
+export interface LibrarySelectionResult {
+  readonly library: LibraryBoundary;
+  readonly progress: LibraryIndexProgress;
+}
 
 /** Application policy for browsing and explicitly selecting one Hoofdmap. */
 export interface LibrarySetupService {
@@ -37,7 +47,7 @@ export interface LibrarySetupService {
   readonly selectLibrary: (
     account: SignedInMicrosoftAccount,
     rootFolderId: DriveItemId,
-  ) => Effect.Effect<LibraryBoundary, SelectLibraryError>;
+  ) => Effect.Effect<LibrarySelectionResult, SelectLibraryError>;
 }
 
 /** Application policy for browsing and explicitly selecting one Hoofdmap. */
@@ -57,6 +67,7 @@ export const LibrarySetupLive = Layer.effect(
   Effect.gen(function* () {
     const graph = yield* MicrosoftGraph;
     const store = yield* LibraryStore;
+    const index = yield* LibraryIndex;
 
     const browseFolders = Effect.fn("LibrarySetup.browseFolders")(function* (
       account: SignedInMicrosoftAccount,
@@ -79,7 +90,9 @@ export const LibrarySetupLive = Layer.effect(
 
       if (Option.isSome(existing)) {
         if (existing.value.rootDriveItemId === rootFolderId) {
-          return existing.value;
+          const progress = yield* index.startOrResume(account, existing.value);
+
+          return { library: existing.value, progress };
         }
 
         return yield* alreadySelected();
@@ -99,7 +112,9 @@ export const LibrarySetupLive = Layer.effect(
         return yield* alreadySelected();
       }
 
-      return selected;
+      const progress = yield* index.startOrResume(account, selected);
+
+      return { library: selected, progress };
     });
 
     return LibrarySetup.of({ browseFolders, selectLibrary });

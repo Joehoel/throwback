@@ -12,10 +12,12 @@ import {
   GraphReauthenticationRequired,
   InvalidLibrarySelection,
   LibraryAlreadySelected,
+  LibraryIndexUnavailable,
   LibraryStoreUnavailable,
   OneDriveFolderNotFound,
   OneDriveUnavailable,
 } from "../library/errors.ts";
+import { LibraryIndexProgress } from "../library/library-index-model.ts";
 import {
   DriveItemId,
   FolderBrowserState,
@@ -56,7 +58,7 @@ export const LibrarySelectionRequired = Schema.TaggedStruct(
 export const LibraryIndexing = Schema.TaggedStruct("LibraryIndexing", {
   libraryId: LibraryId,
   rootFolder: LibraryRootDisplay,
-  discoveredPhotos: Schema.Finite,
+  progress: LibraryIndexProgress,
 }).annotate({ identifier: "LibraryIndexing" });
 
 export const ReviewReady = Schema.TaggedStruct("ReviewReady", {
@@ -120,7 +122,7 @@ export const SelectLibraryRequest = Schema.Struct({
   confirmed: Schema.Literal(true),
 }).annotate({ identifier: "SelectLibraryRequest" });
 
-const LibraryErrors = [
+const LibraryReadErrors = [
   GraphReauthenticationRequired,
   LibraryAlreadySelected,
   LibraryStoreUnavailable,
@@ -133,14 +135,14 @@ export class LibraryApi extends HttpApiGroup.make("library")
     HttpApiEndpoint.get("listLibraryFolders", "/folders", {
       query: { parentFolderId: Schema.optionalKey(DriveItemId) },
       success: FolderBrowserState,
-      error: LibraryErrors,
+      error: LibraryReadErrors,
     }).annotateMerge(OpenApi.annotations({ identifier: "listLibraryFolders" })),
   )
   .add(
     HttpApiEndpoint.post("selectLibrary", "/selection", {
       payload: SelectLibraryRequest,
       success: LibraryIndexing,
-      error: [...LibraryErrors, InvalidLibrarySelection],
+      error: [...LibraryReadErrors, LibraryIndexUnavailable, InvalidLibrarySelection],
     }).annotateMerge(OpenApi.annotations({ identifier: "selectLibrary" })),
   )
   .middleware(CuratorAuthorization)
