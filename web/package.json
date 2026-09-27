@@ -19,6 +19,7 @@
     "generate:client": "openapi-ts",
     "generate:format": "oxfmt --write openapi.json src/client/generated",
     "generate": "bun run generate:openapi && bun run generate:client && bun run generate:format",
+    "measure:jpeg-memory": "bun --expose-gc tools/measure-jpeg-streaming-memory.ts",
     "typecheck": "bun run typecheck:app && bun run typecheck:server && bun run typecheck:generated",
     "typecheck:app": "node node_modules/typescript-7/bin/tsc --noEmit",
     "typecheck:server": "node node_modules/typescript-7/bin/tsc -p tsconfig.server.json",
