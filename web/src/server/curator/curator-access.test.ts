@@ -12,6 +12,7 @@ import {
 import { CuratorStore } from "./curator-store.ts";
 import { LibraryStore } from "../library/library-store.ts";
 import { LibraryIndex } from "../library/library-index.ts";
+import { PhotoStore } from "../photo/photo-store.ts";
 
 function accessLayer(accountId: string, ownerId: string): Layer.Layer<CuratorAccess> {
   const owner = CuratorIdentity.make({
@@ -56,6 +57,13 @@ function accessLayer(accountId: string, ownerId: string): Layer.Layer<CuratorAcc
               processedItems: 0,
               reviewBlocked: true,
             }),
+        }),
+        Layer.succeed(PhotoStore, {
+          activateHydratedGeneration: () => Effect.die("unused"),
+          firstReviewablePhoto: () => Effect.succeed(Option.none()),
+          getReviewablePhoto: () => Effect.die("unused"),
+          nextStagedFile: () => Effect.die("unused"),
+          stageHydratedFile: () => Effect.die("unused"),
         }),
       ),
     ),

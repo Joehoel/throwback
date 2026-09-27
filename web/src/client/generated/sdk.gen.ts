@@ -11,6 +11,12 @@ import type {
   GetBootstrapData,
   GetBootstrapErrors,
   GetBootstrapResponses,
+  GetPhotoData,
+  GetPhotoErrors,
+  GetPhotoPreviewData,
+  GetPhotoPreviewErrors,
+  GetPhotoPreviewResponses,
+  GetPhotoResponses,
   ListLibraryFoldersData,
   ListLibraryFoldersErrors,
   ListLibraryFoldersResponses,
@@ -21,6 +27,7 @@ import type {
 import {
   vClaimCuratorResponse,
   vGetBootstrapResponse,
+  vGetPhotoResponse,
   vListLibraryFoldersResponse,
   vSelectLibraryResponse,
 } from "./valibot.gen";
@@ -89,4 +96,21 @@ export const selectLibrary = <ThrowOnError extends boolean = false>(
       "Content-Type": "application/json",
       ...options.headers,
     },
+  });
+
+export const getPhoto = <ThrowOnError extends boolean = false>(
+  options: Options<GetPhotoData, ThrowOnError>,
+): RequestResult<GetPhotoResponses, GetPhotoErrors, ThrowOnError> =>
+  (options.client ?? client).get<GetPhotoResponses, GetPhotoErrors, ThrowOnError>({
+    responseValidator: async (data) => await v.parseAsync(vGetPhotoResponse, data),
+    url: "/libraries/{libraryId}/events/{eventId}/photos/{photoId}",
+    ...options,
+  });
+
+export const getPhotoPreview = <ThrowOnError extends boolean = false>(
+  options: Options<GetPhotoPreviewData, ThrowOnError>,
+): RequestResult<GetPhotoPreviewResponses, GetPhotoPreviewErrors, ThrowOnError> =>
+  (options.client ?? client).get<GetPhotoPreviewResponses, GetPhotoPreviewErrors, ThrowOnError>({
+    url: "/libraries/{libraryId}/events/{eventId}/photos/{photoId}/preview",
+    ...options,
   });

@@ -4,6 +4,7 @@ import {
   HttpApiEndpoint,
   HttpApiGroup,
   HttpApiMiddleware,
+  HttpApiSchema,
   OpenApi,
 } from "effect/unstable/httpapi";
 import { CuratorAccessUnavailable, CuratorOwnershipConflict } from "../curator/errors.ts";
@@ -24,17 +25,14 @@ import {
   LibraryId,
   LibraryRootDisplay,
 } from "../library/model.ts";
+import {
+  EventId as EventIdSchema,
+  Photo,
+  PhotoId as PhotoIdSchema,
+  PhotoResource,
+} from "../photo/model.ts";
+import { PhotoNotFound, PhotoProjectionUnavailable } from "../photo/errors.ts";
 import { CuratorAuthorization, SignedInSessionAuthorization } from "./authentication.ts";
-
-export const EventId = Schema.String.pipe(Schema.brand("EventId")).annotate({
-  format: "throwback-event-id",
-  identifier: "EventId",
-});
-
-export const PhotoId = Schema.String.pipe(Schema.brand("PhotoId")).annotate({
-  format: "throwback-photo-id",
-  identifier: "PhotoId",
-});
 
 export const SignInRequired = Schema.TaggedStruct("SignInRequired", {
   reason: Schema.Literals(["signedOut", "ownerMismatch"]),
@@ -63,8 +61,8 @@ export const LibraryIndexing = Schema.TaggedStruct("LibraryIndexing", {
 
 export const ReviewReady = Schema.TaggedStruct("ReviewReady", {
   libraryId: LibraryId,
-  eventId: EventId,
-  photoId: PhotoId,
+  eventId: EventIdSchema,
+  photoId: PhotoIdSchema,
 }).annotate({ identifier: "ReviewReady" });
 
 export const BootstrapState = Schema.Union([
@@ -149,13 +147,55 @@ export class LibraryApi extends HttpApiGroup.make("library")
   .middleware(BuildCompatibility)
   .prefix("/library") {}
 
+const PhotoReadErrors = [
+  PhotoNotFound,
+  PhotoProjectionUnavailable,
+  LibraryStoreUnavailable,
+] as const;
+
+const PhotoPreviewErrors = [
+  ...PhotoReadErrors,
+  GraphReauthenticationRequired,
+  OneDriveUnavailable,
+] as const;
+
+export class PhotoApi extends HttpApiGroup.make("photo")
+  .add(
+    HttpApiEndpoint.get("getPhoto", "/libraries/:libraryId/events/:eventId/photos/:photoId", {
+      params: PhotoResource.fields,
+      success: Photo,
+      error: PhotoReadErrors,
+    }).annotateMerge(OpenApi.annotations({ identifier: "getPhoto" })),
+  )
+  .middleware(CuratorAuthorization)
+  .middleware(BuildCompatibility) {}
+
+export class PhotoPreviewApi extends HttpApiGroup.make("photoPreview")
+  .add(
+    HttpApiEndpoint.get(
+      "getPhotoPreview",
+      "/libraries/:libraryId/events/:eventId/photos/:photoId/preview",
+      {
+        params: PhotoResource.fields,
+        success: HttpApiSchema.StreamUint8Array({ contentType: "image/jpeg" }),
+        error: PhotoPreviewErrors,
+      },
+    ).annotateMerge(OpenApi.annotations({ identifier: "getPhotoPreview" })),
+  )
+  .middleware(CuratorAuthorization)
+  .middleware(BuildCompatibility) {}
+
 export class ThrowbackApi extends HttpApi.make("throwback-api")
   .add(BootstrapApi)
   .add(CuratorApi)
   .add(LibraryApi)
+  .add(PhotoApi)
+  .add(PhotoPreviewApi)
   .annotateMerge(
     OpenApi.annotations({
       title: "Throwback Beheer-webapp API",
       version: "1.0.0",
     }),
   ) {}
+
+export { EventId, PhotoId } from "../photo/model.ts";

@@ -6,6 +6,8 @@ import { client } from "../client.gen";
 import {
   claimCurator,
   getBootstrap,
+  getPhoto,
+  getPhotoPreview,
   listLibraryFolders,
   type Options,
   selectLibrary,
@@ -17,6 +19,12 @@ import type {
   GetBootstrapData,
   GetBootstrapError,
   GetBootstrapResponse,
+  GetPhotoData,
+  GetPhotoError,
+  GetPhotoPreviewData,
+  GetPhotoPreviewError,
+  GetPhotoPreviewResponse,
+  GetPhotoResponse,
   ListLibraryFoldersData,
   ListLibraryFoldersError,
   ListLibraryFoldersResponse,
@@ -147,3 +155,47 @@ export const selectLibraryMutation = (
   };
   return mutationOptions;
 };
+
+export const getPhotoQueryKey = (options: Options<GetPhotoData>) =>
+  createQueryKey("getPhoto", options);
+
+export const getPhotoOptions = (options: Options<GetPhotoData>) =>
+  queryOptions<
+    GetPhotoResponse,
+    GetPhotoError,
+    GetPhotoResponse,
+    ReturnType<typeof getPhotoQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getPhoto({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getPhotoQueryKey(options),
+  });
+
+export const getPhotoPreviewQueryKey = (options: Options<GetPhotoPreviewData>) =>
+  createQueryKey("getPhotoPreview", options);
+
+export const getPhotoPreviewOptions = (options: Options<GetPhotoPreviewData>) =>
+  queryOptions<
+    GetPhotoPreviewResponse,
+    GetPhotoPreviewError,
+    GetPhotoPreviewResponse,
+    ReturnType<typeof getPhotoPreviewQueryKey>
+  >({
+    queryFn: async ({ queryKey, signal }) => {
+      const { data } = await getPhotoPreview({
+        ...options,
+        ...queryKey[0],
+        signal,
+        throwOnError: true,
+      });
+      return data;
+    },
+    queryKey: getPhotoPreviewQueryKey(options),
+  });

@@ -15,6 +15,7 @@ import {
   indexLibrary as library,
   indexCuratorStoreLayer as curatorStoreLayer,
   indexGraphConnectionVersion as graphConnectionVersion,
+  indexPhotoLayers as photoLayers,
   indexReauthenticationRequired as reauthenticationRequired,
   indexRunId as runId,
   indexStoreLayer,
@@ -79,6 +80,7 @@ describe("durable Bibliotheek index engine", () => {
           );
         },
       }),
+      ...photoLayers,
     );
 
     const engineLayer = LibraryIndexEngineLive.pipe(Layer.provide(dependencies));
@@ -97,28 +99,28 @@ describe("durable Bibliotheek index engine", () => {
 
     const first = await Effect.runPromise(
       LibraryIndexEngine.pipe(
-        Effect.flatMap((engine) => engine.processNextPage(inputFor(workflowA))),
+        Effect.flatMap((engine) => engine.processNextStep(inputFor(workflowA))),
         Effect.provide(engineLayer),
       ),
     );
 
     const competing = await Effect.runPromise(
       LibraryIndexEngine.pipe(
-        Effect.flatMap((engine) => engine.processNextPage(inputFor(workflowB))),
+        Effect.flatMap((engine) => engine.processNextStep(inputFor(workflowB))),
         Effect.provide(engineLayer),
       ),
     );
 
     const resumed = await Effect.runPromise(
       LibraryIndexEngine.pipe(
-        Effect.flatMap((engine) => engine.processNextPage(inputFor(workflowA))),
+        Effect.flatMap((engine) => engine.processNextStep(inputFor(workflowA))),
         Effect.provide(engineLayer),
       ),
     );
 
     expect(first).toBe("continue");
     expect(competing).toBe("not_owner");
-    expect(resumed).toBe("complete");
+    expect(resumed).toBe("continue");
     expect(cursors).toEqual([
       Option.none(),
       Option.some(GraphDeltaLink.make("https://graph.example.test/opaque-next")),
@@ -166,6 +168,7 @@ describe("durable Bibliotheek index engine", () => {
           );
         },
       }),
+      ...photoLayers,
     );
 
     const engineLayer = LibraryIndexEngineLive.pipe(Layer.provide(dependencies));
@@ -184,14 +187,14 @@ describe("durable Bibliotheek index engine", () => {
 
     const initial = await Effect.runPromise(
       LibraryIndexEngine.pipe(
-        Effect.flatMap((engine) => engine.processNextPage(inputFor(workflowA))),
+        Effect.flatMap((engine) => engine.processNextStep(inputFor(workflowA))),
         Effect.provide(engineLayer),
       ),
     );
 
     const waiting = await Effect.runPromise(
       LibraryIndexEngine.pipe(
-        Effect.flatMap((engine) => engine.processNextPage(inputFor(workflowA))),
+        Effect.flatMap((engine) => engine.processNextStep(inputFor(workflowA))),
         Effect.provide(engineLayer),
       ),
     );
@@ -213,14 +216,14 @@ describe("durable Bibliotheek index engine", () => {
 
     const competing = await Effect.runPromise(
       LibraryIndexEngine.pipe(
-        Effect.flatMap((engine) => engine.processNextPage(inputFor(workflowC))),
+        Effect.flatMap((engine) => engine.processNextStep(inputFor(workflowC))),
         Effect.provide(engineLayer),
       ),
     );
 
     const resumed = await Effect.runPromise(
       LibraryIndexEngine.pipe(
-        Effect.flatMap((engine) => engine.processNextPage(inputFor(workflowB))),
+        Effect.flatMap((engine) => engine.processNextStep(inputFor(workflowB))),
         Effect.provide(engineLayer),
       ),
     );
@@ -230,7 +233,7 @@ describe("durable Bibliotheek index engine", () => {
     expect(reservations.resumed.workflowInstanceId).toEqual(Option.some(workflowB));
     expect(reservations.competing.workflowInstanceId).toEqual(Option.some(workflowB));
     expect(competing).toBe("not_owner");
-    expect(resumed).toBe("complete");
+    expect(resumed).toBe("continue");
     expect(cursors).toEqual([Option.none(), Option.some(nextLink)]);
   });
 });

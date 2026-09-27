@@ -1,40 +1,54 @@
-import { createFileRoute, redirect, useLoaderData } from "@tanstack/react-router";
-import { parse } from "valibot";
-import { ReviewShell } from "#/client/components/review-shell.tsx";
-import { vEventId, vLibraryId, vPhotoId } from "#/client/generated/valibot.gen.ts";
+import { createFileRoute, notFound, redirect, useLoaderData } from "@tanstack/react-router";
+import { is } from "valibot";
+import { PhotoReviewRoute } from "#/client/components/photo-review-route.tsx";
+import { vPhotoNotFoundEncoded } from "#/client/generated/valibot.gen.ts";
 import { bootstrapDestination } from "#/client/navigation/bootstrap-destination.ts";
+import { assertPhotoBookmark, parsePhotoBookmark } from "#/client/navigation/photo-bookmark.ts";
 import { loadBootstrap } from "#/client/routes/load-bootstrap.ts";
+import { photoPreviewQueryOptions, photoQueryOptions } from "#/client/api/photo.ts";
 
 function ReviewRoute() {
-  const state = useLoaderData({
+  const data = useLoaderData({
     from: "/libraries/$libraryId/events/$eventId/photos/$photoId",
   });
 
-  return <ReviewShell state={state} />;
+  return <PhotoReviewRoute initialPhoto={data.photo} path={data.path} preview={data.preview} />;
 }
 
 export const Route = createFileRoute("/libraries/$libraryId/events/$eventId/photos/$photoId")({
   component: ReviewRoute,
   loader: async (context) => {
+    const params = assertPhotoBookmark(context.params);
+
     const state = await loadBootstrap(context);
     const destination = bootstrapDestination(state);
 
-    if (
-      destination.to !== "/libraries/$libraryId/events/$eventId/photos/$photoId" ||
-      destination.params.libraryId !== context.params.libraryId ||
-      destination.params.eventId !== context.params.eventId ||
-      destination.params.photoId !== context.params.photoId
-    ) {
+    if (destination.to !== "/libraries/$libraryId/events/$eventId/photos/$photoId") {
       redirect({ ...destination, throw: true });
     }
 
-    return state;
+    try {
+      const [photo, preview] = await Promise.all([
+        context.context.queryClient.query({
+          ...photoQueryOptions(params),
+          staleTime: 30_000,
+        }),
+        context.context.queryClient.query({
+          ...photoPreviewQueryOptions(params),
+          staleTime: "static",
+        }),
+      ]);
+
+      return { path: params, photo, preview };
+    } catch (error) {
+      if (is(vPhotoNotFoundEncoded, error)) {
+        notFound({ throw: true });
+      }
+
+      throw error;
+    }
   },
   params: {
-    parse: ({ eventId, libraryId, photoId }) => ({
-      eventId: parse(vEventId, eventId),
-      libraryId: parse(vLibraryId, libraryId),
-      photoId: parse(vPhotoId, photoId),
-    }),
+    parse: (params) => parsePhotoBookmark(params) ?? false,
   },
 });

@@ -5,6 +5,7 @@ import {
   GraphConnectionRequired,
   LibraryIndexing,
   LibrarySelectionRequired,
+  ReviewReady,
   SignInRequired,
 } from "../api/contract.ts";
 import type { BootstrapState } from "../api/contract.ts";
@@ -18,6 +19,7 @@ import type { SignedInMicrosoftAccount } from "./model.ts";
 import { BetterAuthUserId, CuratorIdentity } from "./model.ts";
 import { LibraryStore } from "../library/library-store.ts";
 import { LibraryIndex } from "../library/library-index.ts";
+import { PhotoStore } from "../photo/photo-store.ts";
 
 /** Authentication and single-Curator authorization policy. */
 export interface CuratorAccessService {
@@ -59,6 +61,7 @@ export const CuratorAccessLive = Layer.effect(
     const store = yield* CuratorStore;
     const libraries = yield* LibraryStore;
     const indexes = yield* LibraryIndex;
+    const photos = yield* PhotoStore;
 
     const nextSetupState = Effect.fn("CuratorAccess.nextSetupState")(function* (
       account: SignedInMicrosoftAccount,
@@ -78,6 +81,20 @@ export const CuratorAccessLive = Layer.effect(
       const progress = yield* indexes
         .startOrResume(account, library.value)
         .pipe(Effect.mapError(unavailable));
+
+      if (!progress.reviewBlocked) {
+        const firstPhoto = yield* photos
+          .firstReviewablePhoto(library.value.id)
+          .pipe(Effect.mapError(unavailable));
+
+        if (Option.isSome(firstPhoto)) {
+          return ReviewReady.make({
+            libraryId: firstPhoto.value.libraryId,
+            eventId: firstPhoto.value.eventId,
+            photoId: firstPhoto.value.photoId,
+          });
+        }
+      }
 
       return LibraryIndexing.make({
         libraryId: library.value.id,

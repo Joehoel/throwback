@@ -159,6 +159,42 @@ export type InvalidLibrarySelectionEncoded = {
   message: string;
 };
 
+export type MetadataLocation = {
+  latitude: number;
+  longitude: number;
+};
+
+export type Orientation = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+
+export type Photo = {
+  libraryId: LibraryId;
+  eventId: EventId;
+  photoId: PhotoId;
+  fileName: string;
+  description: string | null;
+  location: MetadataLocation | null;
+  orientation: Orientation;
+  cTag: string;
+  eTag: string;
+  projectionRevision: number;
+};
+
+export type PhotoNotFoundEncoded = {
+  _tag: "PhotoNotFound";
+  message: string;
+  subsystem: "photo";
+  operation: "read" | "preview";
+  retryable: false;
+};
+
+export type PhotoProjectionUnavailableEncoded = {
+  _tag: "PhotoProjectionUnavailable";
+  message: string;
+  subsystem: "photo-projection";
+  operation: "read" | "stage" | "activate";
+  retryable: boolean;
+};
+
 export type GetBootstrapData = {
   body?: never;
   path?: never;
@@ -324,3 +360,103 @@ export type SelectLibraryResponses = {
 };
 
 export type SelectLibraryResponse = SelectLibraryResponses[keyof SelectLibraryResponses];
+
+export type GetPhotoData = {
+  body?: never;
+  path: {
+    libraryId: LibraryId;
+    eventId: EventId;
+    photoId: PhotoId;
+  };
+  query?: never;
+  url: "/libraries/{libraryId}/events/{eventId}/photos/{photoId}";
+};
+
+export type GetPhotoErrors = {
+  /**
+   * AuthenticationRequired
+   */
+  401: AuthenticationRequiredEncoded;
+  /**
+   * CuratorOwnershipConflict
+   */
+  403: CuratorOwnershipConflictEncoded;
+  /**
+   * PhotoNotFound
+   */
+  404: PhotoNotFoundEncoded;
+  /**
+   * BuildUpgradeRequired
+   */
+  409: BuildUpgradeRequiredEncoded;
+  /**
+   * PhotoProjectionUnavailable | LibraryStoreUnavailable | CuratorAccessUnavailable
+   */
+  503:
+    | PhotoProjectionUnavailableEncoded
+    | LibraryStoreUnavailableEncoded
+    | CuratorAccessUnavailableEncoded;
+};
+
+export type GetPhotoError = GetPhotoErrors[keyof GetPhotoErrors];
+
+export type GetPhotoResponses = {
+  /**
+   * Photo
+   */
+  200: Photo;
+};
+
+export type GetPhotoResponse = GetPhotoResponses[keyof GetPhotoResponses];
+
+export type GetPhotoPreviewData = {
+  body?: never;
+  path: {
+    libraryId: LibraryId;
+    eventId: EventId;
+    photoId: PhotoId;
+  };
+  query?: never;
+  url: "/libraries/{libraryId}/events/{eventId}/photos/{photoId}/preview";
+};
+
+export type GetPhotoPreviewErrors = {
+  /**
+   * GraphReauthenticationRequired | AuthenticationRequired
+   */
+  401: GraphReauthenticationRequiredEncoded | AuthenticationRequiredEncoded;
+  /**
+   * CuratorOwnershipConflict
+   */
+  403: CuratorOwnershipConflictEncoded;
+  /**
+   * PhotoNotFound
+   */
+  404: PhotoNotFoundEncoded;
+  /**
+   * BuildUpgradeRequired
+   */
+  409: BuildUpgradeRequiredEncoded;
+  /**
+   * OneDriveUnavailable
+   */
+  502: OneDriveUnavailableEncoded;
+  /**
+   * PhotoProjectionUnavailable | LibraryStoreUnavailable | CuratorAccessUnavailable
+   */
+  503:
+    | PhotoProjectionUnavailableEncoded
+    | LibraryStoreUnavailableEncoded
+    | CuratorAccessUnavailableEncoded;
+};
+
+export type GetPhotoPreviewError = GetPhotoPreviewErrors[keyof GetPhotoPreviewErrors];
+
+export type GetPhotoPreviewResponses = {
+  /**
+   * Success
+   */
+  200: Blob | File;
+};
+
+export type GetPhotoPreviewResponse = GetPhotoPreviewResponses[keyof GetPhotoPreviewResponses];

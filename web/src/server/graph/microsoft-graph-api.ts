@@ -25,6 +25,7 @@ import {
 import type { DriveDeltaPage, GraphDeltaLink } from "../library/library-index-model.ts";
 import { GraphItemNotFolder } from "./errors.ts";
 import { GraphDeltaPageResponse } from "./graph-delta-schema.ts";
+import { executeGraphRequest } from "./graph-request-retry.ts";
 
 const GRAPH_ORIGIN = "https://graph.microsoft.com";
 
@@ -205,12 +206,16 @@ export const MicrosoftGraphApiLive = Layer.effect(
       request: HttpClientRequest.HttpClientRequest,
       schema: S,
     ) {
-      const response = yield* request.pipe(
+      const graphRequest = request.pipe(
         HttpClientRequest.acceptJson,
         HttpClientRequest.bearerToken(Redacted.value(token)),
-        client.execute,
-        Effect.mapError(oneDriveUnavailable),
       );
+
+      const response = yield* executeGraphRequest({
+        client,
+        operation: "metadata",
+        request: graphRequest,
+      }).pipe(Effect.mapError(oneDriveUnavailable));
 
       if (response.status === 401 || response.status === 403) {
         return yield* reauthenticationRequired();

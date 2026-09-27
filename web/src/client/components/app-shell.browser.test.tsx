@@ -7,6 +7,7 @@ import {
   vCuratorClaimRequired,
   vLibraryIndexing,
   vLibrarySelectionRequired,
+  vPhoto,
   vSignInRequired,
 } from "../generated/valibot.gen.ts";
 import { ReviewShell } from "./review-shell.tsx";
@@ -69,10 +70,18 @@ describe("Beheer-webapp shells", () => {
 
     document.body.innerHTML = "";
 
-    render(<ReviewShell state={indexing} />);
-    await expect
-      .element(page.getByRole("heading", { level: 1 }))
-      .toHaveTextContent("Foto wordt voorbereid");
+    const photo = parse(
+      vPhoto,
+      JSON.parse(
+        '{"libraryId":"00000000-0000-4000-8000-000000000043","eventId":"event-a","photoId":"photo-a","fileName":"familie.jpg","description":"Zondagmiddag","location":null,"orientation":6,"cTag":"ctag-a","eTag":"etag-a","projectionRevision":1}',
+      ),
+    );
+
+    render(
+      <ReviewShell photo={photo} preview={new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])])} />,
+    );
+    await expect.element(page.getByRole("heading", { level: 1 })).toHaveTextContent("Zondagmiddag");
+    await expect.element(page.getByRole("img", { name: "Zondagmiddag" })).toBeVisible();
   });
 
   it("shows the Microsoft account before the one-time claim", async () => {

@@ -13,6 +13,8 @@ import {
   vLibraryStoreUnavailableEncoded,
   vOneDriveFolderNotFoundEncoded,
   vOneDriveUnavailableEncoded,
+  vPhotoNotFoundEncoded,
+  vPhotoProjectionUnavailableEncoded,
 } from "../generated/valibot.gen.ts";
 import {
   MutationBlockedForUpgradeError,
@@ -35,6 +37,8 @@ const declaredDomainError = union([
   vLibraryStoreUnavailableEncoded,
   vOneDriveFolderNotFoundEncoded,
   vOneDriveUnavailableEncoded,
+  vPhotoNotFoundEncoded,
+  vPhotoProjectionUnavailableEncoded,
 ]);
 
 export function configureDomainClient(client: Client): Client {

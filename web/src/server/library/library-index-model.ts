@@ -84,6 +84,7 @@ export const LibraryIndexRun = Schema.Struct({
   workflowInstanceId: Schema.Option(IndexWorkflowInstanceId),
   graphConnectionVersion: GraphConnectionVersion,
   nextLink: Schema.Option(GraphDeltaLink),
+  pendingDeltaLink: Schema.Option(GraphDeltaLink),
   deltaLink: Schema.Option(GraphDeltaLink),
   activeGeneration: Schema.Option(IndexGeneration),
   pagesProcessed: Schema.Int,

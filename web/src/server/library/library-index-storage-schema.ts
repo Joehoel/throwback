@@ -17,6 +17,7 @@ export const StoredLibraryIndexRun = Schema.Struct({
   workflowInstanceId: Schema.OptionFromNullOr(IndexWorkflowInstanceId),
   graphConnectionVersion: GraphConnectionVersion,
   nextLink: Schema.OptionFromNullOr(GraphDeltaLink),
+  pendingDeltaLink: Schema.OptionFromNullOr(GraphDeltaLink),
   deltaLink: Schema.OptionFromNullOr(GraphDeltaLink),
   activeGeneration: Schema.OptionFromNullOr(IndexGeneration),
   pagesProcessed: Schema.Int,
