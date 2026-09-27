@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Predicate, Result, Stream } from "effect";
+import { Context, Effect, Layer, Option, Predicate, Result, Schedule, Stream } from "effect";
 import type { Redacted } from "effect";
 import { MicrosoftGraphPhotoApi } from "../graph/microsoft-graph-photo-api.ts";
 import { inspectJpeg } from "../jpeg/jpeg-codec.ts";
@@ -109,7 +109,14 @@ export const PhotoHydratorLive = Layer.effect(
         }),
       };
 
-      const inspection = yield* inspectJpeg(source).pipe(Effect.result);
+      const inspection = yield* inspectJpeg(source).pipe(
+        Effect.retry({
+          times: 3,
+          schedule: Schedule.exponential("1 second", 4).pipe(Schedule.jittered),
+          while: Predicate.isTagged("JpegSourceUnavailable"),
+        }),
+        Effect.result,
+      );
 
       if (Result.isFailure(inspection)) {
         if (Predicate.isTagged("JpegSourceUnavailable")(inspection.failure)) {

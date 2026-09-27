@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Predicate, Schedule, Schema } from "effect";
+import { Context, Effect, Layer, Option, Predicate, Schema } from "effect";
 import { SqlClient, SqlSchema } from "effect/unstable/sql";
 import { isSqlError } from "effect/unstable/sql/SqlError";
 import type { SqlError } from "effect/unstable/sql/SqlError";
@@ -13,6 +13,7 @@ import type { HydratedFile, Photo, PhotoHydrationCandidate, PhotoResource } from
 import { PhotoHydrationCandidate as PhotoHydrationCandidateSchema } from "./model.ts";
 import { photoStoreActiveQueries } from "./photo-store-active-queries.ts";
 import { StoredActivation } from "./photo-storage-schema.ts";
+import { retryBackgroundSql, retryInteractiveSql } from "../sql-retry.ts";
 
 /** Identity proving which Workflow may mutate one staged Foto generation. */
 export interface PhotoGenerationOwner {
@@ -55,26 +56,6 @@ function unavailable(
     operation,
     retryable: Option.exists(sqlError, (error) => error.isRetryable),
   });
-}
-
-function retryInteractiveSql<A, E, R>(effect: Effect.Effect<A, E, R>) {
-  return effect.pipe(
-    Effect.retry({
-      times: 2,
-      schedule: Schedule.exponential("50 millis", 4).pipe(Schedule.jittered),
-      while: (error) => isSqlError(error) && error.isRetryable,
-    }),
-  );
-}
-
-function retryBackgroundSql<A, E, R>(effect: Effect.Effect<A, E, R>) {
-  return effect.pipe(
-    Effect.retry({
-      times: 4,
-      schedule: Schedule.exponential("1 second", 4).pipe(Schedule.jittered),
-      while: (error) => isSqlError(error) && error.isRetryable,
-    }),
-  );
 }
 
 /** Effect SQL implementation of staged Foto hydration and atomic publication. */

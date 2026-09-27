@@ -1,11 +1,9 @@
 import {
   Context,
-  Duration,
   Effect,
   Layer,
   Option,
   Redacted,
-  Schedule,
   Schema,
   SchemaTransformation,
   Stream,
@@ -15,6 +13,7 @@ import { GraphReauthenticationRequired, OneDriveUnavailable } from "../library/e
 import type { DriveId, DriveItemId } from "../library/model.ts";
 import { DriveItemId as DriveItemIdSchema } from "../library/model.ts";
 import { PhotoNotFound } from "../photo/errors.ts";
+import { executeGraphRequest } from "./graph-request-retry.ts";
 
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 
@@ -72,30 +71,6 @@ const GraphPhotoItemResponse = GraphPhotoItemWire.pipe(
   ),
 );
 
-class GraphPhotoRequestRetry extends Schema.TaggedError<GraphPhotoRequestRetry>()(
-  "GraphPhotoRequestRetry",
-  {
-    operation: Schema.Literals(["details", "download"]),
-    status: Schema.NullOr(Schema.Int),
-    retryAfterMilliseconds: Schema.NullOr(Schema.Int),
-    retryable: Schema.Boolean,
-  },
-) {}
-
-const graphRetrySchedule = Schedule.exponential("1 second", 4).pipe(
-  Schedule.jittered,
-  Schedule.setInputType<GraphPhotoRequestRetry>(),
-  Schedule.modifyDelay(({ duration, input }) =>
-    Effect.succeed(
-      input.retryAfterMilliseconds === null
-        ? duration
-        : Duration.millis(input.retryAfterMilliseconds),
-    ),
-  ),
-  Schedule.while(({ input }) => input.retryable),
-  Schedule.upTo({ times: 3 }),
-);
-
 /** Typed Graph item and preauthenticated-content operations for Fotos. */
 export interface MicrosoftGraphPhotoApiService {
   readonly getFile: (
@@ -138,39 +113,6 @@ function notFound(operation: "preview" | "read" = "read"): PhotoNotFound {
   });
 }
 
-function retryAfterMilliseconds(response: HttpClientResponse.HttpClientResponse): number | null {
-  const value = response.headers["retry-after"];
-
-  if (!/^\d+$/u.test(value)) {
-    return null;
-  }
-
-  return Number(value) * 1000;
-}
-
-function retryableResponse(
-  operation: "details" | "download",
-  response: HttpClientResponse.HttpClientResponse,
-): Effect.Effect<HttpClientResponse.HttpClientResponse, GraphPhotoRequestRetry> {
-  const retryAfter = response.status === 429 ? retryAfterMilliseconds(response) : null;
-
-  const retryableStatus =
-    response.status === 408 || response.status === 429 || response.status >= 500;
-
-  if (!retryableStatus) {
-    return Effect.succeed(response);
-  }
-
-  return Effect.fail(
-    new GraphPhotoRequestRetry({
-      operation,
-      status: response.status,
-      retryAfterMilliseconds: retryAfter,
-      retryable: retryAfter === null || retryAfter <= 15 * 60 * 1000,
-    }),
-  );
-}
-
 function parseDownloadUrl(value: string): Effect.Effect<Redacted.Redacted, OneDriveUnavailable> {
   if (!URL.canParse(value)) {
     return Effect.fail(unavailable());
@@ -192,28 +134,6 @@ export const MicrosoftGraphPhotoApiLive = Layer.effect(
     const client = yield* HttpClient.HttpClient;
     const downloadClient = HttpClient.followRedirects(client, 3);
 
-    const execute = Effect.fnUntraced(function* (
-      operation: "details" | "download",
-      httpClient: HttpClient.HttpClient,
-      request: HttpClientRequest.HttpClientRequest,
-    ) {
-      return yield* httpClient.execute(request).pipe(
-        Effect.withTracerEnabled(false),
-        Effect.mapError(
-          () =>
-            new GraphPhotoRequestRetry({
-              operation,
-              status: null,
-              retryAfterMilliseconds: null,
-              retryable: true,
-            }),
-        ),
-        Effect.flatMap((response) => retryableResponse(operation, response)),
-        Effect.retry(graphRetrySchedule),
-        Effect.mapError(unavailable),
-      );
-    });
-
     const getFile = Effect.fn("MicrosoftGraphPhotoApi.getFile")(function* (
       token: Redacted.Redacted,
       driveId: DriveId,
@@ -229,7 +149,12 @@ export const MicrosoftGraphPhotoApiLive = Layer.effect(
         }),
       );
 
-      const response = yield* execute("details", client, request);
+      const response = yield* executeGraphRequest({
+        client,
+        operation: "photo-details",
+        request,
+        retry: true,
+      }).pipe(Effect.mapError(unavailable));
 
       if (response.status === 401 || response.status === 403) {
         return yield* reauthenticationRequired();
@@ -254,11 +179,12 @@ export const MicrosoftGraphPhotoApiLive = Layer.effect(
       const validatedUrl = yield* parseDownloadUrl(Redacted.value(downloadUrl));
 
       // The preauthenticated URL contains a short-lived credential, so it must not enter HTTP spans.
-      const response = yield* execute(
-        "download",
-        downloadClient,
-        HttpClientRequest.get(Redacted.value(validatedUrl)),
-      );
+      const response = yield* executeGraphRequest({
+        client: downloadClient,
+        operation: "download",
+        request: HttpClientRequest.get(Redacted.value(validatedUrl)),
+        retry: false,
+      }).pipe(Effect.mapError(unavailable));
 
       if (response.status < 200 || response.status >= 300) {
         return yield* unavailable();

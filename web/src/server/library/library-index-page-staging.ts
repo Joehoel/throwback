@@ -8,6 +8,8 @@ import type {
   LibraryIndexRun,
 } from "./library-index-model.ts";
 
+export { retryBackgroundSql, retryInteractiveSql } from "../sql-retry.ts";
+
 export interface StageLibraryIndexPage {
   readonly runId: IndexRunId;
   readonly workflowInstanceId: IndexWorkflowInstanceId;

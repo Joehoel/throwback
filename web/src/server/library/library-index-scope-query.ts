@@ -7,6 +7,7 @@ import {
   StoredContainsActiveItem,
 } from "./library-index-storage-schema.ts";
 import type { DriveItemId, LibraryId } from "./model.ts";
+import { retryInteractiveSql } from "../sql-retry.ts";
 
 function unavailable(): LibraryIndexUnavailable {
   return new LibraryIndexUnavailable({
@@ -54,6 +55,8 @@ export function containsActiveItemQuery(sql: SqlClient.SqlClient) {
     libraryId: LibraryId,
     itemId: DriveItemId,
   ) {
-    return yield* containsActive({ libraryId, itemId }).pipe(Effect.mapError(unavailable));
+    return yield* retryInteractiveSql(containsActive({ libraryId, itemId })).pipe(
+      Effect.mapError(unavailable),
+    );
   });
 }

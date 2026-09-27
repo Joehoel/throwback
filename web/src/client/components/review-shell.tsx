@@ -6,6 +6,7 @@ import {
   vGraphReauthenticationRequiredEncoded,
   vLibraryStoreUnavailableEncoded,
   vOneDriveUnavailableEncoded,
+  vPhotoNotFoundEncoded,
   vPhotoProjectionUnavailableEncoded,
 } from "../generated/valibot.gen.ts";
 
@@ -49,21 +50,33 @@ function ReadFailureBanner({ error }: { readonly error: unknown }) {
   }
 
   const reauthentication = is(vGraphReauthenticationRequiredEncoded, error);
+  const photoNotFound = is(vPhotoNotFoundEncoded, error);
 
   const unavailable =
     is(vLibraryStoreUnavailableEncoded, error) ||
     is(vOneDriveUnavailableEncoded, error) ||
     is(vPhotoProjectionUnavailableEncoded, error);
 
-  if (!reauthentication && !unavailable) {
+  if (!photoNotFound && !reauthentication && !unavailable) {
     return null;
+  }
+
+  let message = "De server is tijdelijk niet bereikbaar. Je bekijkt de laatst bevestigde Foto.";
+
+  if (photoNotFound) {
+    message = "Deze Foto staat niet meer in de actieve Bibliotheek.";
+  } else if (reauthentication) {
+    message = "Verbind OneDrive opnieuw om deze Foto te hervatten.";
   }
 
   return (
     <div role="alert" className="bg-[#f5dfb4] px-5 py-3 text-sm font-semibold text-[#4f3a16]">
-      {reauthentication
-        ? "Verbind OneDrive opnieuw om deze Foto te hervatten."
-        : "De server is tijdelijk niet bereikbaar. Je bekijkt de laatst bevestigde Foto."}
+      {message}
+      {photoNotFound ? (
+        <Link to="/" className="ml-3 underline">
+          Terug naar de Bibliotheek
+        </Link>
+      ) : null}
       {reauthentication ? (
         <Link to="/setup/$step" params={{ step: "graph" }} className="ml-3 underline">
           OneDrive verbinden

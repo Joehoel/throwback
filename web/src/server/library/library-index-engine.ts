@@ -86,7 +86,7 @@ export const LibraryIndexEngineLive = Layer.effect(
     });
 
     const stoppedResult = Effect.fnUntraced(function* (input: LibraryIndexWorkflowInput) {
-      const stopped = yield* store.getRun(input.libraryId);
+      const stopped = yield* store.getRunForCheckpoint(input.libraryId);
 
       return Option.exists(stopped, (current) => current.status === "waiting_for_reauthentication")
         ? ("waiting_for_reauthentication" as const)
@@ -97,7 +97,7 @@ export const LibraryIndexEngineLive = Layer.effect(
       input: LibraryIndexWorkflowInput,
     ) {
       const { workflowInstanceId } = input;
-      const beforeClaim = yield* store.getRun(input.libraryId);
+      const beforeClaim = yield* store.getRunForCheckpoint(input.libraryId);
 
       if (Option.exists(beforeClaim, (run) => run.status === "active")) {
         return "complete" as const;
@@ -109,7 +109,7 @@ export const LibraryIndexEngineLive = Layer.effect(
         return "not_owner" as const;
       }
 
-      const run = yield* store.getRun(input.libraryId).pipe(
+      const run = yield* store.getRunForCheckpoint(input.libraryId).pipe(
         Effect.flatMap(
           Option.match({
             onNone: () =>

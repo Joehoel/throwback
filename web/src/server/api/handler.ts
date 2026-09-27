@@ -1,5 +1,5 @@
 import { Effect, Layer, Option } from "effect";
-import { HttpRouter, HttpServer, HttpServerRequest } from "effect/unstable/http";
+import { HttpMiddleware, HttpRouter, HttpServer, HttpServerRequest } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi";
 import { CuratorAccess } from "../curator/curator-access.ts";
 import type { SignedInMicrosoftAccount as SignedInMicrosoftAccountValue } from "../curator/model.ts";
@@ -112,6 +112,18 @@ const PhotoPreviewHandlers = HttpApiBuilder.group(
   }),
 );
 
+const photoResourcePath =
+  /^\/libraries\/[^/]+\/events\/[^/]+\/photos\/[^/?]+(?:\/preview)?(?:\?|$)/u;
+
+function isPhotoResourceRequest(request: HttpServerRequest.HttpServerRequest): boolean {
+  return photoResourcePath.test(request.url);
+}
+
+const PhotoResourceTracingLive = Layer.succeed(
+  HttpMiddleware.TracerDisabledWhen,
+  isPhotoResourceRequest,
+);
+
 const SignedInSessionAuthorizationLive = Layer.effect(
   SignedInSessionAuthorization,
   Effect.gen(function* () {
@@ -138,7 +150,11 @@ const CuratorAuthorizationLive = Layer.effect(
 
     return Effect.fnUntraced(function* (httpEffect) {
       const request = yield* HttpServerRequest.HttpServerRequest;
-      const account = yield* access.requireCurator(new Headers(request.headers));
+      const authentication = access.requireCurator(new Headers(request.headers));
+
+      const account = yield* isPhotoResourceRequest(request)
+        ? HttpMiddleware.withLoggerDisabled(authentication)
+        : authentication;
 
       return yield* httpEffect.pipe(
         Effect.provideService(
@@ -184,6 +200,7 @@ export function createDomainRequestHandler(
     Layer.provide(CuratorAuthorizationLive),
     Layer.provide(applicationLayer),
     Layer.provide(BuildCompatibilityLive),
+    Layer.provide(PhotoResourceTracingLive),
     Layer.provide(HttpServer.layerServices),
   );
 
