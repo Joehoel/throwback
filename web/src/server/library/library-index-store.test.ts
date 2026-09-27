@@ -23,7 +23,7 @@ import { DriveItemId } from "./model.ts";
 const competingRunId = IndexRunId.make("00000000-0000-4000-8000-000000000102");
 
 describe("Effect SQL D1 Bibliotheek index store", () => {
-  it("resumes one generation and activates it only with the final opaque delta link", async () => {
+  it("stages the final opaque delta link without exposing the incomplete generation", async () => {
     const database = makeMigratedDatabase();
 
     const firstCheckpoint = await Effect.runPromise(
@@ -139,14 +139,15 @@ describe("Effect SQL D1 Bibliotheek index store", () => {
     );
     expect(Option.getOrThrow(resumed.checkpoint).activeGeneration).toEqual(Option.none());
     expect(Option.getOrThrow(resumed.active)).toMatchObject({
-      status: "active",
+      status: "running",
       pagesProcessed: 2,
       processedItems: 7,
     });
-    expect(Option.getOrThrow(resumed.active).deltaLink).toEqual(
+    expect(Option.getOrThrow(resumed.active).deltaLink).toEqual(Option.none());
+    expect(Option.getOrThrow(resumed.active).pendingDeltaLink).toEqual(
       Option.some("https://graph.example.test/opaque?$deltatoken=final"),
     );
-    expect(resumed.movingPhotoInScope).toBe(true);
+    expect(resumed.movingPhotoInScope).toBe(false);
     expect(resumed.outsideInScope).toBe(false);
     expect(resumed.removedPhotoInScope).toBe(false);
 
@@ -197,8 +198,8 @@ describe("Effect SQL D1 Bibliotheek index store", () => {
 
     database.exec(`
       CREATE TRIGGER "reject_final_index_checkpoint"
-      BEFORE UPDATE OF "status" ON "library_index_run"
-      WHEN NEW."status" = 'active'
+      BEFORE UPDATE OF "pendingDeltaLink" ON "library_index_run"
+      WHEN NEW."pendingDeltaLink" IS NOT NULL
       BEGIN
         SELECT RAISE(ABORT, 'synthetic checkpoint failure');
       END;

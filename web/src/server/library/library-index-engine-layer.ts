@@ -1,51 +1,33 @@
 import { Layer } from "effect";
-import type { Redacted } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
-import { createThrowbackAuth } from "../auth/auth.ts";
-import { BetterAuthServer } from "../auth/better-auth-server.ts";
 import { CuratorStore } from "../curator/curator-store.ts";
 import type { CuratorStoreService } from "../curator/curator-store.ts";
-import { GraphAccessTokenLive } from "../graph/graph-token.ts";
-import { MicrosoftGraphApiLive } from "../graph/microsoft-graph-api.ts";
+import { PhotoStore } from "../photo/photo-store.ts";
+import type { PhotoStoreService } from "../photo/photo-store.ts";
 import { LibraryIndexEngineLive } from "./library-index-engine.ts";
+import { libraryIndexGraphLayer } from "./library-index-graph-layer.ts";
+import type { LibraryIndexRuntimeOptions } from "./library-index-runtime-options.ts";
 import { LibraryIndexStore } from "./library-index-store.ts";
 import type { LibraryIndexStoreService } from "./library-index-store.ts";
 
-export interface LibraryIndexRuntimeOptions {
-  readonly database: D1Database;
-  readonly betterAuthUrl: string;
-  readonly callbackUrl: string;
-  readonly microsoftClientId: string;
-  readonly microsoftClientSecret: Redacted.Redacted;
-  readonly betterAuthSecret: Redacted.Redacted;
+interface LibraryIndexStores {
+  readonly curator: CuratorStoreService;
+  readonly index: LibraryIndexStoreService;
+  readonly photo: PhotoStoreService;
 }
 
-/** Assemble the server-only Graph dependencies for one Workflow page execution. */
+/** Assemble the server-only dependencies for one Workflow index step. */
 export function libraryIndexEngineLayer(
   options: LibraryIndexRuntimeOptions,
-  curatorStore: CuratorStoreService,
-  indexStore: LibraryIndexStoreService,
+  stores: LibraryIndexStores,
 ) {
-  const auth = createThrowbackAuth({
-    baseURL: options.betterAuthUrl,
-    callbackURL: options.callbackUrl,
-    curatorStore,
-    database: options.database,
-    microsoftClientId: options.microsoftClientId,
-    microsoftClientSecret: options.microsoftClientSecret,
-    secret: options.betterAuthSecret,
-  });
-
-  const graphTokenLayer = GraphAccessTokenLive.pipe(
-    Layer.provide(Layer.succeed(BetterAuthServer, auth)),
-  );
-
   return LibraryIndexEngineLive.pipe(
     Layer.provide([
-      Layer.succeed(LibraryIndexStore, indexStore),
-      Layer.succeed(CuratorStore, curatorStore),
-      graphTokenLayer,
-      MicrosoftGraphApiLive.pipe(Layer.provide(FetchHttpClient.layer)),
+      Layer.succeed(LibraryIndexStore, stores.index),
+      Layer.succeed(CuratorStore, stores.curator),
+      Layer.succeed(PhotoStore, stores.photo),
+      libraryIndexGraphLayer(options, stores.curator),
     ]),
   );
 }
+
+export type { LibraryIndexRuntimeOptions } from "./library-index-runtime-options.ts";

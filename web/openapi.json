@@ -348,6 +348,237 @@
           "required": true
         }
       }
+    },
+    "/libraries/{libraryId}/events/{eventId}/photos/{photoId}": {
+      "get": {
+        "tags": ["photo"],
+        "operationId": "getPhoto",
+        "parameters": [
+          {
+            "name": "libraryId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/LibraryId"
+            },
+            "required": true
+          },
+          {
+            "name": "eventId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/EventId"
+            },
+            "required": true
+          },
+          {
+            "name": "photoId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/PhotoId"
+            },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Photo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Photo"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AuthenticationRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthenticationRequiredEncoded"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CuratorOwnershipConflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratorOwnershipConflictEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PhotoNotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoNotFoundEncoded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BuildUpgradeRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildUpgradeRequiredEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "PhotoProjectionUnavailable | LibraryStoreUnavailable | CuratorAccessUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PhotoProjectionUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LibraryStoreUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/libraries/{libraryId}/events/{eventId}/photos/{photoId}/preview": {
+      "get": {
+        "tags": ["photoPreview"],
+        "operationId": "getPhotoPreview",
+        "parameters": [
+          {
+            "name": "libraryId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/LibraryId"
+            },
+            "required": true
+          },
+          {
+            "name": "eventId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/EventId"
+            },
+            "required": true
+          },
+          {
+            "name": "photoId",
+            "in": "path",
+            "schema": {
+              "$ref": "#/components/schemas/PhotoId"
+            },
+            "required": true
+          }
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "x-effect-stream": {
+                  "encoding": "uint8array"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "GraphReauthenticationRequired | AuthenticationRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/GraphReauthenticationRequiredEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthenticationRequiredEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CuratorOwnershipConflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CuratorOwnershipConflictEncoded"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "PhotoNotFound",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoNotFoundEncoded"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "BuildUpgradeRequired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildUpgradeRequiredEncoded"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "OneDriveUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OneDriveUnavailableEncoded"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "PhotoProjectionUnavailable | LibraryStoreUnavailable | CuratorAccessUnavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/PhotoProjectionUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LibraryStoreUnavailableEncoded"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CuratorAccessUnavailableEncoded"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -507,11 +738,21 @@
       },
       "EventId": {
         "type": "string",
-        "format": "throwback-event-id"
+        "allOf": [
+          {
+            "minLength": 1,
+            "format": "throwback-event-id"
+          }
+        ]
       },
       "PhotoId": {
         "type": "string",
-        "format": "throwback-photo-id"
+        "allOf": [
+          {
+            "minLength": 1,
+            "format": "throwback-photo-id"
+          }
+        ]
       },
       "ReviewReady": {
         "type": "object",
@@ -802,6 +1043,121 @@
         },
         "required": ["_tag", "message"],
         "additionalProperties": false
+      },
+      "MetadataLocation": {
+        "type": "object",
+        "properties": {
+          "latitude": {
+            "type": "number",
+            "minimum": -90,
+            "maximum": 90
+          },
+          "longitude": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180
+          }
+        },
+        "required": ["latitude", "longitude"],
+        "additionalProperties": false
+      },
+      "Orientation": {
+        "type": "number",
+        "enum": [1, 2, 3, 4, 5, 6, 7, 8]
+      },
+      "Photo": {
+        "type": "object",
+        "properties": {
+          "libraryId": {
+            "$ref": "#/components/schemas/LibraryId"
+          },
+          "eventId": {
+            "$ref": "#/components/schemas/EventId"
+          },
+          "photoId": {
+            "$ref": "#/components/schemas/PhotoId"
+          },
+          "fileName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "location": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MetadataLocation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "orientation": {
+            "$ref": "#/components/schemas/Orientation"
+          },
+          "cTag": {
+            "type": "string",
+            "minLength": 1
+          },
+          "eTag": {
+            "type": "string",
+            "minLength": 1
+          },
+          "projectionRevision": {
+            "type": "integer",
+            "exclusiveMinimum": 0
+          }
+        },
+        "required": [
+          "libraryId",
+          "eventId",
+          "photoId",
+          "fileName",
+          "description",
+          "location",
+          "orientation",
+          "cTag",
+          "eTag",
+          "projectionRevision"
+        ],
+        "additionalProperties": false
+      },
+      "PhotoNotFoundEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["PhotoNotFound"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
+      },
+      "PhotoProjectionUnavailableEncoded": {
+        "type": "object",
+        "properties": {
+          "_tag": {
+            "type": "string",
+            "enum": ["PhotoProjectionUnavailable"]
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["_tag", "message"],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {}
@@ -816,6 +1172,12 @@
     },
     {
       "name": "library"
+    },
+    {
+      "name": "photo"
+    },
+    {
+      "name": "photoPreview"
     }
   ]
 }

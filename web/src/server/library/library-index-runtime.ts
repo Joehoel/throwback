@@ -7,15 +7,16 @@ import type { LibraryIndexRuntimeOptions } from "./library-index-engine-layer.ts
 import { LibraryIndexEngine } from "./library-index-engine.ts";
 import type { LibraryIndexStepResult } from "./library-index-engine.ts";
 import { LibraryIndexStore, LibraryIndexStoreLive } from "./library-index-store.ts";
+import { PhotoStore, PhotoStoreLive } from "../photo/photo-store.ts";
 
 function persistenceLayer(database: D1Database) {
-  return Layer.mergeAll(CuratorStoreLive, LibraryIndexStoreLive).pipe(
+  return Layer.mergeAll(CuratorStoreLive, LibraryIndexStoreLive, PhotoStoreLive).pipe(
     Layer.provide(d1Layer({ db: database })),
   );
 }
 
-/** Execute one durable page step with fresh request-scoped Effect infrastructure. */
-export function processLibraryIndexPage(
+/** Execute one durable delta or Foto-hydration step with fresh infrastructure. */
+export function processLibraryIndexStep(
   options: LibraryIndexRuntimeOptions,
   input: LibraryIndexWorkflowInput,
 ): Effect.Effect<LibraryIndexStepResult> {
@@ -24,10 +25,16 @@ export function processLibraryIndexPage(
   return Effect.gen(function* () {
     const curatorStore = yield* CuratorStore;
     const indexStore = yield* LibraryIndexStore;
-    const engineLayer = libraryIndexEngineLayer(options, curatorStore, indexStore);
+    const photoStore = yield* PhotoStore;
+
+    const engineLayer = libraryIndexEngineLayer(options, {
+      curator: curatorStore,
+      index: indexStore,
+      photo: photoStore,
+    });
 
     return yield* LibraryIndexEngine.pipe(
-      Effect.flatMap((engine) => engine.processNextPage(input)),
+      Effect.flatMap((engine) => engine.processNextStep(input)),
       Effect.provide(engineLayer),
       Effect.orDie,
     );

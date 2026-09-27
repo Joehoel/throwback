@@ -4,6 +4,7 @@ import { HttpApiBuilder, HttpApiScalar } from "effect/unstable/httpapi";
 import { CuratorAccess } from "../curator/curator-access.ts";
 import type { SignedInMicrosoftAccount as SignedInMicrosoftAccountValue } from "../curator/model.ts";
 import { LibrarySetup } from "../library/library-setup.ts";
+import { PhotoLibrary } from "../photo/photo-library.ts";
 import {
   CuratorAuthorization,
   SignedInMicrosoftAccount,
@@ -77,6 +78,40 @@ const LibraryHandlers = HttpApiBuilder.group(
   }),
 );
 
+const PhotoHandlers = HttpApiBuilder.group(
+  ThrowbackApi,
+  "photo",
+  Effect.fnUntraced(function* (handlers) {
+    const photos = yield* PhotoLibrary;
+
+    return handlers.handle(
+      "getPhoto",
+      Effect.fn("PhotoApi.getPhoto")(function* ({ params }) {
+        const account = yield* SignedInMicrosoftAccount;
+
+        return yield* photos.getPhoto(account, params);
+      }),
+    );
+  }),
+);
+
+const PhotoPreviewHandlers = HttpApiBuilder.group(
+  ThrowbackApi,
+  "photoPreview",
+  Effect.fnUntraced(function* (handlers) {
+    const photos = yield* PhotoLibrary;
+
+    return handlers.handle(
+      "getPhotoPreview",
+      Effect.fn("PhotoPreviewApi.getPhotoPreview")(function* ({ params }) {
+        const account = yield* SignedInMicrosoftAccount;
+
+        return yield* photos.previewPhoto(account, params);
+      }),
+    );
+  }),
+);
+
 const SignedInSessionAuthorizationLive = Layer.effect(
   SignedInSessionAuthorization,
   Effect.gen(function* () {
@@ -135,10 +170,16 @@ function rerouteRequest(request: Request, mount: string): Request {
 
 /** Build the domain handler with one concrete Curator access implementation. */
 export function createDomainRequestHandler(
-  applicationLayer: Layer.Layer<CuratorAccess | LibrarySetup>,
+  applicationLayer: Layer.Layer<CuratorAccess | LibrarySetup | PhotoLibrary>,
 ): (request: Request) => Promise<Response> {
   const routes = HttpApiBuilder.layer(ThrowbackApi).pipe(
-    Layer.provide([BootstrapHandlers, CuratorHandlers, LibraryHandlers]),
+    Layer.provide([
+      BootstrapHandlers,
+      CuratorHandlers,
+      LibraryHandlers,
+      PhotoHandlers,
+      PhotoPreviewHandlers,
+    ]),
     Layer.provide(SignedInSessionAuthorizationLive),
     Layer.provide(CuratorAuthorizationLive),
     Layer.provide(applicationLayer),

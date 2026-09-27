@@ -14,9 +14,10 @@ const migrationPaths = [
   new URL("../../../migrations/0002_library.sql", import.meta.url),
   new URL("../../../migrations/0003_library_index.sql", import.meta.url),
   new URL("../../../migrations/0004_library_index_resume.sql", import.meta.url),
+  new URL("../../../migrations/0005_photo_projection.sql", import.meta.url),
 ].map((url) => fileURLToPath(url));
 
-export function makeIndexDatabase(): DatabaseSync {
+export function makeIndexDatabase(options: { readonly seedLibrary?: boolean } = {}): DatabaseSync {
   const database = new DatabaseSync(":memory:");
 
   for (const migrationPath of migrationPaths) {
@@ -26,14 +27,19 @@ export function makeIndexDatabase(): DatabaseSync {
   database.exec(`
     INSERT INTO "curator_owner" ("singleton", "providerId", "providerAccountId")
     VALUES (1, 'microsoft', 'owner-oid');
-    INSERT INTO "library" (
-      "singleton", "id", "curatorProviderId", "curatorProviderAccountId",
-      "driveId", "rootDriveItemId", "rootName", "rootPath"
-    ) VALUES (
-      1, '00000000-0000-4000-8000-000000000045', 'microsoft', 'owner-oid',
-      'drive-a', 'selected-root', 'Familiefoto''s', 'OneDrive / Familiefoto''s'
-    );
   `);
+
+  if (options.seedLibrary !== false) {
+    database.exec(`
+      INSERT INTO "library" (
+        "singleton", "id", "curatorProviderId", "curatorProviderAccountId",
+        "driveId", "rootDriveItemId", "rootName", "rootPath"
+      ) VALUES (
+        1, '00000000-0000-4000-8000-000000000045', 'microsoft', 'owner-oid',
+        'drive-a', 'selected-root', 'Familiefoto''s', 'OneDrive / Familiefoto''s'
+      );
+    `);
+  }
 
   return database;
 }

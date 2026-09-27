@@ -10,11 +10,12 @@ import {
   LibraryIndexApplicationLive,
 } from "./library/library-index-application-layer.ts";
 import { LibraryStore } from "./library/library-store.ts";
-import { PersistenceLive } from "./persistence-layer.ts";
+import { PersistenceLive, PhotoStore } from "./persistence-layer.ts";
 
 const runtime = Effect.gen(function* () {
   const curatorStore = yield* CuratorStore;
   const libraryStore = yield* LibraryStore;
+  const photoStore = yield* PhotoStore;
   const libraryIndex = yield* LibraryIndex.pipe(Effect.provide(LibraryIndexApplicationLive));
 
   const auth = createRuntimeAuth(curatorStore);
@@ -27,6 +28,7 @@ const runtime = Effect.gen(function* () {
           Layer.succeed(BetterAuthServer, auth),
           Layer.succeed(CuratorStore, curatorStore),
           Layer.succeed(LibraryStore, libraryStore),
+          Layer.succeed(PhotoStore, photoStore),
           Layer.succeed(LibraryIndex, libraryIndex),
           FetchHttpClient.layer,
         ]),

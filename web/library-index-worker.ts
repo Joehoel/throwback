@@ -5,7 +5,7 @@ import { HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { LOCAL_URL, PREVIEW_URL, PreviewBetterAuthSecret, PreviewDB } from "./infrastructure.ts";
 import { LibraryIndexWorkflowInput } from "./src/server/library/library-index-dispatcher.ts";
 import { IndexWorkflowInstanceId } from "./src/server/library/library-index-model.ts";
-import { processLibraryIndexPage } from "./src/server/library/library-index-runtime.ts";
+import { processLibraryIndexStep } from "./src/server/library/library-index-runtime.ts";
 
 function isD1Database(input: unknown): input is D1Database {
   return (
@@ -59,7 +59,7 @@ export class LibraryIndexWorkflow extends Workflow<LibraryIndexWorkflow>()(
 
       yield* Effect.whileLoop({
         while: () => shouldContinue,
-        body: () => task(`delta-page-${pageNumber}`, processLibraryIndexPage(options, input)),
+        body: () => task(`index-step-${pageNumber}`, processLibraryIndexStep(options, input)),
         step: (result) => {
           pageNumber += 1;
           shouldContinue = result === "continue";

@@ -1,128 +1,51 @@
-import { Effect, Layer, Option } from "effect";
-import { ApplicationSession } from "../../auth/application-session.ts";
-import { CuratorAccessLive } from "../../curator/curator-access.ts";
-import {
-  BetterAuthAccountId,
-  CuratorIdentity,
-  GraphConnectionVersion,
-  MicrosoftAccountId,
-} from "../../curator/model.ts";
-import { CuratorStore } from "../../curator/curator-store.ts";
+import { Effect, Layer } from "effect";
 import { LibrarySetup } from "../../library/library-setup.ts";
 import type { LibrarySetupService } from "../../library/library-setup.ts";
-import { LibraryStore } from "../../library/library-store.ts";
-import type { LibraryBoundary } from "../../library/model.ts";
-import { LibraryIndex } from "../../library/library-index.ts";
+import { PhotoLibrary } from "../../photo/photo-library.ts";
+import type { PhotoLibraryService } from "../../photo/photo-library.ts";
 import { createDomainRequestHandler } from "../handler.ts";
+import { BUILD_ID } from "../../config/build-id.ts";
+import { BUILD_ID_HEADER } from "../build-compatibility.ts";
+import { signedInAccessLayer, signedOutAccessLayer } from "./domain-access-layer.ts";
+import type { DomainAccessOptions } from "./domain-access-layer.ts";
 
 const unusedLibrarySetup = Layer.succeed(LibrarySetup, {
   browseFolders: () => Effect.die("Library setup is not configured for this test"),
   selectLibrary: () => Effect.die("Library setup is not configured for this test"),
 });
 
-const libraryIndexLayer = Layer.succeed(LibraryIndex, {
-  getProgress: () => Effect.succeed(Option.none()),
-  startOrResume: () =>
-    Effect.succeed({
-      status: "running" as const,
-      pagesProcessed: 2,
-      processedItems: 42,
-      reviewBlocked: true,
-    }),
+const unusedPhotoLibrary = Layer.succeed(PhotoLibrary, {
+  getPhoto: () => Effect.die("Foto reads are not configured for this test"),
+  previewPhoto: () => Effect.die("Foto previews are not configured for this test"),
 });
 
-const signedOutAccessLayer = CuratorAccessLive.pipe(
-  Layer.provide(
-    Layer.mergeAll(
-      Layer.succeed(ApplicationSession, {
-        get: () => Effect.succeed(Option.none()),
-      }),
-      Layer.succeed(CuratorStore, {
-        claim: (identity) => Effect.succeed(identity),
-        findMicrosoftAccount: () => Effect.succeed(Option.none()),
-        getOwner: Effect.succeed(Option.none()),
-      }),
-      Layer.succeed(LibraryStore, {
-        getSelected: () => Effect.succeed(Option.none()),
-        select: (selection) => Effect.succeed(selection),
-      }),
-      libraryIndexLayer,
-    ),
-  ),
-);
-
 export const signedOutDomainHandler = createDomainRequestHandler(
-  Layer.mergeAll(signedOutAccessLayer, unusedLibrarySetup),
+  Layer.mergeAll(signedOutAccessLayer, unusedLibrarySetup, unusedPhotoLibrary),
 );
 
-export function createSignedInDomainHandler(options: {
-  readonly accountId: string;
-  readonly ownerId?: string;
-  readonly hasGraphConnection?: boolean;
-  readonly selectedLibrary?: LibraryBoundary;
-  readonly librarySetup?: LibrarySetupService;
-}): (request: Request) => Promise<Response> {
-  let owner = Option.fromNullishOr(options.ownerId).pipe(
-    Option.map((ownerId) =>
-      CuratorIdentity.make({
-        providerId: "microsoft",
-        providerAccountId: MicrosoftAccountId.make(ownerId),
-      }),
-    ),
-  );
+/** Current-build headers required by JSON domain API operations in tests. */
+export function domainRequestHeaders(): HeadersInit {
+  return { [BUILD_ID_HEADER]: BUILD_ID };
+}
 
-  let selectedLibrary = Option.fromNullishOr(options.selectedLibrary);
-
-  const accessLayer = CuratorAccessLive.pipe(
-    Layer.provide(
-      Layer.mergeAll(
-        Layer.succeed(ApplicationSession, {
-          get: () =>
-            Effect.succeed(
-              Option.some({
-                user: { id: "user-a", name: "Curator", email: "curator@example.test" },
-              }),
-            ),
-        }),
-        Layer.succeed(CuratorStore, {
-          claim: (identity) => {
-            if (Option.isNone(owner)) {
-              owner = Option.some(identity);
-            }
-
-            return Effect.succeed(Option.getOrThrow(owner));
-          },
-          findMicrosoftAccount: () =>
-            Effect.succeed(
-              Option.some({
-                providerAccountId: MicrosoftAccountId.make(options.accountId),
-                betterAuthAccountId: BetterAuthAccountId.make("account-user-a"),
-                graphConnectionVersion: GraphConnectionVersion.make("connection-v1"),
-                hasGraphConnection: options.hasGraphConnection ?? true,
-              }),
-            ),
-          getOwner: Effect.sync(() => owner),
-        }),
-        Layer.succeed(LibraryStore, {
-          getSelected: () => Effect.sync(() => selectedLibrary),
-          select: (selection) =>
-            Effect.sync(() => {
-              if (Option.isNone(selectedLibrary)) {
-                selectedLibrary = Option.some(selection);
-              }
-
-              return Option.getOrThrow(selectedLibrary);
-            }),
-        }),
-        libraryIndexLayer,
-      ),
-    ),
-  );
-
+/** Build the real domain HTTP handler over replaceable API-test authorities. */
+export function createSignedInDomainHandler(
+  options: DomainAccessOptions & {
+    readonly librarySetup?: LibrarySetupService;
+    readonly photoLibrary?: PhotoLibraryService;
+  },
+): (request: Request) => Promise<Response> {
   const librarySetupLayer =
     options.librarySetup === undefined
       ? unusedLibrarySetup
       : Layer.succeed(LibrarySetup, options.librarySetup);
 
-  return createDomainRequestHandler(Layer.mergeAll(accessLayer, librarySetupLayer));
+  const photoLibraryLayer =
+    options.photoLibrary === undefined
+      ? unusedPhotoLibrary
+      : Layer.succeed(PhotoLibrary, options.photoLibrary);
+
+  return createDomainRequestHandler(
+    Layer.mergeAll(signedInAccessLayer(options), librarySetupLayer, photoLibraryLayer),
+  );
 }

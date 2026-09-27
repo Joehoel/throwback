@@ -16,7 +16,7 @@
     "test:browser": "vitest run --project browser",
     "test:e2e": "playwright test --config playwright.config.ts",
     "generate:openapi": "tsx tools/generate-openapi.ts",
-    "generate:client": "openapi-ts",
+    "generate:client": "openapi-ts && tsx tools/finalize-generated-client.ts",
     "generate:format": "oxfmt --write openapi.json src/client/generated",
     "generate": "bun run generate:openapi && bun run generate:client && bun run generate:format",
     "measure:jpeg-memory": "bun --expose-gc tools/measure-jpeg-streaming-memory.ts",

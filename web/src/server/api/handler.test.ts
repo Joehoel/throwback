@@ -262,6 +262,10 @@ describe("Throwback domain API", () => {
     expect(specification.paths["/library/folders"]?.get?.responses["401"]?.description).toContain(
       "GraphReauthenticationRequired",
     );
+    expect(
+      specification.paths["/libraries/{libraryId}/events/{eventId}/photos/{photoId}/preview"]?.get
+        ?.responses["200"]?.content,
+    ).toHaveProperty("image/jpeg");
     expect(JSON.stringify(specification)).not.toMatch(/access.?token|refresh.?token/iu);
   });
 });

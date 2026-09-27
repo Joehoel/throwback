@@ -80,10 +80,8 @@ export function libraryIndexPageStatements(
     : sql`
         UPDATE "library_index_run"
         SET
-          "status" = 'active',
           "nextLink" = NULL,
-          "deltaLink" = ${input.page.continuation.link},
-          "activeGeneration" = "generation",
+          "pendingDeltaLink" = ${input.page.continuation.link},
           "pagesProcessed" = "pagesProcessed" + 1,
           "processedItems" = "processedItems" + ${input.page.items.length},
           "updatedAt" = CURRENT_TIMESTAMP

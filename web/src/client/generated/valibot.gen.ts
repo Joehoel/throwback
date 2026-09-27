@@ -63,9 +63,9 @@ export const vLibraryIndexing = v.strictObject({
   progress: vLibraryIndexProgress,
 });
 
-export const vEventId = v.pipe(v.string(), v.brand("EventId"));
+export const vEventId = v.pipe(v.string(), v.brand("EventId"), v.minLength(1));
 
-export const vPhotoId = v.pipe(v.string(), v.brand("PhotoId"));
+export const vPhotoId = v.pipe(v.string(), v.brand("PhotoId"), v.minLength(1));
 
 export const vReviewReady = v.strictObject({
   _tag: v.picklist(["ReviewReady"]),
@@ -169,6 +169,36 @@ export const vInvalidLibrarySelectionEncoded = v.strictObject({
   message: v.string(),
 });
 
+export const vMetadataLocation = v.strictObject({
+  latitude: v.pipe(v.number(), v.minValue(-90), v.maxValue(90)),
+  longitude: v.pipe(v.number(), v.minValue(-180), v.maxValue(180)),
+});
+
+export const vOrientation = v.picklist([1, 2, 3, 4, 5, 6, 7, 8]);
+
+export const vPhoto = v.strictObject({
+  libraryId: vLibraryId,
+  eventId: vEventId,
+  photoId: vPhotoId,
+  fileName: v.pipe(v.string(), v.minLength(1)),
+  description: v.nullable(v.string()),
+  location: v.nullable(vMetadataLocation),
+  orientation: vOrientation,
+  cTag: v.pipe(v.string(), v.minLength(1)),
+  eTag: v.pipe(v.string(), v.minLength(1)),
+  projectionRevision: v.pipe(v.number(), v.integer(), v.gtValue(0)),
+});
+
+export const vPhotoNotFoundEncoded = v.strictObject({
+  _tag: v.picklist(["PhotoNotFound"]),
+  message: v.string(),
+});
+
+export const vPhotoProjectionUnavailableEncoded = v.strictObject({
+  _tag: v.picklist(["PhotoProjectionUnavailable"]),
+  message: v.string(),
+});
+
 /**
  * BootstrapState
  */
@@ -188,3 +218,13 @@ export const vListLibraryFoldersResponse = vFolderBrowserState;
  * LibraryIndexing
  */
 export const vSelectLibraryResponse = vLibraryIndexing;
+
+/**
+ * Photo
+ */
+export const vGetPhotoResponse = vPhoto;
+
+/**
+ * Success
+ */
+export const vGetPhotoPreviewResponse = v.string();
