@@ -192,11 +192,17 @@ export const vPhoto = v.strictObject({
 export const vPhotoNotFoundEncoded = v.strictObject({
   _tag: v.picklist(["PhotoNotFound"]),
   message: v.string(),
+  subsystem: v.picklist(["photo"]),
+  operation: v.picklist(["read", "preview"]),
+  retryable: v.literal(false),
 });
 
 export const vPhotoProjectionUnavailableEncoded = v.strictObject({
   _tag: v.picklist(["PhotoProjectionUnavailable"]),
   message: v.string(),
+  subsystem: v.picklist(["photo-projection"]),
+  operation: v.picklist(["read", "stage", "activate"]),
+  retryable: v.boolean(),
 });
 
 /**

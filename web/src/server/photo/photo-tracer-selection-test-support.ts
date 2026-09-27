@@ -7,12 +7,15 @@ import {
   MicrosoftAccountId,
 } from "../curator/model.ts";
 import { MicrosoftGraph } from "../graph/microsoft-graph.ts";
-import { LibraryIndex } from "../library/library-index.ts";
+import { LibraryIndexDispatcher } from "../library/library-index-dispatcher.ts";
+import type { LibraryIndexWorkflowInput } from "../library/library-index-dispatcher.ts";
+import { LibraryIndex, LibraryIndexLive } from "../library/library-index.ts";
 import { LibrarySetup, LibrarySetupLive } from "../library/library-setup.ts";
+import { LibraryIndexStore } from "../library/library-index-store.ts";
 import { LibraryStore } from "../library/library-store.ts";
 import { DriveId, DriveItemId } from "../library/model.ts";
 
-const account = {
+export const photoTracerAccount = {
   userId: BetterAuthUserId.make("user-a"),
   betterAuthAccountId: BetterAuthAccountId.make("account-a"),
   graphConnectionVersion: GraphConnectionVersion.make("connection-v1"),
@@ -54,7 +57,56 @@ export const selectPhotoTracerLibrary = Effect.gen(function* () {
   );
 
   return yield* LibrarySetup.pipe(
-    Effect.flatMap((setup) => setup.selectLibrary(account, DriveItemId.make("selected-root"))),
+    Effect.flatMap((setup) =>
+      setup.selectLibrary(photoTracerAccount, DriveItemId.make("selected-root")),
+    ),
     Effect.provide(setupLayer),
   );
+});
+
+/** Select the tracer Hoofdmap and capture the real Workflow dispatch input. */
+export const selectPhotoTracerLibraryWithIndex = Effect.gen(function* () {
+  const store = yield* LibraryStore;
+  const indexStore = yield* LibraryIndexStore;
+  let workflowInput = Option.none<LibraryIndexWorkflowInput>();
+
+  const indexLayer = LibraryIndexLive.pipe(
+    Layer.provide([
+      Layer.succeed(LibraryIndexStore, indexStore),
+      Layer.succeed(LibraryIndexDispatcher, {
+        dispatch: (input) =>
+          Effect.sync(() => {
+            workflowInput = Option.some(input);
+          }),
+      }),
+    ]),
+  );
+
+  const setupLayer = LibrarySetupLive.pipe(
+    Layer.provide([
+      Layer.succeed(MicrosoftGraph, {
+        browseFolders: () => Effect.die("unused"),
+        resolveSelectableFolder: () =>
+          Effect.succeed({
+            driveId: DriveId.make("drive-a"),
+            itemId: DriveItemId.make("selected-root"),
+            root: { name: "Familiefoto's", path: "OneDrive / Familiefoto's" },
+          }),
+      }),
+      Layer.succeed(LibraryStore, store),
+      indexLayer,
+    ]),
+  );
+
+  const selection = yield* LibrarySetup.pipe(
+    Effect.flatMap((setup) =>
+      setup.selectLibrary(photoTracerAccount, DriveItemId.make("selected-root")),
+    ),
+    Effect.provide(setupLayer),
+  );
+
+  return {
+    selection,
+    workflowInput: Option.getOrThrow(workflowInput),
+  };
 });

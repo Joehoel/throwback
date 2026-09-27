@@ -182,11 +182,17 @@ export type Photo = {
 export type PhotoNotFoundEncoded = {
   _tag: "PhotoNotFound";
   message: string;
+  subsystem: "photo";
+  operation: "read" | "preview";
+  retryable: false;
 };
 
 export type PhotoProjectionUnavailableEncoded = {
   _tag: "PhotoProjectionUnavailable";
   message: string;
+  subsystem: "photo-projection";
+  operation: "read" | "stage" | "activate";
+  retryable: boolean;
 };
 
 export type GetBootstrapData = {

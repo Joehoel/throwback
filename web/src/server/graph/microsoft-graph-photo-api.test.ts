@@ -76,4 +76,45 @@ describe("Microsoft Graph Foto boundary", () => {
       jpeg.length,
     );
   });
+
+  it("uses four total attempts for a retryable Graph response", async () => {
+    let attempts = 0;
+
+    const fetchImplementation: typeof fetch = () => {
+      attempts += 1;
+
+      if (attempts < 4) {
+        return Promise.resolve(
+          new Response(null, { status: 429, headers: { "retry-after": "0" } }),
+        );
+      }
+
+      return Promise.resolve(
+        Response.json({
+          id: "photo-a",
+          name: "familie.jpg",
+          parentReference: { id: "event-a" },
+          file: { mimeType: "image/jpeg" },
+          cTag: "ctag-a",
+          eTag: "etag-a",
+          "@microsoft.graph.downloadUrl": "https://content.example.test/private-jpeg",
+        }),
+      );
+    };
+
+    await Effect.runPromise(
+      MicrosoftGraphPhotoApi.pipe(
+        Effect.flatMap((graph) =>
+          graph.getFile(
+            Redacted.make("server-only-token"),
+            DriveId.make("drive-a"),
+            DriveItemId.make("photo-a"),
+          ),
+        ),
+        Effect.provide(graphPhotoLayer(fetchImplementation)),
+      ),
+    );
+
+    expect(attempts).toBe(4);
+  });
 });

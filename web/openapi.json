@@ -1140,9 +1140,21 @@
           },
           "message": {
             "type": "string"
+          },
+          "subsystem": {
+            "type": "string",
+            "enum": ["photo"]
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["read", "preview"]
+          },
+          "retryable": {
+            "type": "boolean",
+            "enum": [false]
           }
         },
-        "required": ["_tag", "message"],
+        "required": ["_tag", "message", "subsystem", "operation", "retryable"],
         "additionalProperties": false
       },
       "PhotoProjectionUnavailableEncoded": {
@@ -1154,9 +1166,20 @@
           },
           "message": {
             "type": "string"
+          },
+          "subsystem": {
+            "type": "string",
+            "enum": ["photo-projection"]
+          },
+          "operation": {
+            "type": "string",
+            "enum": ["read", "stage", "activate"]
+          },
+          "retryable": {
+            "type": "boolean"
           }
         },
-        "required": ["_tag", "message"],
+        "required": ["_tag", "message", "subsystem", "operation", "retryable"],
         "additionalProperties": false
       }
     },

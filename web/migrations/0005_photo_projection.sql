@@ -60,3 +60,9 @@ CREATE INDEX "photo_generation_review_queue"
   ON "photo_generation" (
     "libraryId", "generation", "reviewability", "eventId", "photoId"
   );
+
+-- Generations activated before this migration contain only the Graph skeleton.
+-- Keep the selected Library, but force its rebuild so no skeleton-only run can
+-- masquerade as a complete Foto projection.
+DELETE FROM "drive_item_generation";
+DELETE FROM "library_index_run";

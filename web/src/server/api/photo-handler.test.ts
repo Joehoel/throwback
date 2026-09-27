@@ -61,6 +61,9 @@ function photoLibrary(): PhotoLibraryService {
           new PhotoNotFound({
             message:
               "Deze Foto staat niet in de actieve reviewqueue. Ga terug naar de Bibliotheek.",
+            subsystem: "photo",
+            operation: "read",
+            retryable: false,
           }),
         );
 

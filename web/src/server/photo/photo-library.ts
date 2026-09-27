@@ -36,9 +36,12 @@ export class PhotoLibrary extends Context.Service<PhotoLibrary, PhotoLibraryServ
   "throwback/photo/PhotoLibrary",
 ) {}
 
-function notFound(): PhotoNotFound {
+function notFound(operation: "preview" | "read"): PhotoNotFound {
   return new PhotoNotFound({
     message: "Deze Foto staat niet in de actieve reviewqueue. Ga terug naar de Bibliotheek.",
+    subsystem: "photo",
+    operation,
+    retryable: false,
   });
 }
 
@@ -54,11 +57,12 @@ export const PhotoLibraryLive = Layer.effect(
     const requireLibrary = Effect.fnUntraced(function* (
       account: SignedInMicrosoftAccount,
       resource: PhotoResource,
+      operation: "preview" | "read",
     ) {
       const library = yield* libraries.getSelected(account.identity);
 
       if (Option.isNone(library) || library.value.id !== resource.libraryId) {
-        return yield* notFound();
+        return yield* notFound(operation);
       }
 
       return library.value;
@@ -68,11 +72,11 @@ export const PhotoLibraryLive = Layer.effect(
       account: SignedInMicrosoftAccount,
       resource: PhotoResource,
     ) {
-      yield* requireLibrary(account, resource);
+      yield* requireLibrary(account, resource, "read");
       const photo = yield* photos.getReviewablePhoto(resource);
 
       return yield* Option.match(photo, {
-        onNone: notFound,
+        onNone: () => notFound("read"),
         onSome: Effect.succeed,
       });
     });
@@ -81,7 +85,7 @@ export const PhotoLibraryLive = Layer.effect(
       account: SignedInMicrosoftAccount,
       resource: PhotoResource,
     ) {
-      const library = yield* requireLibrary(account, resource);
+      const library = yield* requireLibrary(account, resource, "preview");
       const photo = yield* getPhoto(account, resource);
 
       const token = yield* tokens.get(account);
@@ -94,7 +98,7 @@ export const PhotoLibraryLive = Layer.effect(
         !Option.contains(file.eTag, photo.eTag) ||
         Option.isNone(file.downloadUrl)
       ) {
-        return yield* notFound();
+        return yield* notFound("preview");
       }
 
       return yield* graph.download(file.downloadUrl.value);

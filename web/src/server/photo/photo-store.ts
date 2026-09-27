@@ -1,17 +1,18 @@
-import { Context, Effect, Layer, Option, Predicate, Schema } from "effect";
+import { Context, Effect, Layer, Option, Predicate, Schedule, Schema } from "effect";
 import { SqlClient, SqlSchema } from "effect/unstable/sql";
+import { isSqlError } from "effect/unstable/sql/SqlError";
+import type { SqlError } from "effect/unstable/sql/SqlError";
 import type { IndexRunId, IndexWorkflowInstanceId } from "../library/library-index-model.ts";
-import { IndexRunId as IndexRunIdSchema } from "../library/library-index-model.ts";
+import {
+  IndexRunId as IndexRunIdSchema,
+  IndexWorkflowInstanceId as IndexWorkflowInstanceIdSchema,
+} from "../library/library-index-model.ts";
 import type { LibraryId } from "../library/model.ts";
 import { PhotoProjectionUnavailable } from "./errors.ts";
 import type { HydratedFile, Photo, PhotoHydrationCandidate, PhotoResource } from "./model.ts";
-import {
-  Photo as PhotoSchema,
-  PhotoHydrationCandidate as PhotoHydrationCandidateSchema,
-} from "./model.ts";
+import { PhotoHydrationCandidate as PhotoHydrationCandidateSchema } from "./model.ts";
 import { photoStoreActiveQueries } from "./photo-store-active-queries.ts";
 import { StoredActivation } from "./photo-storage-schema.ts";
-import type { StoredReviewablePhoto as StoredReviewablePhotoValue } from "./photo-storage-schema.ts";
 
 /** Identity proving which Workflow may mutate one staged Foto generation. */
 export interface PhotoGenerationOwner {
@@ -44,28 +45,36 @@ export class PhotoStore extends Context.Service<PhotoStore, PhotoStoreService>()
   "throwback/photo/PhotoStore",
 ) {}
 
-function unavailable(): PhotoProjectionUnavailable {
+function unavailable(
+  operation: "activate" | "read" | "stage",
+  sqlError: Option.Option<SqlError>,
+): PhotoProjectionUnavailable {
   return new PhotoProjectionUnavailable({
     message: "De Foto-projectie kan nu niet veilig worden gelezen of bijgewerkt.",
+    subsystem: "photo-projection",
+    operation,
+    retryable: Option.exists(sqlError, (error) => error.isRetryable),
   });
 }
 
-function toPhoto(stored: StoredReviewablePhotoValue): Photo {
-  return PhotoSchema.make({
-    libraryId: stored.libraryId,
-    eventId: stored.eventId,
-    photoId: stored.photoId,
-    fileName: stored.fileName,
-    description: stored.description,
-    location:
-      stored.latitude === null || stored.longitude === null
-        ? null
-        : { latitude: stored.latitude, longitude: stored.longitude },
-    orientation: stored.orientation,
-    cTag: stored.cTag,
-    eTag: stored.eTag,
-    projectionRevision: stored.projectionRevision,
-  });
+function retryInteractiveSql<A, E, R>(effect: Effect.Effect<A, E, R>) {
+  return effect.pipe(
+    Effect.retry({
+      times: 2,
+      schedule: Schedule.exponential("50 millis", 4).pipe(Schedule.jittered),
+      while: (error) => isSqlError(error) && error.isRetryable,
+    }),
+  );
+}
+
+function retryBackgroundSql<A, E, R>(effect: Effect.Effect<A, E, R>) {
+  return effect.pipe(
+    Effect.retry({
+      times: 4,
+      schedule: Schedule.exponential("1 second", 4).pipe(Schedule.jittered),
+      while: (error) => isSqlError(error) && error.isRetryable,
+    }),
+  );
 }
 
 /** Effect SQL implementation of staged Foto hydration and atomic publication. */
@@ -78,7 +87,7 @@ export const PhotoStoreLive = Layer.effect(
     const findNextStagedFile = SqlSchema.findOneOption({
       Request: Schema.Struct({
         runId: IndexRunIdSchema,
-        workflowInstanceId: Schema.String,
+        workflowInstanceId: IndexWorkflowInstanceIdSchema,
       }),
       Result: PhotoHydrationCandidateSchema,
       execute: ({ runId, workflowInstanceId }) => sql`
@@ -129,7 +138,11 @@ export const PhotoStoreLive = Layer.effect(
     const nextStagedFile = Effect.fn("PhotoStore.nextStagedFile")(function* (
       owner: PhotoGenerationOwner,
     ) {
-      return yield* findNextStagedFile(owner).pipe(Effect.mapError(unavailable));
+      return yield* retryBackgroundSql(findNextStagedFile(owner)).pipe(
+        Effect.mapError((error) =>
+          unavailable("read", isSqlError(error) ? Option.some(error) : Option.none()),
+        ),
+      );
     });
 
     const stageHydratedFile = Effect.fn("PhotoStore.stageHydratedFile")(function* (
@@ -138,7 +151,7 @@ export const PhotoStoreLive = Layer.effect(
     ) {
       const reviewable = Predicate.isTagged("ReviewablePhoto")(file);
 
-      yield* sql`
+      yield* retryBackgroundSql(sql`
         WITH RECURSIVE "scope" ("itemId") AS (
           SELECT "rootItem"."itemId"
           FROM "library_index_run" AS "scopeRun"
@@ -194,7 +207,7 @@ export const PhotoStoreLive = Layer.effect(
           AND (${reviewable ? file.eventId : null} IS NULL
             OR "candidate"."parentItemId" = ${reviewable ? file.eventId : null})
         ON CONFLICT("libraryId", "generation", "photoId") DO NOTHING
-      `.pipe(Effect.mapError(unavailable));
+      `).pipe(Effect.mapError((error) => unavailable("stage", Option.some(error))));
     });
 
     const activationStatus = SqlSchema.findOne({
@@ -214,7 +227,7 @@ export const PhotoStoreLive = Layer.effect(
 
     const activateHydratedGeneration = Effect.fn("PhotoStore.activateHydratedGeneration")(
       function* (owner: PhotoGenerationOwner) {
-        yield* sql`
+        yield* retryBackgroundSql(sql`
           WITH RECURSIVE "scope" ("itemId") AS (
             SELECT "rootItem"."itemId"
             FROM "library_index_run" AS "run"
@@ -263,27 +276,33 @@ export const PhotoStoreLive = Layer.effect(
               WHERE "file"."nodeType" = 'file'
                 AND "hydrated"."photoId" IS NULL
             )
-        `.pipe(Effect.mapError(unavailable));
+        `).pipe(Effect.mapError((error) => unavailable("activate", Option.some(error))));
 
-        return yield* activationStatus(owner.runId).pipe(Effect.mapError(unavailable));
+        return yield* retryBackgroundSql(activationStatus(owner.runId)).pipe(
+          Effect.mapError((error) =>
+            unavailable("read", isSqlError(error) ? Option.some(error) : Option.none()),
+          ),
+        );
       },
     );
 
     const firstReviewablePhoto = Effect.fn("PhotoStore.firstReviewablePhoto")(function* (
       libraryId: LibraryId,
     ) {
-      return yield* findFirstReviewable(libraryId).pipe(
-        Effect.map(Option.map(toPhoto)),
-        Effect.mapError(unavailable),
+      return yield* retryInteractiveSql(findFirstReviewable(libraryId)).pipe(
+        Effect.mapError((error) =>
+          unavailable("read", isSqlError(error) ? Option.some(error) : Option.none()),
+        ),
       );
     });
 
     const getReviewablePhoto = Effect.fn("PhotoStore.getReviewablePhoto")(function* (
       resource: PhotoResource,
     ) {
-      return yield* findReviewable(resource).pipe(
-        Effect.map(Option.map(toPhoto)),
-        Effect.mapError(unavailable),
+      return yield* retryInteractiveSql(findReviewable(resource)).pipe(
+        Effect.mapError((error) =>
+          unavailable("read", isSqlError(error) ? Option.some(error) : Option.none()),
+        ),
       );
     });
 
