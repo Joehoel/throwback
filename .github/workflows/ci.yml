@@ -19,13 +19,13 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v6.3.0
+        uses: gradle/actions/setup-gradle@v6.4.0
         with:
           # Only main writes the cache; PR/feature branches read it. Stops every branch
           # from saving its own near-duplicate entry and evicting main's from the 10 GB budget.
